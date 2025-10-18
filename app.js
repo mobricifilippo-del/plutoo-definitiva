@@ -158,14 +158,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state.entered){ homeScreen.classList.add("hidden"); appScreen.classList.remove("hidden"); }
     // Entra: pulse e passa ad app
     btnEnter?.addEventListener("click", ()=>{
-      heroLogo.classList.add("pulse");
+      heroLogo.classList.add("gold-glow");
       setTimeout(()=>{
-        heroLogo.classList.remove("pulse");
+        heroLogo.classList.remove("gold-glow");
         state.entered=true; localStorage.setItem("entered","1");
         homeScreen.classList.add("hidden");
         appScreen.classList.remove("hidden");
         setActiveView("nearby");
-      }, 900);
+      }, 1500);
     });
 
     // Sponsor con reward
