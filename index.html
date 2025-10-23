@@ -8,7 +8,7 @@
   <!-- PWA / Meta -->
   <meta name="theme-color" content="#0B0B0F" />
   <meta name="color-scheme" content="dark" />
-  <meta name="description" content="Plutoo — social per cani: vicini a te, swipe Amore/Social, chat, selfie, servizi e sponsor." />
+  <meta name="description" content="Plutoo — social per dogs: vicini a te, swipe Amore/Giochiamo, chat, selfie, servizi e sponsor." />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="plutoo-icon-192.png" />
   <link rel="apple-touch-icon" href="plutoo-icon-512.png" />
@@ -22,36 +22,42 @@
   <!-- =============== HOME =============== -->
   <section id="homeScreen" class="home" aria-labelledby="homeTitle">
     <header class="home-top">
-      <div class="logo-row">
-        <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small" />
-        <div class="home-brand">
-          <h1 id="homeTitle" class="brand" data-i18n="brand">Plutoo</h1>
+      <div class="home-bar">
+        <div class="home-left">
+          <div class="logo-row">
+            <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small" />
+            <h1 id="homeTitle" class="brand" data-i18n="brand">Plutoo</h1>
+          </div>
+        </div>
+        <div class="home-center"></div>
+        <div class="home-right">
+          <div class="lang-flags">
+            <button id="langIT" class="btn tiny ghost" type="button" aria-label="Italiano">🇮🇹</button>
+            <button id="langEN" class="btn tiny ghost" type="button" aria-label="English">🇬🇧</button>
+          </div>
           <div class="auth-links">
             <a href="#" id="btnLogin" data-i18n="login">Login</a>
             <span>·</span>
             <a href="#" id="btnRegister" data-i18n="register">Registrati</a>
-            <span>·</span>
-            <button id="langToggle" class="btn tiny ghost" type="button" aria-label="Cambia lingua">IT/EN</button>
           </div>
         </div>
       </div>
     </header>
 
     <div class="home-hero">
-      <!-- Logo grande: un po’ più grande, colore viola-notte di sfondo -->
+      <!-- Logo grande -->
       <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo" />
       <button id="btnEnter" class="btn primary xl" type="button" data-i18n="enter">Entra</button>
     </div>
 
     <footer class="home-sponsor">
       <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
-      <!-- Clic sponsor: gestito in app.js con reward e apertura link -->
       <a id="sponsorLink" href="https://example.com/fido-gelato" target="_blank" rel="noopener" class="sponsor-card" aria-label="Apri sponsor Fido">
         <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo" />
         <div class="sponsor-copy" data-i18n="sponsorCopy">Fido, il gelato per i nostri amici a quattro zampe</div>
       </a>
 
-      <!-- Bottone etico: emoji 🐾 + link a Maps canili (via reward) -->
+      <!-- Bottone etico: solo in Home -->
       <button id="ethicsButton" class="btn ethics" type="button" aria-label="Canili vicino a me">
         <span class="emoji">🐾</span>
         <span class="ethics-lines">
@@ -60,10 +66,12 @@
         </span>
       </button>
 
-      <div class="legal-links">
-        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">terms</a>
+      <div class="legal-links legal-purple">
+        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">Termini</a>
         <span>·</span>
-        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">privacy</a>
+        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy</a>
+        <span>·</span>
+        <a href="mailto:plutoo.team@gmail.com">Contatti</a>
       </div>
     </footer>
   </section>
@@ -77,26 +85,24 @@
         <strong class="brand-mini">Plutoo</strong>
       </div>
 
-      <!-- Tabs: testo animato (senza “pillola” gialla) -->
+      <!-- Tabs: ordine e labels aggiornati -->
       <nav class="tabs" role="tablist" aria-label="Sezioni">
         <button id="tabNearby" class="tab active" role="tab" aria-selected="true" data-i18n="nearby">Vicino a te</button>
         <button id="tabLove"   class="tab" role="tab" aria-selected="false" data-i18n="love">Amore</button>
-        <button id="tabSocial" class="tab" role="tab" aria-selected="false" data-i18n="social">Social</button>
+        <button id="tabPlay"   class="tab" role="tab" aria-selected="false">Giochiamo insieme</button>
 
-        <!-- Luoghi Pet: menu a tendina -->
+        <!-- Luoghi Pet: menu a tendina (esteso) -->
         <div class="tab dropdown">
-          <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false">Luoghi Pet ▾</button>
-          <div id="luoghiMenu" class="dropdown-menu" role="menu" aria-label="Luoghi Pet">
-            <button class="menu-item" data-cat="vets"      role="menuitem" data-i18n="vets">Veterinari</button>
-            <button class="menu-item" data-cat="groomers"  role="menuitem" data-i18n="groomers">Toelettature</button>
-            <button class="menu-item" data-cat="shops"     role="menuitem" data-i18n="shops">Negozi</button>
-            <button class="menu-item" data-cat="parks"     role="menuitem" data-i18n="parks">Parchi</button>
-            <button class="menu-item" data-cat="trainers"  role="menuitem" data-i18n="trainers">Addestratori</button>
-            <button class="menu-item" data-cat="shelters"  role="menuitem" data-i18n="shelters">Canili & Adozioni</button>
+          <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false">Luoghi PET ▾</button>
+          <div id="luoghiMenu" class="dropdown-menu" role="menu" aria-label="Luoghi PET">
+            <button class="menu-item" data-cat="vets"      role="menuitem">Veterinari / Cliniche</button>
+            <button class="menu-item" data-cat="groomers"  role="menuitem">Toelettature</button>
+            <button class="menu-item" data-cat="shops"     role="menuitem">Negozi per animali</button>
+            <button class="menu-item" data-cat="trainers"  role="menuitem">Addestratori / Educatori</button>
+            <button class="menu-item" data-cat="kennels"   role="menuitem">Pensioni / Asili per dogs</button>
+            <button class="menu-item" data-cat="parks"     role="menuitem">Parchi</button>
           </div>
         </div>
-
-        <button id="tabPlus" class="tab" type="button" onclick="openPlusDialog()">✨ Plus</button>
       </nav>
 
       <div class="right">
@@ -105,7 +111,7 @@
     </header>
 
     <main class="content" aria-live="polite">
-      <!-- Vicino a te (griglia 2×N, cornici oro glow) -->
+      <!-- Vicino a te (griglia 2×N) -->
       <section id="viewNearby" class="view active" aria-labelledby="nearbyTitle">
         <h2 id="nearbyTitle" class="visually-hidden">Vicino a te</h2>
         <div id="nearGrid" class="grid-2"></div>
@@ -115,7 +121,7 @@
       <section id="viewLove" class="view" aria-labelledby="loveTitle">
         <h2 id="loveTitle" class="visually-hidden">Amore</h2>
         <article id="loveCard" class="card swipe">
-          <img id="loveImg" class="card-img" src="dog1.jpg" alt="Foto cane" />
+          <img id="loveImg" class="card-img" src="dog1.jpg" alt="Foto dog" />
           <div class="card-info">
             <h3 id="loveTitleTxt">Nome · Età</h3>
             <p id="loveMeta" class="meta">Razza · Distanza</p>
@@ -128,19 +134,19 @@
         </article>
       </section>
 
-      <!-- Social: singola card con swipe -->
-      <section id="viewSocial" class="view" aria-labelledby="socialTitle">
-        <h2 id="socialTitle" class="visually-hidden">Social</h2>
-        <article id="socialCard" class="card swipe">
-          <img id="socialImg" class="card-img" src="dog2.jpg" alt="Foto cane" />
+      <!-- Giochiamo insieme: singola card con swipe -->
+      <section id="viewPlay" class="view" aria-labelledby="playTitle">
+        <h2 id="playTitle" class="visually-hidden">Giochiamo insieme</h2>
+        <article id="playCard" class="card swipe">
+          <img id="playImg" class="card-img" src="dog2.jpg" alt="Foto dog" />
           <div class="card-info">
-            <h3 id="socialTitleTxt">Nome · Età</h3>
-            <p id="socialMeta" class="meta">Razza · Distanza</p>
-            <p id="socialBio" class="bio">Bio…</p>
+            <h3 id="playTitleTxt">Nome · Età</h3>
+            <p id="playMeta" class="meta">Razza · Distanza</p>
+            <p id="playBio" class="bio">Bio…</p>
           </div>
-          <div class="card-actions" id="socialActions">
-            <button id="socialNo"  class="btn no"  type="button" aria-label="No">🥲</button>
-            <button id="socialYes" class="btn yes" type="button" aria-label="Sì">🐕</button>
+          <div class="card-actions" id="playActions">
+            <button id="playNo"  class="btn no"  type="button" aria-label="No">🥲</button>
+            <button id="playYes" class="btn yes" type="button" aria-label="Sì">🐕</button>
           </div>
         </article>
       </section>
@@ -168,15 +174,18 @@
       <div id="ppBody" class="sheet-body"><!-- riempito da app.js --></div>
     </section>
 
-    <!-- Footer sponsor fisso (tutte le pagine) -->
+    <!-- Footer sponsor fisso (App): niente “Contatti”, niente canili -->
     <footer class="sponsor">
       <div class="sponsor-wrap">
         <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
-        <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo" />
+        <a id="sponsorLinkApp" href="https://example.com/fido-gelato" target="_blank" rel="noopener">
+          <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo" />
+        </a>
         <p class="sponsor-copy" data-i18n="sponsorCopy">Fido, il gelato per i nostri amici a quattro zampe</p>
       </div>
 
-      <button id="ethicsButtonApp" class="btn ethics" type="button" aria-label="Canili vicino a me">
+      <!-- Etico: nascosto nell’app -->
+      <button id="ethicsButtonApp" class="btn ethics" type="button" aria-label="Canili vicino a me" hidden>
         <span class="emoji">🐾</span>
         <span class="ethics-lines">
           <span class="l1" data-i18n="ethicsLine1">Non abbandonare mai i tuoi amici</span>
@@ -184,10 +193,10 @@
         </span>
       </button>
 
-      <div class="legal-links">
-        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">terms</a>
+      <div class="legal-links legal-purple">
+        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">Termini</a>
         <span>·</span>
-        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">privacy</a>
+        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy</a>
       </div>
 
       <div id="adBanner" class="ad-banner" aria-hidden="true"></div>
@@ -214,7 +223,7 @@
           <input id="distRange" type="range" min="1" max="50" value="5" />
         </div>
 
-        <!-- Solo verificati: switch elegante -->
+        <!-- Switch verificati -->
         <div class="f switch">
           <span>Solo verificati ✅</span>
           <label class="switcher">
@@ -223,9 +232,8 @@
           </label>
         </div>
 
-        <!-- Cerco sesso cane -->
         <div class="f">
-          <label for="sexFilter">Cerco (sesso cane)</label>
+          <label for="sexFilter">Cerco (sesso dog)</label>
           <select id="sexFilter">
             <option value="">Tutti</option>
             <option value="M">Maschio</option>
@@ -233,7 +241,7 @@
           </select>
         </div>
 
-        <!-- Campi Gold (bloccati finché non attivi Plus) -->
+        <!-- Campi Gold bloccati (restano, ma non tocchiamo la tua logica) -->
         <div class="f f-lock">
           <label for="weightInput">Peso (kg) · Gold</label>
           <input id="weightInput" type="number" min="1" max="100" placeholder="—" disabled />
