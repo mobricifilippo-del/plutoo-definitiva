@@ -8,7 +8,7 @@
   <!-- PWA / Meta -->
   <meta name="theme-color" content="#0B0B0F" />
   <meta name="color-scheme" content="dark" />
-  <meta name="description" content="Plutoo — social per dogs: vicini a te, swipe Amore/Giochiamo, chat, selfie, servizi e sponsor." />
+  <meta name="description" content="Plutoo — social per dogs: vicini a te, swipe Amore/Amicizia, chat, selfie, servizi e sponsor." />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="plutoo-icon-192.png" />
   <link rel="apple-touch-icon" href="plutoo-icon-512.png" />
@@ -86,7 +86,7 @@
       <nav class="tabs" role="tablist" aria-label="Sezioni">
         <button id="tabNearby" class="tab active" role="tab" aria-selected="true" data-i18n="nearby">Vicino a te</button>
         <button id="tabLove"   class="tab" role="tab" aria-selected="false" data-i18n="love">Amore</button>
-        <button id="tabPlay"   class="tab" role="tab" aria-selected="false">Giochiamo insieme</button>
+        <button id="tabPlay"   class="tab" role="tab" aria-selected="false" data-i18n="friendship">Amicizia</button>
 
         <div class="tab dropdown">
           <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false">Luoghi PET ▾</button>
@@ -113,7 +113,6 @@
     </header>
 
     <main class="content" aria-live="polite">
-      <!-- ✅ FIX: Stories Bar parte SENZA hidden -->
       <div id="storiesBar" class="stories-bar">
         <div class="stories-scroll">
           <button id="addStoryBtn" class="story-circle add-story" type="button">
@@ -155,7 +154,7 @@
         <div class="view-header">
           <button id="btnBackPlay" class="btn tiny ghost" type="button">← Indietro</button>
         </div>
-        <h2 id="playTitle" class="visually-hidden">Giochiamo insieme</h2>
+        <h2 id="playTitle" class="visually-hidden" data-i18n="friendship">Amicizia</h2>
         <article id="playCard" class="card swipe">
           <img id="playImg" class="card-img" src="dog2.jpg" alt="Foto dog" />
           <div class="card-info">
@@ -171,7 +170,6 @@
       </section>
     </main>
 
-    <!-- ✅ Story Viewer -->
     <div id="storyViewer" class="story-viewer hidden">
       <div class="story-header">
         <div id="storyProgressBars" class="story-progress-bars"></div>
@@ -204,7 +202,7 @@
       </form>
     </aside>
 
-    <!-- ✅ FIX: Profilo DOG = pagina dedicata fullscreen scrollabile (NO banner sponsor) -->
+    <!-- ✅ PROFILO PAGINA CON STORIES + BANNER ADMOB -->
     <section id="profilePage" class="profile-page hidden">
       <header class="profile-navbar">
         <button id="profileBack" class="btn tiny ghost" type="button">← Indietro</button>
@@ -212,6 +210,10 @@
         <button id="profileClose" class="btn tiny ghost" type="button">✕</button>
       </header>
       <div id="profileContent" class="profile-content"></div>
+      <!-- ✅ Banner AdMob fisso in fondo -->
+      <div class="profile-ad-banner">
+        <div class="ad-banner-profile">Banner AdMob • Monetizzazione</div>
+      </div>
     </section>
 
     <footer class="sponsor">
@@ -386,7 +388,6 @@
     </div>
   </section>
 
-  <!-- ✅ Upload Story Modal -->
   <section id="uploadStoryModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content story-upload-modal">
@@ -458,7 +459,6 @@
     </div>
   </section>
 
-  <!-- ✅ Reward Video Modal -->
   <section id="rewardVideoModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content reward-modal">
