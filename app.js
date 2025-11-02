@@ -1,5 +1,6 @@
 /* =========================================================
-   PLUTOO – app.js FINALE CON STORIES + PROFILO COMPLETO
+   PLUTOO – app.js FINALE CON STORIES FUNZIONANTI
+   ✅ FIX: Stories visibili in "Vicino a te"
    ✅ FIX: "Giochiamo insieme" → "Amicizia"
    ✅ FIX: Stories nel profilo con upload e visualizzazione
    ✅ FIX: Stories viewer mostra SOLO storie del cane cliccato
@@ -866,7 +867,8 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("f_breeding", state.filters.breeding||"");
     localStorage.setItem("f_size", state.filters.size||"");
   }
-// ✅ PROFILO DOG CON SEZIONE STORIES + BANNER ADMOB
+
+  // ✅ PROFILO DOG CON SEZIONE STORIES + BANNER ADMOB
   window.openProfilePage = (d)=>{
     state.currentDogProfile = d;
     setActiveView("profile");
@@ -1252,7 +1254,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   init();
 
-  // ========== SISTEMA STORIES ==========
+  // ========== SISTEMA STORIES (✅ CORRETTO) ==========
   
   const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
@@ -1398,6 +1400,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupFiltersGrid();
   }
 
+  // ✅ FIX: MOSTRA TUTTE LE STORIES (controllo match solo all'apertura)
   function renderStoriesBar() {
     const container = $("storiesContainer");
     if (!container) return;
@@ -1405,11 +1408,6 @@ document.addEventListener("DOMContentLoaded", () => {
     container.innerHTML = "";
     
     StoriesState.stories.forEach((story) => {
-      const hasMatch = state.matches[story.userId] || false;
-      const hasFriendship = state.friendships[story.userId] || false;
-      
-      if (!hasMatch && !hasFriendship) return;
-      
       const allViewed = story.media.every(m => m.viewed);
       
       const circle = document.createElement("button");
@@ -1434,11 +1432,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasMatch = state.matches[userId] || false;
     const hasFriendship = state.friendships[userId] || false;
     
+    // ✅ Se NON hai match/amicizia → mostra reward video
     if (!hasMatch && !hasFriendship) {
       showStoryRewardVideo(story, userId);
       return;
     }
     
+    // ✅ Se hai match/amicizia → apri direttamente
     StoriesState.currentStoryUserId = userId;
     StoriesState.currentMediaIndex = 0;
     
@@ -1860,8 +1860,9 @@ document.addEventListener("DOMContentLoaded", () => {
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: 4.0 FINALE               ║
+  ║   Versione: 5.0 FINALE               ║
   ║                                       ║
+  ║   ✅ Stories VISIBILI in "Vicino"   ║
   ║   ✅ "Amicizia" invece di "Play"    ║
   ║   ✅ Stories nel profilo             ║
   ║   ✅ Banner AdMob nel profilo        ║
