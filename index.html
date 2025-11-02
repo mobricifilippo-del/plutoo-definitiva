@@ -6,17 +6,12 @@
   <title>Plutoo</title>
 
   <!-- PWA / Meta -->
-  <meta name="theme-color" content="#F8F6F1" />
-  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#0B0B0F" />
+  <meta name="color-scheme" content="dark" />
   <meta name="description" content="Plutoo — social per dogs: vicini a te, swipe Amore/Giochiamo, chat, selfie, servizi e sponsor." />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="plutoo-icon-192.png" />
   <link rel="apple-touch-icon" href="plutoo-icon-512.png" />
-
-  <!-- Font Poppins -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
   <!-- CSS -->
   <link rel="stylesheet" href="style.css" />
@@ -69,7 +64,7 @@
         </span>
       </button>
 
-      <div class="legal-links legal-blue">
+      <div class="legal-links legal-purple">
         <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">Termini</a>
         <span>·</span>
         <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy</a>
@@ -117,6 +112,20 @@
       </div>
     </header>
 
+    <!-- STORIES BAR (aggiunto) -->
+    <div id="storiesBar" class="stories-bar hidden">
+      <div class="stories-scroll">
+        <button id="addStoryBtn" class="story-circle add-story" type="button">
+          <div class="story-avatar">
+            <img src="plutoo-icon-192.png" alt="Tu" />
+            <div class="add-icon">+</div>
+          </div>
+          <span class="story-name">Tua Story</span>
+        </button>
+        <div id="storiesContainer" class="stories-list"></div>
+      </div>
+    </div>
+
     <main class="content" aria-live="polite">
       <section id="viewNearby" class="view active" aria-labelledby="nearbyTitle">
         <h2 id="nearbyTitle" class="visually-hidden">Vicino a te</h2>
@@ -162,6 +171,27 @@
       </section>
     </main>
 
+    <!-- STORY VIEWER FULLSCREEN (aggiunto) -->
+    <div id="storyViewer" class="story-viewer hidden">
+      <div class="story-header">
+        <div id="storyProgressBars" class="story-progress-bars"></div>
+        <div class="story-top-info">
+          <div class="story-user-info">
+            <img id="storyUserAvatar" class="story-user-avatar" src="" alt="" />
+            <span id="storyUserName" class="story-user-name"></span>
+            <span id="storyTimestamp" class="story-timestamp"></span>
+          </div>
+          <button id="closeStoryViewer" class="story-close-btn" type="button">✕</button>
+        </div>
+      </div>
+      <div class="story-content-wrapper">
+        <button class="story-nav-prev" id="storyNavPrev"></button>
+        <div id="storyContent" class="story-content"></div>
+        <button class="story-nav-next" id="storyNavNext"></button>
+      </div>
+      <div id="storyPrivacyBadge" class="story-privacy-badge hidden"></div>
+    </div>
+
     <aside id="chatPane" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="chatHeader">
       <div class="sheet-header">
         <div id="chatHeader">Chat</div>
@@ -176,27 +206,25 @@
 
     <aside id="profileSheet" class="sheet hidden" role="dialog" aria-modal="true">
       <button id="closeProfile" class="profile-close" type="button" aria-label="Chiudi profilo">✕</button>
-      <div id="ppBody" class="sheet-body"></div>
+      <div class="sheet-body profile-body">
+        <div class="profile-gallery" id="profileGallery"></div>
+        <div class="profile-meta" id="profileMeta"></div>
+        <div class="profile-docs" id="profileDocs"></div>
+      </div>
     </aside>
 
-    <footer class="sponsor">
-      <div class="sponsor-wrap">
-        <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
-        <a id="sponsorLinkApp" href="https://www.fido.it/" target="_blank" rel="noopener" aria-label="Apri sponsor Fido">
-          <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo" />
-        </a>
-        <div class="sponsor-copy">Fido, il gelato per i nostri amici a quattro zampe</div>
-      </div>
-
-      <div class="legal-links legal-blue">
-        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">Termini</a>
+    <footer class="app-sponsor">
+      <a id="sponsorLinkApp" href="https://www.fido.it/" target="_blank" rel="noopener" class="sponsor-card-app">
+        <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo-app" />
+        <div class="sponsor-copy-app">Fido, il gelato per i nostri amici</div>
+      </a>
+      <div class="legal-links legal-purple">
+        <a href="termini.html" target="_blank" rel="noopener">Termini</a>
         <span>·</span>
-        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy</a>
+        <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>
         <span>·</span>
         <a href="mailto:plutoo.team@gmail.com">Contatti</a>
       </div>
-
-      <div id="adBanner" class="ad-banner" aria-hidden="true"></div>
     </footer>
   </section>
 
@@ -347,6 +375,100 @@
 
         <button id="activatePlus" class="btn primary large" type="button" data-i18n="activatePlus">Attiva Plutoo Plus</button>
         <button id="cancelPlus" class="btn ghost" type="button" data-i18n="cancel">Annulla</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- UPLOAD STORY MODAL (aggiunto) -->
+  <section id="uploadStoryModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content story-upload-modal">
+      <button id="closeUploadStory" class="modal-close" type="button">✕</button>
+      <div class="modal-body">
+        <h2 class="story-modal-title">📸 Carica Story</h2>
+        <div id="uploadStoryStep1" class="upload-step active">
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="storyFileInput" accept="image/*,video/*" hidden />
+            <label for="storyFileInput" class="upload-label">
+              <div class="upload-icon">📁</div>
+              <div class="upload-text">Tocca per caricare</div>
+              <div class="upload-hint">Foto max 10MB | Video max 90s, 50MB</div>
+            </label>
+          </div>
+          <div id="uploadPreview" class="upload-preview hidden"></div>
+          <div class="story-actions">
+            <button id="cancelUpload" class="btn ghost" type="button">Annulla</button>
+            <button id="nextToCustomize" class="btn primary" type="button" disabled>Avanti →</button>
+          </div>
+        </div>
+        <div id="uploadStoryStep2" class="upload-step">
+          <div class="story-customize">
+            <div class="customize-section">
+              <h3 class="customize-title">🎨 Filtri</h3>
+              <div id="filtersGrid" class="filters-grid"></div>
+            </div>
+            <div class="customize-section">
+              <h3 class="customize-title">🎵 Musica</h3>
+              <select id="storyMusicSelect" class="story-select">
+                <option value="">Nessuna</option>
+                <option value="happy">Happy Dogs</option>
+                <option value="chill">Chill Walk</option>
+                <option value="playful">Playful</option>
+                <option value="morning">Morning</option>
+                <option value="adventure">Adventure</option>
+                <option value="cozy">Cozy</option>
+                <option value="park">Park Day</option>
+                <option value="dreamy">Dreamy</option>
+                <option value="friends">Friends</option>
+                <option value="sunset">Sunset</option>
+              </select>
+            </div>
+            <div class="customize-section">
+              <h3 class="customize-title">🔒 Privacy</h3>
+              <div class="privacy-options">
+                <label class="privacy-option">
+                  <input type="radio" name="storyPrivacy" value="public" checked />
+                  <div class="privacy-card">
+                    <div class="privacy-icon">🌍</div>
+                    <div class="privacy-info">
+                      <strong>Pubblica</strong>
+                      <span>Visibile a tutti</span>
+                    </div>
+                  </div>
+                </label>
+                <label class="privacy-option">
+                  <input type="radio" name="storyPrivacy" value="private" />
+                  <div class="privacy-card">
+                    <div class="privacy-icon">🔒</div>
+                    <div class="privacy-info">
+                      <strong>Privata</strong>
+                      <span>Solo verificati ✅</span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="story-actions">
+            <button id="backToUpload" class="btn ghost" type="button">← Indietro</button>
+            <button id="publishStory" class="btn primary" type="button">Pubblica 🚀</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REWARD VIDEO MODAL (aggiunto) -->
+  <section id="rewardVideoModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content reward-modal">
+      <div class="modal-body">
+        <h3 class="reward-title">🎬 Guarda video</h3>
+        <p class="reward-text">Per vedere questa Story</p>
+        <div id="rewardVideoContainer" class="reward-video-box">
+          <div class="reward-placeholder">📺<br/><span id="rewardCountdown">15s</span></div>
+        </div>
+        <button id="closeRewardVideo" class="btn primary" type="button" disabled>Chiudi (attendi...)</button>
       </div>
     </div>
   </section>
