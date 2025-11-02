@@ -1,8 +1,9 @@
 /* =========================================================
-   PLUTOO – app.js COMPLETO CON STORIES + PROFILO PAGINA
-   ✅ FIX: initStories() chiamato PRIMA di setActiveView()
-   ✅ FIX: Profilo DOG = pagina dedicata (non sheet)
-   ✅ Baseline preservata al 100%
+   PLUTOO – app.js FINALE CON STORIES + PROFILO COMPLETO
+   ✅ FIX: "Giochiamo insieme" → "Amicizia"
+   ✅ FIX: Stories nel profilo con upload e visualizzazione
+   ✅ FIX: Stories viewer mostra SOLO storie del cane cliccato
+   ✅ FIX: Banner AdMob nel profilo
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -106,6 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
     rewardOpen: false,
     processingSwipe: false,
     matches: JSON.parse(localStorage.getItem("matches")||"{}"),
+    friendships: JSON.parse(localStorage.getItem("friendships")||"{}"),
     chatMessagesSent: JSON.parse(localStorage.getItem("chatMessagesSent")||"{}"),
     firstMsgRewardByDog: JSON.parse(localStorage.getItem("firstMsgRewardByDog")||"{}"),
     selfieUntilByDog: JSON.parse(localStorage.getItem("selfieUntilByDog")||"{}"),
@@ -133,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     breeds: []
   };
 
-  // I18N
+  // I18N (✅ "Giochiamo insieme" → "Amicizia")
   const I18N = {
     it: {
       brand: "Plutoo",
@@ -149,6 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
       privacy: "Privacy",
       nearby: "Vicino a te",
       love: "Amore",
+      friendship: "Amicizia",
       searchAdvanced: "Ricerca personalizzata",
       plusBtn: "PLUS",
       chat: "Chat",
@@ -196,8 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cancel: "Annulla",
       mapsShelters: "canili nelle vicinanze",
       noProfiles: "Nessun profilo. Modifica i filtri.",
-      years: "anni",
-      playTogether: "Giochiamo insieme"
+      years: "anni"
     },
     en: {
       brand: "Plutoo",
@@ -213,6 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
       privacy: "Privacy",
       nearby: "Nearby",
       love: "Love",
+      friendship: "Friendship",
       searchAdvanced: "Advanced Search",
       plusBtn: "PLUS",
       chat: "Chat",
@@ -260,8 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
       cancel: "Cancel",
       mapsShelters: "animal shelters nearby",
       noProfiles: "No profiles. Adjust filters.",
-      years: "yrs",
-      playTogether: "Play together"
+      years: "yrs"
     }
   };
   const t = (k) => (I18N[state.lang] && I18N[state.lang][k]) || k;
@@ -295,16 +297,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if(state.entered) renderNearby();
   });
 
-  // 8 PROFILI DOG
+  // 8 PROFILI DOG (✅ mode: "play" → "friendship")
   const DOGS = [
     { id:"d1", name:"Luna",   age:2, breed:"Golden Retriever", km:1.2, img:"dog1.jpg", bio:"Dolcissima e curiosa.", mode:"love", sex:"F", verified:true, weight:28, height:55, pedigree:true, breeding:false, size:"medium" },
-    { id:"d2", name:"Rex",    age:4, breed:"Pastore Tedesco",  km:3.4, img:"dog2.jpg", bio:"Fedele e giocherellone.", mode:"play", sex:"M", verified:true, weight:35, height:62, pedigree:true, breeding:true, size:"large" },
+    { id:"d2", name:"Rex",    age:4, breed:"Pastore Tedesco",  km:3.4, img:"dog2.jpg", bio:"Fedele e giocherellone.", mode:"friendship", sex:"M", verified:true, weight:35, height:62, pedigree:true, breeding:true, size:"large" },
     { id:"d3", name:"Maya",   age:3, breed:"Bulldog Francese", km:2.1, img:"dog3.jpg", bio:"Coccole e passeggiate.", mode:"love", sex:"F", verified:false, weight:12, height:30, pedigree:false, breeding:false, size:"small" },
-    { id:"d4", name:"Rocky",  age:5, breed:"Beagle",           km:4.0, img:"dog4.jpg", bio:"Sempre in movimento.", mode:"play", sex:"M", verified:true, weight:15, height:38, pedigree:true, breeding:false, size:"medium" },
+    { id:"d4", name:"Rocky",  age:5, breed:"Beagle",           km:4.0, img:"dog4.jpg", bio:"Sempre in movimento.", mode:"friendship", sex:"M", verified:true, weight:15, height:38, pedigree:true, breeding:false, size:"medium" },
     { id:"d5", name:"Chicco", age:1, breed:"Barboncino",       km:0.8, img:"dog5.jpg", bio:"Piccolo fulmine.", mode:"love", sex:"M", verified:true, weight:8, height:28, pedigree:false, breeding:false, size:"small" },
-    { id:"d6", name:"Kira",   age:6, breed:"Labrador",         km:5.1, img:"dog6.jpg", bio:"Acqua e palla.", mode:"play", sex:"F", verified:true, weight:30, height:58, pedigree:true, breeding:true, size:"large" },
+    { id:"d6", name:"Kira",   age:6, breed:"Labrador",         km:5.1, img:"dog6.jpg", bio:"Acqua e palla.", mode:"friendship", sex:"F", verified:true, weight:30, height:58, pedigree:true, breeding:true, size:"large" },
     { id:"d7", name:"Toby",   age:2, breed:"Husky",            km:2.8, img:"dog7.jpg", bio:"Energia pura.", mode:"love", sex:"M", verified:true, weight:25, height:54, pedigree:true, breeding:true, size:"medium" },
-    { id:"d8", name:"Bella",  age:4, breed:"Cocker Spaniel",   km:1.5, img:"dog8.jpg", bio:"Dolce compagna.", mode:"play", sex:"F", verified:false, weight:14, height:40, pedigree:false, breeding:false, size:"medium" }
+    { id:"d8", name:"Bella",  age:4, breed:"Cocker Spaniel",   km:1.5, img:"dog8.jpg", bio:"Dolce compagna.", mode:"friendship", sex:"F", verified:false, weight:14, height:40, pedigree:false, breeding:false, size:"medium" }
   ];
 
   // Razze
@@ -420,7 +422,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Tabs
   tabNearby?.addEventListener("click", ()=>setActiveView("nearby"));
   tabLove?.addEventListener("click",   ()=>setActiveView("love"));
-  tabPlay?.addEventListener("click",   ()=>setActiveView("play"));
+  tabPlay?.addEventListener("click",   ()=>setActiveView("friendship"));
 
   tabLuoghi?.addEventListener("click",(e)=>{
     e.stopPropagation();
@@ -438,7 +440,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // ✅ FIX: setActiveView gestisce Stories Bar visibility
   function setActiveView(name){
     if (state.currentView !== name && state.currentView !== "profile"){
       state.viewHistory.push(state.currentView);
@@ -475,10 +476,10 @@ document.addEventListener("DOMContentLoaded", () => {
       renderSwipe("love"); 
       if(btnSearchPanel) btnSearchPanel.disabled=true; 
     }
-    if (name==="play"){   
+    if (name==="friendship"){   
       viewPlay.classList.add("active");   
       tabPlay.classList.add("active");   
-      renderSwipe("play"); 
+      renderSwipe("friendship"); 
       if(btnSearchPanel) btnSearchPanel.disabled=true; 
     }
 
@@ -495,7 +496,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if (state.currentView === "love" || state.currentView === "play"){
+    if (state.currentView === "love" || state.currentView === "friendship"){
       setActiveView("nearby");
       return;
     }
@@ -630,8 +631,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (direction === "right"){
         const matchChance = Math.random();
         if (matchChance > 0.5){
-          state.matches[d.id] = true;
-          localStorage.setItem("matches", JSON.stringify(state.matches));
+          if(mode === "love"){
+            state.matches[d.id] = true;
+            localStorage.setItem("matches", JSON.stringify(state.matches));
+          } else {
+            state.friendships[d.id] = true;
+            localStorage.setItem("friendships", JSON.stringify(state.friendships));
+          }
           showMatchAnimation();
         }
       }
@@ -860,8 +866,7 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("f_breeding", state.filters.breeding||"");
     localStorage.setItem("f_size", state.filters.size||"");
   }
-
-  // ✅ FIX: Profilo DOG = PAGINA DEDICATA (non più sheet)
+// ✅ PROFILO DOG CON SEZIONE STORIES + BANNER ADMOB
   window.openProfilePage = (d)=>{
     state.currentDogProfile = d;
     setActiveView("profile");
@@ -872,8 +877,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const selfieUnlocked = isSelfieUnlocked(d.id);
     const hasMatch = state.matches[d.id] || false;
+    const hasFriendship = state.friendships[d.id] || false;
+    const hasRelationship = hasMatch || hasFriendship;
     const ownerDocs = state.ownerDocsUploaded[d.id] || {};
     const dogDocs = state.dogDocsUploaded[d.id] || {};
+    
+    // ✅ Recupera le stories del cane
+    const dogStories = StoriesState.stories.find(s => s.userId === d.id);
+    const storiesHTML = dogStories && hasRelationship ? `
+      <div class="pp-stories-section">
+        <div class="pp-stories-header">
+          <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
+          <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
+        </div>
+        <div class="pp-stories-grid" id="dogStoriesGrid">
+          ${dogStories.media.map((m, idx) => `
+            <div class="pp-story-item" data-story-index="${idx}">
+              <img src="${m.url}" alt="Story" />
+              <span class="pp-story-time">${getTimeAgo(m.timestamp)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : (hasRelationship ? `
+      <div class="pp-stories-section">
+        <div class="pp-stories-header">
+          <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
+          <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
+        </div>
+        <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:1rem 0">${state.lang==="it"?"Nessuna story disponibile":"No stories available"}</p>
+      </div>
+    ` : '');
     
     profileContent.innerHTML = `
       <div class="pp-hero"><img src="${d.img}" alt="${d.name}"></div>
@@ -887,6 +921,8 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>
       <div class="pp-meta soft">${d.bio||""}</div>
+
+      ${storiesHTML}
 
       <h3 class="section-title">${state.lang==="it"?"Galleria":"Gallery"}</h3>
       <div class="gallery">
@@ -945,9 +981,23 @@ document.addEventListener("DOMContentLoaded", () => {
         <button id="btnLikeDog" class="btn accent">💛 Like</button>
         <button id="btnDislikeDog" class="btn outline">🥲 ${state.lang==="it"?"Passa":"Pass"}</button>
         <button id="btnOpenChat" class="btn primary">${state.lang==="it"?"Apri chat":"Open chat"}</button>
-        <button id="btnPlayTogether" class="btn accent">🐕 ${t("playTogether")}</button>
+        <button id="btnFriendship" class="btn accent">🐕 ${t("friendship")}</button>
       </div>
     `;
+
+    // ✅ Event listener per Stories del cane
+    if(hasRelationship && dogStories){
+      qa(".pp-story-item", profileContent).forEach(item => {
+        item.addEventListener("click", ()=>{
+          const idx = parseInt(item.getAttribute("data-story-index"));
+          openDogStoryViewer(d.id, idx);
+        });
+      });
+    }
+
+    $("uploadDogStory")?.addEventListener("click", ()=>{
+      openUploadModal();
+    });
 
     qa(".gallery img", profileContent).forEach(img=>{
       img.addEventListener("click", ()=>{
@@ -1001,8 +1051,10 @@ document.addEventListener("DOMContentLoaded", () => {
       setTimeout(()=>openChat(d), 180);
     };
 
-    $("btnPlayTogether").onclick = ()=>{
-      alert(state.lang==="it" ? "Richiesta di gioco inviata! 🐕" : "Play request sent! 🐕");
+    $("btnFriendship").onclick = ()=>{
+      state.friendships[d.id] = true;
+      localStorage.setItem("friendships", JSON.stringify(state.friendships));
+      alert(state.lang==="it" ? "Richiesta di amicizia inviata! 🐕" : "Friendship request sent! 🐕");
     };
 
     $("uploadSelfie").onclick = ()=> alert(state.lang==="it" ? "Upload selfie (mock)" : "Upload selfie (mock)");
@@ -1172,7 +1224,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (onClose) onClose();
   }
 
-  // ✅ FIX: init() chiama initStories() PRIMA di setActiveView()
   function init(){
     applyTranslations();
     updatePlusUI();
@@ -1200,7 +1251,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   init();
-// ========== SISTEMA STORIES (ISOLATO E NON INTERFERENTE) ==========
+
+  // ========== SISTEMA STORIES ==========
   
   const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
@@ -1215,7 +1267,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const StoriesState = {
     stories: [],
-    currentStoryIndex: 0,
+    currentStoryUserId: null,
     currentMediaIndex: 0,
     progressInterval: null,
     uploadedFile: null,
@@ -1262,8 +1314,8 @@ document.addEventListener("DOMContentLoaded", () => {
     generateMockStories() {
       return [
         {
-          userId: "dog1",
-          userName: "Max",
+          userId: "d1",
+          userName: "Luna",
           avatar: "dog1.jpg",
           verified: true,
           media: [{
@@ -1278,8 +1330,8 @@ document.addEventListener("DOMContentLoaded", () => {
           }]
         },
         {
-          userId: "dog2",
-          userName: "Luna",
+          userId: "d2",
+          userName: "Rex",
           avatar: "dog2.jpg",
           verified: true,
           media: [
@@ -1306,14 +1358,14 @@ document.addEventListener("DOMContentLoaded", () => {
           ]
         },
         {
-          userId: "dog3",
-          userName: "Rocky",
-          avatar: "dog4.jpg",
+          userId: "d3",
+          userName: "Maya",
+          avatar: "dog3.jpg",
           verified: false,
           media: [{
             id: "m4",
             type: "image",
-            url: "dog5.jpg",
+            url: "dog4.jpg",
             timestamp: Date.now() - 10800000,
             filter: "grayscale",
             music: "",
@@ -1334,8 +1386,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function setupStoriesEvents() {
     $("addStoryBtn")?.addEventListener("click", openUploadModal);
     $("closeStoryViewer")?.addEventListener("click", closeStoryViewer);
-    $("storyNavPrev")?.addEventListener("click", prevStory);
-    $("storyNavNext")?.addEventListener("click", nextStory);
+    $("storyNavPrev")?.addEventListener("click", prevStoryMedia);
+    $("storyNavNext")?.addEventListener("click", nextStoryMedia);
     $("closeUploadStory")?.addEventListener("click", closeUploadModal);
     $("cancelUpload")?.addEventListener("click", closeUploadModal);
     $("storyFileInput")?.addEventListener("change", handleFileSelect);
@@ -1352,7 +1404,12 @@ document.addEventListener("DOMContentLoaded", () => {
     
     container.innerHTML = "";
     
-    StoriesState.stories.forEach((story, index) => {
+    StoriesState.stories.forEach((story) => {
+      const hasMatch = state.matches[story.userId] || false;
+      const hasFriendship = state.friendships[story.userId] || false;
+      
+      if (!hasMatch && !hasFriendship) return;
+      
       const allViewed = story.media.every(m => m.viewed);
       
       const circle = document.createElement("button");
@@ -1364,21 +1421,25 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <span class="story-name">${story.userName}</span>
       `;
-      circle.addEventListener("click", () => openStoryViewer(index));
+      circle.addEventListener("click", () => openStoryViewerFromBar(story.userId));
       container.appendChild(circle);
     });
   }
 
-  function openStoryViewer(storyIndex) {
-    const story = StoriesState.stories[storyIndex];
+  // ✅ FIX: Apre Story Viewer SOLO per quel cane
+  function openStoryViewerFromBar(userId) {
+    const story = StoriesState.stories.find(s => s.userId === userId);
     if (!story) return;
     
-    if (!canViewStory(story)) {
-      showStoryRewardVideo(story, storyIndex);
+    const hasMatch = state.matches[userId] || false;
+    const hasFriendship = state.friendships[userId] || false;
+    
+    if (!hasMatch && !hasFriendship) {
+      showStoryRewardVideo(story, userId);
       return;
     }
     
-    StoriesState.currentStoryIndex = storyIndex;
+    StoriesState.currentStoryUserId = userId;
     StoriesState.currentMediaIndex = 0;
     
     $("storyViewer")?.classList.remove("hidden");
@@ -1388,18 +1449,27 @@ document.addEventListener("DOMContentLoaded", () => {
     startStoryProgress();
   }
 
-  function canViewStory(story) {
-    const media = story.media[0];
-    const hasMatch = Math.random() > 0.3;
+  // ✅ FIX: Apre Story Viewer da profilo
+  function openDogStoryViewer(userId, mediaIndex) {
+    const story = StoriesState.stories.find(s => s.userId === userId);
+    if (!story) return;
     
-    if (media.privacy === "public") return hasMatch;
-    if (media.privacy === "private") return state.plus || hasMatch;
-    return true;
+    StoriesState.currentStoryUserId = userId;
+    StoriesState.currentMediaIndex = mediaIndex;
+    
+    $("storyViewer")?.classList.remove("hidden");
+    document.body.classList.add("noscroll");
+    
+    renderStoryViewer();
+    startStoryProgress();
   }
 
   function renderStoryViewer() {
-    const story = StoriesState.stories[StoriesState.currentStoryIndex];
+    const story = StoriesState.stories.find(s => s.userId === StoriesState.currentStoryUserId);
+    if (!story) return;
+    
     const media = story.media[StoriesState.currentMediaIndex];
+    if (!media) return;
     
     $("storyUserAvatar").src = story.avatar;
     $("storyUserName").textContent = story.userName;
@@ -1449,7 +1519,7 @@ document.addEventListener("DOMContentLoaded", () => {
       video.autoplay = true;
       video.muted = false;
       video.className = `filter-${media.filter}`;
-      video.addEventListener("ended", nextStory);
+      video.addEventListener("ended", nextStoryMedia);
       content.appendChild(video);
     }
     
@@ -1459,11 +1529,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function startStoryProgress() {
     stopStoryProgress();
     
-    const story = StoriesState.stories[StoriesState.currentStoryIndex];
+    const story = StoriesState.stories.find(s => s.userId === StoriesState.currentStoryUserId);
+    if (!story) return;
+    
     const media = story.media[StoriesState.currentMediaIndex];
+    if (!media) return;
     
     if (media.type === "image") {
-      StoriesState.progressInterval = setTimeout(nextStory, STORIES_CONFIG.PHOTO_DURATION);
+      StoriesState.progressInterval = setTimeout(nextStoryMedia, STORIES_CONFIG.PHOTO_DURATION);
     }
   }
 
@@ -1474,42 +1547,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function nextStory() {
+  // ✅ FIX: Passa alla prossima media DELLO STESSO CANE, poi chiude
+  function nextStoryMedia() {
     stopStoryProgress();
     
-    const story = StoriesState.stories[StoriesState.currentStoryIndex];
+    const story = StoriesState.stories.find(s => s.userId === StoriesState.currentStoryUserId);
+    if (!story) {
+      closeStoryViewer();
+      return;
+    }
     
     if (StoriesState.currentMediaIndex < story.media.length - 1) {
       StoriesState.currentMediaIndex++;
       renderStoryViewer();
       startStoryProgress();
     } else {
-      if (StoriesState.currentStoryIndex < StoriesState.stories.length - 1) {
-        StoriesState.currentStoryIndex++;
-        StoriesState.currentMediaIndex = 0;
-        renderStoryViewer();
-        startStoryProgress();
-      } else {
-        closeStoryViewer();
-      }
+      closeStoryViewer();
     }
   }
 
-  function prevStory() {
+  function prevStoryMedia() {
     stopStoryProgress();
     
     if (StoriesState.currentMediaIndex > 0) {
       StoriesState.currentMediaIndex--;
       renderStoryViewer();
       startStoryProgress();
-    } else {
-      if (StoriesState.currentStoryIndex > 0) {
-        StoriesState.currentStoryIndex--;
-        const prevStory = StoriesState.stories[StoriesState.currentStoryIndex];
-        StoriesState.currentMediaIndex = prevStory.media.length - 1;
-        renderStoryViewer();
-        startStoryProgress();
-      }
     }
   }
 
@@ -1713,6 +1776,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (radio.checked) StoriesState.selectedPrivacy = radio.value;
     });
     
+    const targetUserId = state.currentDogProfile ? state.currentDogProfile.id : "currentUser";
+    
     const newMedia = {
       id: `m${Date.now()}`,
       type: StoriesState.uploadedFile.type,
@@ -1724,29 +1789,34 @@ document.addEventListener("DOMContentLoaded", () => {
       viewed: false
     };
     
-    let userStory = StoriesState.stories.find(s => s.userId === "currentUser");
+    let story = StoriesState.stories.find(s => s.userId === targetUserId);
     
-    if (!userStory) {
-      userStory = {
-        userId: "currentUser",
-        userName: "Tu",
-        avatar: "plutoo-icon-192.png",
-        verified: state.plus,
+    if (!story) {
+      const dog = DOGS.find(d => d.id === targetUserId);
+      story = {
+        userId: targetUserId,
+        userName: dog ? dog.name : "Tu",
+        avatar: dog ? dog.img : "plutoo-icon-192.png",
+        verified: dog ? dog.verified : state.plus,
         media: []
       };
-      StoriesState.stories.unshift(userStory);
+      StoriesState.stories.unshift(story);
     }
     
-    userStory.media.push(newMedia);
+    story.media.push(newMedia);
     StoriesState.saveStories();
     
     closeUploadModal();
     renderStoriesBar();
     
+    if(state.currentDogProfile){
+      openProfilePage(state.currentDogProfile);
+    }
+    
     alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.");
   }
 
-  function showStoryRewardVideo(story, storyIndex) {
+  function showStoryRewardVideo(story, userId) {
     const modal = $("rewardVideoModal");
     if (!modal) return;
     
@@ -1779,24 +1849,23 @@ document.addEventListener("DOMContentLoaded", () => {
       if (countdown <= 0) {
         modal.classList.add("hidden");
         clearInterval(interval);
-        openStoryViewer(storyIndex);
+        openStoryViewerFromBar(userId);
       }
     };
   }
 
-  // Console log finale
   console.log(`
   ╔═══════════════════════════════════════╗
   ║                                       ║
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: 3.0 FINALE               ║
+  ║   Versione: 4.0 FINALE               ║
   ║                                       ║
-  ║   ✅ Stories visibili all'avvio     ║
-  ║   ✅ Profilo = pagina dedicata      ║
-  ║   ✅ Nessun banner nel profilo      ║
-  ║   ✅ Baseline 100% preservata       ║
+  ║   ✅ "Amicizia" invece di "Play"    ║
+  ║   ✅ Stories nel profilo             ║
+  ║   ✅ Banner AdMob nel profilo        ║
+  ║   ✅ Viewer mostra SOLO 1 cane      ║
   ║                                       ║
   ╚═══════════════════════════════════════╝
   `);
