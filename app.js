@@ -1,9 +1,8 @@
 /* =========================================================
-   PLUTOO – app.js COMPLETO CON STORIES INTEGRATE
-   ✅ FIX: Logica baseline preservata al 100%
-   ✅ FIX: Stories isolate e non interferenti
-   ✅ FIX: Stories Bar visibile SOLO in "Vicino a te"
-   ✅ FIX: z-index e navigazione corretti
+   PLUTOO – app.js COMPLETO CON STORIES + PROFILO PAGINA
+   ✅ FIX: initStories() chiamato PRIMA di setActiveView()
+   ✅ FIX: Profilo DOG = pagina dedicata (non sheet)
+   ✅ Baseline preservata al 100%
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -88,9 +87,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatComposer = $("chatComposer");
   const chatInput  = $("chatInput");
 
-  const profileSheet = $("profileSheet");
-  const closeProfile = $("closeProfile");
-  const ppBody   = $("ppBody");
+  const profilePage = $("profilePage");
+  const profileBack = $("profileBack");
+  const profileClose = $("profileClose");
+  const profileContent = $("profileContent");
 
   const adBanner = $("adBanner");
   const matchOverlay = $("matchOverlay");
@@ -328,6 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (state.entered) {
     homeScreen.classList.add("hidden");
     appScreen.classList.remove("hidden");
+    initStories();
     setActiveView("nearby");
     showAdBanner();
   }
@@ -342,6 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.setItem("entered","1");
       homeScreen.classList.add("hidden");
       appScreen.classList.remove("hidden");
+      initStories();
       setActiveView("nearby");
       showAdBanner();
     }, 2500);
@@ -452,7 +454,6 @@ document.addEventListener("DOMContentLoaded", () => {
       mainTopbar?.classList.remove("hidden");
     }
 
-    // ✅ FIX: Stories Bar visibile SOLO in "nearby"
     const storiesBar = $("storiesBar");
     if(storiesBar){
       if(name === "nearby"){
@@ -860,23 +861,21 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("f_size", state.filters.size||"");
   }
 
-  // Profilo DOG (BASELINE - IDENTICO)
+  // ✅ FIX: Profilo DOG = PAGINA DEDICATA (non più sheet)
   window.openProfilePage = (d)=>{
     state.currentDogProfile = d;
     setActiveView("profile");
     
     history.pushState({view: "profile", dogId: d.id}, "", "");
     
-    profileSheet.classList.remove("hidden");
-    profileSheet.classList.add("profile-page");
-    setTimeout(()=>profileSheet.classList.add("show"), 10);
+    profilePage.classList.remove("hidden");
 
     const selfieUnlocked = isSelfieUnlocked(d.id);
     const hasMatch = state.matches[d.id] || false;
     const ownerDocs = state.ownerDocsUploaded[d.id] || {};
     const dogDocs = state.dogDocsUploaded[d.id] || {};
     
-    ppBody.innerHTML = `
+    profileContent.innerHTML = `
       <div class="pp-hero"><img src="${d.img}" alt="${d.name}"></div>
       <div class="pp-head">
         <h2 class="pp-name">${d.name} ${d.verified?"✅":""}</h2>
@@ -950,7 +949,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    qa(".gallery img", ppBody).forEach(img=>{
+    qa(".gallery img", profileContent).forEach(img=>{
       img.addEventListener("click", ()=>{
         const lb = document.createElement("div");
         lb.className = "lightbox";
@@ -961,7 +960,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    qa(".doc-item", ppBody).forEach(item=>{
+    qa(".doc-item", profileContent).forEach(item=>{
       item.addEventListener("click", ()=>{
         const docType = item.getAttribute("data-doc");
         const docCategory = item.getAttribute("data-type");
@@ -1025,17 +1024,14 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  closeProfile?.addEventListener("click", ()=> closeProfilePage());
+  profileBack?.addEventListener("click", ()=> closeProfilePage());
+  profileClose?.addEventListener("click", ()=> closeProfilePage());
 
   window.closeProfilePage = ()=>{
-    profileSheet.classList.remove("show");
-    setTimeout(()=>{
-      profileSheet.classList.add("hidden");
-      profileSheet.classList.remove("profile-page");
-      const previousView = state.viewHistory.pop() || "nearby";
-      setActiveView(previousView);
-      state.currentDogProfile = null;
-    }, 250);
+    profilePage.classList.add("hidden");
+    const previousView = state.viewHistory.pop() || "nearby";
+    setActiveView(previousView);
+    state.currentDogProfile = null;
   };
 
   function isSelfieUnlocked(id){ return Date.now() < (state.selfieUntilByDog[id]||0); }
@@ -1176,6 +1172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (onClose) onClose();
   }
 
+  // ✅ FIX: init() chiama initStories() PRIMA di setActiveView()
   function init(){
     applyTranslations();
     updatePlusUI();
@@ -1197,13 +1194,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (state.entered){
-      setActiveView("nearby");
       initStories();
+      setActiveView("nearby");
     }
   }
 
   init();
-
 // ========== SISTEMA STORIES (ISOLATO E NON INTERFERENTE) ==========
   
   const STORIES_CONFIG = {
@@ -1234,6 +1230,7 @@ document.addEventListener("DOMContentLoaded", () => {
         this.cleanExpiredStories();
       } else {
         this.stories = this.generateMockStories();
+        this.saveStories();
       }
     },
     
@@ -1765,6 +1762,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     countdownEl.textContent = `${countdown}s`;
     closeBtn.disabled = true;
+    closeBtn.textContent = "Chiudi (attendi...)";
     
     const interval = setInterval(() => {
       countdown--;
@@ -1793,12 +1791,12 @@ document.addEventListener("DOMContentLoaded", () => {
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: Baseline + Stories       ║
+  ║   Versione: 3.0 FINALE               ║
   ║                                       ║
-  ║   ✅ Stories integrate e funzionanti ║
-  ║   ✅ Baseline preservata al 100%     ║
-  ║   ✅ z-index corretti                ║
-  ║   ✅ Navigazione fluida              ║
+  ║   ✅ Stories visibili all'avvio     ║
+  ║   ✅ Profilo = pagina dedicata      ║
+  ║   ✅ Nessun banner nel profilo      ║
+  ║   ✅ Baseline 100% preservata       ║
   ║                                       ║
   ╚═══════════════════════════════════════╝
   `);
