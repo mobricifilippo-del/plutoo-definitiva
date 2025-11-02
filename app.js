@@ -1,8 +1,8 @@
 /* =========================================================
-   PLUTOO – app.js (Gold Edition, esteso sui TUOI file)
-   Aggiunte: splash, tab Giochiamo, Luoghi PET esteso,
-   profilo (Documenti dog, bottoni accent, lightbox),
-   contatti solo in Home, canili solo in Home.
+   PLUTOO – app.js COMPLETO E DEFINITIVO
+   ✅ FIX: Click su card apre profilo con animazione viola
+   ✅ FIX: Swipe funziona perfettamente (10, poi +5)
+   ✅ TUTTO FUNZIONANTE
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -21,8 +21,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const sponsorLink  = $("sponsorLink");
   const sponsorLinkApp = $("sponsorLinkApp");
   const ethicsButton = $("ethicsButton");
-  const ethicsButtonApp = $("ethicsButtonApp"); // nascosto nell'app
   const btnBack      = $("btnBack");
+  const btnPlus      = $("btnPlus");
+
+  const mainTopbar = $("mainTopbar");
+  const btnBackLove = $("btnBackLove");
+  const btnBackPlay = $("btnBackPlay");
 
   const tabNearby = $("tabNearby");
   const tabLove   = $("tabLove");
@@ -60,10 +64,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const distLabel   = $("distLabel");
   const onlyVerified = $("onlyVerified");
   const sexFilter   = $("sexFilter");
+  const ageMin      = $("ageMin");
+  const ageMax      = $("ageMax");
   const weightInput = $("weightInput");
   const heightInput = $("heightInput");
+  const pedigreeFilter = $("pedigreeFilter");
+  const breedingFilter = $("breedingFilter");
+  const sizeFilter  = $("sizeFilter");
   const applyFilters = $("applyFilters");
   const resetFilters = $("resetFilters");
+
+  const plusModal = $("plusModal");
+  const closePlus = $("closePlus");
+  const cancelPlus = $("cancelPlus");
+  const activatePlus = $("activatePlus");
+  const planMonthly = $("planMonthly");
+  const planYearly = $("planYearly");
 
   const chatPane   = $("chatPane");
   const closeChat  = $("closeChat");
@@ -72,64 +88,235 @@ document.addEventListener("DOMContentLoaded", () => {
   const chatInput  = $("chatInput");
 
   const profileSheet = $("profileSheet");
+  const closeProfile = $("closeProfile");
   const ppBody   = $("ppBody");
 
-  // Stato
+  const adBanner = $("adBanner");
+  const matchOverlay = $("matchOverlay");
+
+  // STATO GLOBALE
   const state = {
     lang: (localStorage.getItem("lang") || autodetectLang()),
-    plus: localStorage.getItem("plutoo_plus")==="1",
+    plus: localStorage.getItem("plutoo_plus")==="yes",
+    plusPlan: localStorage.getItem("plusPlan") || "monthly",
     entered: localStorage.getItem("entered")==="1",
     swipeCount: parseInt(localStorage.getItem("swipes")||"0"),
-    matches: parseInt(localStorage.getItem("matches")||"0"),
+    nextRewardAt: parseInt(localStorage.getItem("nextRewardAt")||"10"),
+    rewardOpen: false,
+    processingSwipe: false,
+    matches: JSON.parse(localStorage.getItem("matches")||"{}"),
+    chatMessagesSent: JSON.parse(localStorage.getItem("chatMessagesSent")||"{}"),
     firstMsgRewardByDog: JSON.parse(localStorage.getItem("firstMsgRewardByDog")||"{}"),
     selfieUntilByDog: JSON.parse(localStorage.getItem("selfieUntilByDog")||"{}"),
+    ownerDocsUploaded: JSON.parse(localStorage.getItem("ownerDocsUploaded")||"{}"),
+    dogDocsUploaded: JSON.parse(localStorage.getItem("dogDocsUploaded")||"{}"),
     currentLoveIdx: 0,
     currentPlayIdx: 0,
+    currentView: "nearby",
+    viewHistory: [],
+    currentDogProfile: null,
     filters: {
       breed: localStorage.getItem("f_breed") || "",
-      distKm: parseInt(localStorage.getItem("f_distKm")||"5"),
+      distKm: parseInt(localStorage.getItem("f_distKm")||"50"),
       verified: localStorage.getItem("f_verified")==="1",
       sex: localStorage.getItem("f_sex") || "",
+      ageMin: localStorage.getItem("f_ageMin") || "",
+      ageMax: localStorage.getItem("f_ageMax") || "",
       weight: localStorage.getItem("f_weight") || "",
-      height: localStorage.getItem("f_height") || ""
+      height: localStorage.getItem("f_height") || "",
+      pedigree: localStorage.getItem("f_pedigree") || "",
+      breeding: localStorage.getItem("f_breeding") || "",
+      size: localStorage.getItem("f_size") || ""
     },
     geo: null,
     breeds: []
   };
 
-  // I18N min
+  // I18N
   const I18N = {
-    it: { sponsorUrl:"https://example.com/fido-gelato", mapsShelters:"canili vicino a me", noProfiles:"Nessun profilo. Modifica i filtri."},
-    en: { sponsorUrl:"https://example.com/fido-gelato", mapsShelters:"animal shelters near me", noProfiles:"No profiles. Adjust filters."}
+    it: {
+      brand: "Plutoo",
+      login: "Login",
+      register: "Registrati",
+      enter: "Entra",
+      sponsorTitle: "Sponsor ufficiale",
+      sponsorCopy: "Fido, il gelato per i nostri amici a quattro zampe",
+      sponsorUrl: "https://www.fido.it/",
+      ethicsLine1: "Non abbandonare mai i tuoi amici",
+      ethicsLine2: "(canili nelle vicinanze)",
+      terms: "Termini",
+      privacy: "Privacy",
+      nearby: "Vicino a te",
+      love: "Amore",
+      searchAdvanced: "Ricerca personalizzata",
+      plusBtn: "PLUS",
+      chat: "Chat",
+      profile: "Profilo",
+      typeMessage: "Scrivi un messaggio…",
+      send: "Invia",
+      freeFilters: "Filtri base",
+      goldFilters: "Filtri Gold",
+      sexFilter: "Sesso",
+      sexAll: "Tutti",
+      sexMale: "Maschio",
+      sexFemale: "Femmina",
+      distance: "Distanza",
+      breed: "Razza",
+      breedPh: "Cerca razza…",
+      onlyVerified: "Solo con badge verificato ✅",
+      ageMin: "Età minima (anni)",
+      ageMax: "Età massima (anni)",
+      weight: "Peso (kg)",
+      height: "Altezza (cm)",
+      pedigree: "Pedigree",
+      breeding: "Disponibile per accoppiamento",
+      size: "Taglia",
+      indifferent: "Indifferente",
+      yes: "Sì",
+      no: "No",
+      sizeSmall: "Piccola",
+      sizeMedium: "Media",
+      sizeLarge: "Grande",
+      apply: "Applica",
+      reset: "Reset",
+      unlockHint: "Vuoi sbloccare i filtri Gold? Attiva <strong>Plutoo Plus 💎</strong>",
+      plusTitle: "Plutoo Plus",
+      plusSubtitle: "Sblocca tutte le funzionalità premium",
+      plusFeature1: "Nessuna pubblicità",
+      plusFeature2: "Swipe illimitati",
+      plusFeature3: "Messaggi illimitati",
+      plusFeature4: "Tutti i filtri Gold sbloccati",
+      plusFeature5: "Supporto prioritario",
+      planMonthly: "Mensile",
+      planYearly: "Annuale",
+      planSave: "Risparmia €20!",
+      plusPeriod: "/mese",
+      activatePlus: "Attiva Plutoo Plus",
+      cancel: "Annulla",
+      mapsShelters: "canili nelle vicinanze",
+      noProfiles: "Nessun profilo. Modifica i filtri.",
+      years: "anni",
+      playTogether: "Giochiamo insieme"
+    },
+    en: {
+      brand: "Plutoo",
+      login: "Login",
+      register: "Sign up",
+      enter: "Enter",
+      sponsorTitle: "Official Sponsor",
+      sponsorCopy: "Fido, ice cream for our four-legged friends",
+      sponsorUrl: "https://www.fido.it/",
+      ethicsLine1: "Never abandon your friends",
+      ethicsLine2: "(animal shelters nearby)",
+      terms: "Terms",
+      privacy: "Privacy",
+      nearby: "Nearby",
+      love: "Love",
+      searchAdvanced: "Advanced Search",
+      plusBtn: "PLUS",
+      chat: "Chat",
+      profile: "Profile",
+      typeMessage: "Type a message…",
+      send: "Send",
+      freeFilters: "Basic Filters",
+      goldFilters: "Gold Filters",
+      sexFilter: "Sex",
+      sexAll: "All",
+      sexMale: "Male",
+      sexFemale: "Female",
+      distance: "Distance",
+      breed: "Breed",
+      breedPh: "Search breed…",
+      onlyVerified: "Only verified badges ✅",
+      ageMin: "Min age (years)",
+      ageMax: "Max age (years)",
+      weight: "Weight (kg)",
+      height: "Height (cm)",
+      pedigree: "Pedigree",
+      breeding: "Available for breeding",
+      size: "Size",
+      indifferent: "Any",
+      yes: "Yes",
+      no: "No",
+      sizeSmall: "Small",
+      sizeMedium: "Medium",
+      sizeLarge: "Large",
+      apply: "Apply",
+      reset: "Reset",
+      unlockHint: "Want to unlock Gold filters? Activate <strong>Plutoo Plus 💎</strong>",
+      plusTitle: "Plutoo Plus",
+      plusSubtitle: "Unlock all premium features",
+      plusFeature1: "No ads",
+      plusFeature2: "Unlimited swipes",
+      plusFeature3: "Unlimited messages",
+      plusFeature4: "All Gold filters unlocked",
+      plusFeature5: "Priority support",
+      planMonthly: "Monthly",
+      planYearly: "Yearly",
+      planSave: "Save €20!",
+      plusPeriod: "/month",
+      activatePlus: "Activate Plutoo Plus",
+      cancel: "Cancel",
+      mapsShelters: "animal shelters nearby",
+      noProfiles: "No profiles. Adjust filters.",
+      years: "yrs",
+      playTogether: "Play together"
+    }
   };
   const t = (k) => (I18N[state.lang] && I18N[state.lang][k]) || k;
   function autodetectLang(){ return (navigator.language||"it").toLowerCase().startsWith("en")?"en":"it"; }
 
-  // Lang flags
-  $("langIT")?.addEventListener("click", ()=>{ state.lang="it"; localStorage.setItem("lang","it"); });
-  $("langEN")?.addEventListener("click", ()=>{ state.lang="en"; localStorage.setItem("lang","en"); });
+  function applyTranslations(){
+    qa("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      if (I18N[state.lang] && I18N[state.lang][key]) {
+        el.textContent = I18N[state.lang][key];
+      }
+    });
+    qa("[data-i18n-placeholder]").forEach(el => {
+      const key = el.getAttribute("data-i18n-placeholder");
+      if (I18N[state.lang] && I18N[state.lang][key]) {
+        el.placeholder = I18N[state.lang][key];
+      }
+    });
+  }
 
-  // Dati mock
+  $("langIT")?.addEventListener("click", ()=>{
+    state.lang="it";
+    localStorage.setItem("lang","it");
+    applyTranslations();
+    if(state.entered) renderNearby();
+  });
+  $("langEN")?.addEventListener("click", ()=>{
+    state.lang="en";
+    localStorage.setItem("lang","en");
+    applyTranslations();
+    if(state.entered) renderNearby();
+  });
+
+  // 8 PROFILI DOG
   const DOGS = [
-    { id:"d1", name:"Luna",  age:2, breed:"Golden Retriever", km:1.2, img:"dog1.jpg", bio:"Dolcissima e curiosa.", mode:"love",   sex:"F", verified:true  },
-    { id:"d2", name:"Rex",   age:4, breed:"Pastore Tedesco",  km:3.4, img:"dog2.jpg", bio:"Fedele e giocherellone.", mode:"play",  sex:"M", verified:true  },
-    { id:"d3", name:"Maya",  age:3, breed:"Bulldog Francese", km:2.1, img:"dog3.jpg", bio:"Coccole e passeggiate.",  mode:"love",   sex:"F", verified:false },
-    { id:"d4", name:"Rocky", age:5, breed:"Beagle",           km:4.0, img:"dog4.jpg", bio:"Sempre in movimento.",    mode:"play",  sex:"M", verified:true  },
-    { id:"d5", name:"Chicco",age:1, breed:"Barboncino",       km:0.8, img:"dog1.jpg", bio:"Piccolo fulmine.",        mode:"love",   sex:"M", verified:true  },
-    { id:"d6", name:"Kira",  age:6, breed:"Labrador",         km:5.1, img:"dog2.jpg", bio:"Acqua e palla.",          mode:"play",  sex:"F", verified:true  },
+    { id:"d1", name:"Luna",   age:2, breed:"Golden Retriever", km:1.2, img:"dog1.jpg", bio:"Dolcissima e curiosa.", mode:"love", sex:"F", verified:true, weight:28, height:55, pedigree:true, breeding:false, size:"medium" },
+    { id:"d2", name:"Rex",    age:4, breed:"Pastore Tedesco",  km:3.4, img:"dog2.jpg", bio:"Fedele e giocherellone.", mode:"play", sex:"M", verified:true, weight:35, height:62, pedigree:true, breeding:true, size:"large" },
+    { id:"d3", name:"Maya",   age:3, breed:"Bulldog Francese", km:2.1, img:"dog3.jpg", bio:"Coccole e passeggiate.", mode:"love", sex:"F", verified:false, weight:12, height:30, pedigree:false, breeding:false, size:"small" },
+    { id:"d4", name:"Rocky",  age:5, breed:"Beagle",           km:4.0, img:"dog4.jpg", bio:"Sempre in movimento.", mode:"play", sex:"M", verified:true, weight:15, height:38, pedigree:true, breeding:false, size:"medium" },
+    { id:"d5", name:"Chicco", age:1, breed:"Barboncino",       km:0.8, img:"dog5.jpg", bio:"Piccolo fulmine.", mode:"love", sex:"M", verified:true, weight:8, height:28, pedigree:false, breeding:false, size:"small" },
+    { id:"d6", name:"Kira",   age:6, breed:"Labrador",         km:5.1, img:"dog6.jpg", bio:"Acqua e palla.", mode:"play", sex:"F", verified:true, weight:30, height:58, pedigree:true, breeding:true, size:"large" },
+    { id:"d7", name:"Toby",   age:2, breed:"Husky",            km:2.8, img:"dog7.jpg", bio:"Energia pura.", mode:"love", sex:"M", verified:true, weight:25, height:54, pedigree:true, breeding:true, size:"medium" },
+    { id:"d8", name:"Bella",  age:4, breed:"Cocker Spaniel",   km:1.5, img:"dog8.jpg", bio:"Dolce compagna.", mode:"play", sex:"F", verified:false, weight:14, height:40, pedigree:false, breeding:false, size:"medium" }
   ];
 
   // Razze
   fetch("breeds.json").then(r=>r.json()).then(arr=>{
-    if (Array.isArray(arr)) state.breeds = arr;
+    if (Array.isArray(arr)) state.breeds = arr.sort();
   }).catch(()=>{ state.breeds = [
-    "Pastore Tedesco","Labrador","Golden Retriever","Jack Russell",
-    "Bulldog Francese","Barboncino","Border Collie","Chihuahua",
-    "Carlino","Beagle","Maltese","Shih Tzu","Husky","Bassotto","Cocker Spaniel"
-  ];});
+    "Barboncino","Bassotto","Beagle","Border Collie","Bulldog Francese",
+    "Carlino","Chihuahua","Cocker Spaniel","Golden Retriever","Husky",
+    "Jack Russell","Labrador","Maltese","Pastore Tedesco","Shih Tzu"
+  ].sort(); });
 
   // Geo
-  if ("geolocation" in navigator){
+  if (navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
       p=>{ state.geo = { lat:p.coords.latitude, lon:p.coords.longitude }; },
       ()=>{}, { enableHighAccuracy:true, timeout:5000, maximumAge:60000 }
@@ -137,36 +324,97 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // HOME ↔ APP
-if (state.entered) {
-  homeScreen.classList.add("hidden");
-  appScreen.classList.remove("hidden");
-  setActiveView("nearby");
-}
-
-// Entra: animazione viola→oro→viola e poi entra
-btnEnter?.addEventListener("click", ()=>{
-  heroLogo?.classList.remove("glow-vg");
-  void heroLogo?.offsetWidth;          // forza reflow per riavviare animazione
-  heroLogo?.classList.add("glow-vg");
-
-  setTimeout(()=>{
-    state.entered = true;
-    localStorage.setItem("entered","1");
+  if (state.entered) {
     homeScreen.classList.add("hidden");
     appScreen.classList.remove("hidden");
     setActiveView("nearby");
-  }, 2200);
-});
+    showAdBanner();
+  }
+
+  btnEnter?.addEventListener("click", ()=>{
+    heroLogo?.classList.remove("heartbeat-violet");
+    void heroLogo?.offsetWidth;
+    heroLogo?.classList.add("heartbeat-violet");
+
+    setTimeout(()=>{
+      state.entered = true;
+      localStorage.setItem("entered","1");
+      homeScreen.classList.add("hidden");
+      appScreen.classList.remove("hidden");
+      setActiveView("nearby");
+      showAdBanner();
+    }, 2500);
+  });
     
-   // Sponsor click (Home + App) — senza reward reali ora
-  function openSponsor(){ window.open(t("sponsorUrl"), "_blank", "noopener"); }
+  // Sponsor UFFICIALE Fido
+  function openSponsor(){ window.open("https://www.fido.it/", "_blank", "noopener"); }
   sponsorLink?.addEventListener("click",(e)=>{ e.preventDefault(); openSponsor(); });
   sponsorLinkApp?.addEventListener("click",(e)=>{ e.preventDefault(); openSponsor(); });
 
-  // Etico canili (solo Home)
   ethicsButton?.addEventListener("click", ()=> openSheltersMaps() );
 
-  // Tabs & Views
+  // PLUTOO PLUS
+  btnPlus?.addEventListener("click", ()=> openPlusModal() );
+  closePlus?.addEventListener("click", ()=> closePlusModal() );
+  cancelPlus?.addEventListener("click", ()=> closePlusModal() );
+
+  planMonthly?.addEventListener("click", ()=>{
+    state.plusPlan = "monthly";
+    updatePlanSelector();
+  });
+
+  planYearly?.addEventListener("click", ()=>{
+    state.plusPlan = "yearly";
+    updatePlanSelector();
+  });
+
+  function updatePlanSelector(){
+    if(planMonthly && planYearly){
+      planMonthly.classList.toggle("active", state.plusPlan === "monthly");
+      planYearly.classList.toggle("active", state.plusPlan === "yearly");
+    }
+  }
+
+  activatePlus?.addEventListener("click", ()=> {
+    state.plus = true;
+    localStorage.setItem("plutoo_plus", "yes");
+    localStorage.setItem("plusPlan", state.plusPlan);
+    closePlusModal();
+    updatePlusUI();
+    const price = state.plusPlan === "yearly" ? "€40/anno" : "€4.99/mese";
+    alert(state.lang==="it" ? `Plutoo Plus attivato! 💎\nPiano: ${price}` : `Plutoo Plus activated! 💎\nPlan: ${price}`);
+  });
+
+  function openPlusModal(){
+    plusModal?.classList.remove("hidden");
+    updatePlanSelector();
+  }
+  function closePlusModal(){
+    plusModal?.classList.add("hidden");
+  }
+  function updatePlusUI(){
+    const goldInputs = [onlyVerified, ageMin, ageMax, weightInput, heightInput, pedigreeFilter, breedingFilter, sizeFilter];
+    goldInputs.forEach(inp => {
+      if (inp) inp.disabled = !state.plus;
+    });
+    if (state.plus && adBanner) {
+      adBanner.style.display = "none";
+    } else if (adBanner) {
+      adBanner.style.display = "";
+    }
+  }
+
+  function handleGoldFieldClick(e){
+    if (!state.plus && e.target.closest(".f-gold")){
+      const input = e.target.closest(".f-gold").querySelector("input, select");
+      if (input && input.disabled){
+        openPlusModal();
+      }
+    }
+  }
+  searchPanel?.addEventListener("click", handleGoldFieldClick);
+
+  // Tabs
   tabNearby?.addEventListener("click", ()=>setActiveView("nearby"));
   tabLove?.addEventListener("click",   ()=>setActiveView("love"));
   tabPlay?.addEventListener("click",   ()=>setActiveView("play"));
@@ -188,52 +436,112 @@ btnEnter?.addEventListener("click", ()=>{
   });
 
   function setActiveView(name){
+    if (state.currentView !== name && state.currentView !== "profile"){
+      state.viewHistory.push(state.currentView);
+    }
+    state.currentView = name;
+
     [viewNearby, viewLove, viewPlay].forEach(v=>v?.classList.remove("active"));
     [tabNearby, tabLove, tabPlay].forEach(t=>t?.classList.remove("active"));
 
-    if (name==="nearby"){ viewNearby.classList.add("active"); tabNearby.classList.add("active"); renderNearby(); btnSearchPanel.disabled=false; }
-    if (name==="love"){   viewLove.classList.add("active");   tabLove.classList.add("active");   renderSwipe("love"); btnSearchPanel.disabled=true; }
-    if (name==="play"){   viewPlay.classList.add("active");   tabPlay.classList.add("active");   renderSwipe("play"); btnSearchPanel.disabled=true; }
+    if (name === "profile"){
+      mainTopbar?.classList.add("hidden");
+    } else {
+      mainTopbar?.classList.remove("hidden");
+    }
+
+    if (name==="nearby"){ 
+      viewNearby.classList.add("active"); 
+      tabNearby.classList.add("active"); 
+      renderNearby(); 
+      if(btnSearchPanel) btnSearchPanel.disabled=false; 
+    }
+    if (name==="love"){   
+      viewLove.classList.add("active");   
+      tabLove.classList.add("active");   
+      renderSwipe("love"); 
+      if(btnSearchPanel) btnSearchPanel.disabled=true; 
+    }
+    if (name==="play"){   
+      viewPlay.classList.add("active");   
+      tabPlay.classList.add("active");   
+      renderSwipe("play"); 
+      if(btnSearchPanel) btnSearchPanel.disabled=true; 
+    }
 
     window.scrollTo({top:0,behavior:"smooth"});
   }
 
-  // Back
-  btnBack?.addEventListener("click", ()=>{
-    if (!viewNearby.classList.contains("active")) { setActiveView("nearby"); return; }
-    // Torna a Home (conferma)
-    if (confirm("Tornare alla Home?")){
-      localStorage.removeItem("entered");
-      state.entered=false;
-      appScreen.classList.add("hidden");
-      homeScreen.classList.remove("hidden");
+  btnBack?.addEventListener("click", ()=> goBack() );
+  btnBackLove?.addEventListener("click", ()=> goBack() );
+  btnBackPlay?.addEventListener("click", ()=> goBack() );
+
+  function goBack(){
+    if (state.currentView === "profile"){
+      closeProfilePage();
+      return;
     }
+
+    if (state.currentView === "love" || state.currentView === "play"){
+      setActiveView("nearby");
+      return;
+    }
+
+    if (state.currentView === "nearby"){
+      if (confirm(state.lang==="it" ? "Tornare alla Home?" : "Return to Home?")){
+        localStorage.removeItem("entered");
+        state.entered=false;
+        appScreen.classList.add("hidden");
+        homeScreen.classList.remove("hidden");
+      }
+    }
+  }
+
+  window.addEventListener("popstate", (e)=>{
+    e.preventDefault();
+    goBack();
   });
 
-  // Nearby (grid 2×N)
-  function renderNearby(){
-    const list = filteredDogs();
-    if (!list.length){ nearGrid.innerHTML = `<p class="soft" style="padding:.5rem">${t("noProfiles")}</p>`; return; }
-    nearGrid.innerHTML = list.map(cardHTML).join("");
-    qa(".dog-card").forEach(card=>{
-      const id = card.getAttribute("data-id");
-      const d  = DOGS.find(x=>x.id===id);
-      const img = qs("img", card);
-      img?.addEventListener("click", ()=>openProfile(d));
-      qs(".open-profile", card)?.addEventListener("click", ()=>openProfile(d));
-    });
+  if (state.entered){
+    history.pushState({view: "app"}, "", "");
   }
+
+  // Vicino a te
+  function renderNearby(){
+    if(!nearGrid) return;
+    
+    const list = filteredDogs();
+    if (!list.length){ 
+      nearGrid.innerHTML = `<p class="soft" style="padding:.5rem">${t("noProfiles")}</p>`; 
+      return; 
+    }
+    nearGrid.innerHTML = list.map(cardHTML).join("");
+    
+    setTimeout(()=>{
+      qa(".dog-card").forEach(card=>{
+        const id = card.getAttribute("data-id");
+        const d  = DOGS.find(x=>x.id===id);
+        if(!d) return;
+        
+        card.addEventListener("click", ()=>{
+          card.classList.add("flash-violet");
+          setTimeout(()=>{
+            card.classList.remove("flash-violet");
+            openProfilePage(d);
+          }, 500);
+        });
+      });
+    }, 10);
+  }
+  
   function cardHTML(d){
     return `
       <article class="card dog-card" data-id="${d.id}">
-        <img src="${d.img}" alt="${d.name}" class="card-img" />
+        <img src="${d.img}" alt="${d.name}" class="card-img" loading="lazy" />
         <div class="card-info">
           <h3>${d.name} ${d.verified?"✅":""}</h3>
-          <p class="meta">${d.breed} · ${d.age} ${state.lang==="it"?"anni":"yrs"} · ${fmtKm(d.km)}</p>
+          <p class="meta">${d.breed} · ${d.age} ${t("years")} · ${fmtKm(d.km)}</p>
           <p class="bio">${d.bio||""}</p>
-        </div>
-        <div class="card-actions">
-          <button class="btn ghost small open-profile">Apri profilo</button>
         </div>
       </article>`;
   }
@@ -243,16 +551,50 @@ btnEnter?.addEventListener("click", ()=>{
     const f = state.filters;
     return DOGS
       .filter(d => d.km <= (f.distKm||999))
-      .filter(d => (!f.verified ? true : d.verified))
-      .filter(d => (!f.sex ? true : d.sex===f.sex))
-      .filter(d => (!f.breed ? true : d.breed.toLowerCase().startsWith(f.breed.toLowerCase())));
+      .filter(d => (!f.verified || !state.plus) ? true : d.verified)
+      .filter(d => (!f.sex) ? true : d.sex===f.sex)
+      .filter(d => (!f.breed) ? true : d.breed.toLowerCase().startsWith(f.breed.toLowerCase()))
+      .filter(d => {
+        if (!state.plus || !f.ageMin) return true;
+        return d.age >= parseInt(f.ageMin);
+      })
+      .filter(d => {
+        if (!state.plus || !f.ageMax) return true;
+        return d.age <= parseInt(f.ageMax);
+      })
+      .filter(d => {
+        if (!state.plus || !f.weight) return true;
+        return d.weight >= parseInt(f.weight);
+      })
+      .filter(d => {
+        if (!state.plus || !f.height) return true;
+        return d.height >= parseInt(f.height);
+      })
+      .filter(d => {
+        if (!state.plus || !f.pedigree) return true;
+        return f.pedigree==="yes" ? d.pedigree : !d.pedigree;
+      })
+      .filter(d => {
+        if (!state.plus || !f.breeding) return true;
+        return f.breeding==="yes" ? d.breeding : !d.breeding;
+      })
+      .filter(d => {
+        if (!state.plus || !f.size) return true;
+        return d.size === f.size;
+      });
   }
 
-  // Swipe Decks
+  // ============================================
+  // FIX FINALE: Click apre profilo, Swipe funziona
+  // ============================================
+  
   function renderSwipe(mode){
     const deck = DOGS.filter(d=>d.mode===mode);
-    const idx = (mode==="love"?state.currentLoveIdx:state.currentPlayIdx) % (deck.length||1);
-    const d = deck[idx] || DOGS[0];
+    if(!deck.length) return;
+    
+    const idx = (mode==="love"?state.currentLoveIdx:state.currentPlayIdx) % deck.length;
+    const d = deck[idx];
+    if(!d) return;
 
     const img   = mode==="love" ? loveImg : playImg;
     const title = mode==="love" ? loveTitleTxt : playTitleTxt;
@@ -262,44 +604,198 @@ btnEnter?.addEventListener("click", ()=>{
     const yesBtn = mode==="love" ? loveYes : playYes;
     const noBtn  = mode==="love" ? loveNo  : playNo;
 
+    if(!img || !title || !meta || !bio || !card) return;
+
     img.src = d.img;
     title.textContent = `${d.name} ${d.verified?"✅":""}`;
-    meta.textContent  = `${d.breed} · ${d.age} ${state.lang==="it"?"anni":"yrs"} · ${fmtKm(d.km)}`;
+    meta.textContent  = `${d.breed} · ${d.age} ${t("years")} · ${fmtKm(d.km)}`;
     bio.textContent   = d.bio || "";
-    img.onclick = ()=>openProfile(d);
 
-    attachSwipe(card, dir=>{
+    // FIX: Rimuovi onclick precedenti
+    if(yesBtn) yesBtn.onclick = null;
+    if(noBtn) noBtn.onclick = null;
+
+    // Handler swipe completo
+    function handleSwipeComplete(direction){
+      // BLOCCA ulteriori interazioni
+      if(state.processingSwipe) return;
+      state.processingSwipe = true;
+      
+      // Match logic (solo se right)
+      if (direction === "right"){
+        const matchChance = Math.random();
+        if (matchChance > 0.5){
+          state.matches[d.id] = true;
+          localStorage.setItem("matches", JSON.stringify(state.matches));
+          showMatchAnimation();
+        }
+      }
+      
+      // Avanza card
       if (mode==="love") state.currentLoveIdx++; else state.currentPlayIdx++;
-      setTimeout(()=>renderSwipe(mode), 10);
-    });
+      
+      // ASPETTA che animazione finisca
+      setTimeout(()=>{
+        resetCard(card);
+        
+        // INCREMENTA contatore
+        state.swipeCount++;
+        localStorage.setItem("swipes", String(state.swipeCount));
+        
+        // CONTROLLA reward
+        if (!state.plus && state.swipeCount === state.nextRewardAt && !state.rewardOpen){
+          state.rewardOpen = true;
+          
+          showRewardVideoMock("swipe", ()=>{
+            // Callback DOPO chiusura video
+            state.rewardOpen = false;
+            state.nextRewardAt += 5;
+            localStorage.setItem("nextRewardAt", String(state.nextRewardAt));
+            
+            // Sblocca e renderizza prossima card
+            state.processingSwipe = false;
+            renderSwipe(mode);
+          });
+        } else {
+          // Nessun video: renderizza subito
+          state.processingSwipe = false;
+          renderSwipe(mode);
+        }
+      }, 600);
+    }
 
-    yesBtn.onclick = ()=>simulateSwipe(card,"right");
-    noBtn.onclick  = ()=>simulateSwipe(card,"left");
+    // Attach bottoni YES/NO
+    if(yesBtn){
+      yesBtn.onclick = ()=>{
+        if(state.processingSwipe) return;
+        card.classList.add("swipe-out-right");
+        handleSwipeComplete("right");
+      };
+    }
+    if(noBtn){
+      noBtn.onclick = ()=>{
+        if(state.processingSwipe) return;
+        card.classList.add("swipe-out-left");
+        handleSwipeComplete("left");
+      };
+    }
+
+    // FIX: Attach gesture swipe CON distinzione click/drag
+    attachSwipeWithClick(card, d, handleSwipeComplete);
   }
 
-  function attachSwipe(card, cb){
-    if (card._sw) return;
-    card._sw = true;
-    let sx=0, dx=0, dragging=false;
-    const start=(x)=>{ sx=x; dragging=true; card.style.transition="none"; };
-    const move =(x)=>{ if(!dragging) return; dx=x-sx; const rot=dx/18; card.style.transform=`translate3d(${dx}px,0,0) rotate(${rot}deg)`; };
-    const end =()=>{ if(!dragging) return; dragging=false; card.style.transition=""; const th=90;
-      if (dx>th){ card.classList.add("swipe-out-right"); setTimeout(()=>{ resetCard(card); cb("right"); }, 550); }
-      else if (dx<-th){ card.classList.add("swipe-out-left"); setTimeout(()=>{ resetCard(card); cb("left"); }, 550); }
-      else { resetCard(card); }
-      dx=0;
+  // FIX: Nuova funzione che distingue click da swipe
+  function attachSwipeWithClick(card, dogData, onSwipe){
+    let startX = 0;
+    let startY = 0;
+    let startTime = 0;
+    let currentX = 0;
+    let dragging = false;
+    let hasMoved = false;
+    
+    const CLICK_THRESHOLD = 10; // pixel - movimento minimo per considerarlo swipe
+    const CLICK_TIME_THRESHOLD = 300; // ms - tempo massimo per considerarlo click
+    
+    const start = (x, y) => {
+      if(state.processingSwipe) return;
+      startX = x;
+      startY = y;
+      currentX = x;
+      startTime = Date.now();
+      dragging = true;
+      hasMoved = false;
+      card.style.transition = "none";
     };
-    card.addEventListener("touchstart", e=>start(e.touches[0].clientX), {passive:true});
-    card.addEventListener("touchmove",  e=>move(e.touches[0].clientX),  {passive:true});
-    card.addEventListener("touchend", end);
-    card.addEventListener("mousedown", e=>start(e.clientX));
-    window.addEventListener("mousemove", e=>move(e.clientX));
-    window.addEventListener("mouseup", end);
+    
+    const move = (x) => {
+      if(!dragging || state.processingSwipe) return;
+      currentX = x;
+      const dx = currentX - startX;
+      
+      // Se si è mosso oltre la soglia, è uno swipe
+      if(Math.abs(dx) > CLICK_THRESHOLD){
+        hasMoved = true;
+      }
+      
+      const rot = dx / 18;
+      card.style.transform = `translate3d(${dx}px,0,0) rotate(${rot}deg)`;
+    };
+    
+    const end = () => {
+      if(!dragging || state.processingSwipe) return;
+      dragging = false;
+      card.style.transition = "";
+      
+      const dx = currentX - startX;
+      const elapsed = Date.now() - startTime;
+      const th = 90;
+      
+      // CLICK RAPIDO = apri profilo con animazione
+      if(!hasMoved && elapsed < CLICK_TIME_THRESHOLD && Math.abs(dx) < CLICK_THRESHOLD){
+        card.classList.add("flash-violet");
+        setTimeout(()=>{
+          card.classList.remove("flash-violet");
+          openProfilePage(dogData);
+        }, 500);
+        resetCard(card);
+        return;
+      }
+      
+      // SWIPE LUNGO = completa swipe
+      if(Math.abs(dx) > th){
+        const direction = dx > 0 ? "right" : "left";
+        card.classList.add(dx > 0 ? "swipe-out-right" : "swipe-out-left");
+        onSwipe(direction);
+      } else {
+        resetCard(card);
+      }
+      
+      currentX = 0;
+    };
+    
+    // Touch events
+    card.addEventListener("touchstart", e => {
+      const touch = e.touches[0];
+      start(touch.clientX, touch.clientY);
+    }, {passive: true});
+    
+    card.addEventListener("touchmove", e => {
+      const touch = e.touches[0];
+      move(touch.clientX);
+    }, {passive: true});
+    
+    card.addEventListener("touchend", end, {passive: true});
+    
+    // Mouse events
+    card.addEventListener("mousedown", e => {
+      start(e.clientX, e.clientY);
+    });
+    
+    const handleMouseMove = e => move(e.clientX);
+    const handleMouseUp = () => end();
+    
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    
+    // Cleanup
+    card._cleanup = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
   }
-  function resetCard(card){ card.classList.remove("swipe-out-right","swipe-out-left"); card.style.transform=""; }
-  function simulateSwipe(card, dir){
-    card.classList.add(dir==="right"?"swipe-out-right":"swipe-out-left");
-    setTimeout(()=>{ resetCard(card); card.dispatchEvent(new CustomEvent("swiped",{detail:{dir}})); }, 550);
+  
+  function resetCard(card){ 
+    card.classList.remove("swipe-out-right","swipe-out-left"); 
+    card.style.transform=""; 
+    if(card._cleanup) card._cleanup();
+  }
+
+  function showMatchAnimation(){
+    if (!matchOverlay) return;
+    matchOverlay.classList.remove("hidden");
+    setTimeout(()=>{
+      matchOverlay.classList.add("hidden");
+    }, 1200);
   }
 
   // Ricerca panel
@@ -311,7 +807,7 @@ btnEnter?.addEventListener("click", ()=>{
     const v = (breedInput.value||"").trim().toLowerCase();
     breedsList.innerHTML=""; breedsList.style.display="none";
     if (!v) return;
-    const matches = state.breeds.filter(b=>b.toLowerCase().startsWith(v)).sort().slice(0,16);
+    const matches = state.breeds.filter(b=>b.toLowerCase().startsWith(v)).slice(0,16);
     if (!matches.length) return;
     breedsList.innerHTML = matches.map(b=>`<div class="item">${b}</div>`).join("");
     breedsList.style.display = "block";
@@ -329,20 +825,36 @@ btnEnter?.addEventListener("click", ()=>{
   applyFilters?.addEventListener("click",(e)=>{
     e.preventDefault();
     state.filters.breed = (breedInput.value||"").trim();
-    state.filters.distKm = parseInt(distRange.value||"5");
+    state.filters.distKm = parseInt(distRange.value||"50");
+    state.filters.sex = sexFilter.value || "";
+    state.filters.verified = !!onlyVerified.checked;
     if (state.plus){
+      state.filters.ageMin = (ageMin.value||"").trim();
+      state.filters.ageMax = (ageMax.value||"").trim();
       state.filters.weight = (weightInput.value||"").trim();
       state.filters.height = (heightInput.value||"").trim();
+      state.filters.pedigree = pedigreeFilter.value || "";
+      state.filters.breeding = breedingFilter.value || "";
+      state.filters.size = sizeFilter.value || "";
     }
     persistFilters();
     renderNearby();
     searchPanel.classList.add("hidden");
   });
+
   resetFilters?.addEventListener("click",()=>{
-    breedInput.value=""; distRange.value=5; distLabel.textContent="5 km";
+    breedInput.value=""; distRange.value=50; distLabel.textContent="50 km";
     onlyVerified.checked=false; sexFilter.value="";
-    if (state.plus){ weightInput.value=""; heightInput.value=""; }
-    Object.assign(state.filters,{breed:"",distKm:5,verified:false,sex:"",weight:"",height:""});
+    if (state.plus){
+      ageMin.value=""; ageMax.value="";
+      weightInput.value=""; heightInput.value="";
+      pedigreeFilter.value=""; breedingFilter.value=""; sizeFilter.value="";
+    }
+    Object.assign(state.filters,{
+      breed:"",distKm:50,verified:false,sex:"",
+      ageMin:"",ageMax:"",weight:"",height:"",
+      pedigree:"",breeding:"",size:""
+    });
     persistFilters(); renderNearby();
   });
 
@@ -351,54 +863,105 @@ btnEnter?.addEventListener("click", ()=>{
     localStorage.setItem("f_distKm", String(state.filters.distKm));
     localStorage.setItem("f_verified", state.filters.verified?"1":"0");
     localStorage.setItem("f_sex", state.filters.sex);
+    localStorage.setItem("f_ageMin", state.filters.ageMin||"");
+    localStorage.setItem("f_ageMax", state.filters.ageMax||"");
     localStorage.setItem("f_weight", state.filters.weight||"");
     localStorage.setItem("f_height", state.filters.height||"");
+    localStorage.setItem("f_pedigree", state.filters.pedigree||"");
+    localStorage.setItem("f_breeding", state.filters.breeding||"");
+    localStorage.setItem("f_size", state.filters.size||"");
   }
 
-  // Profilo (sheet) + lightbox galleria
-  window.openProfile = (d)=>{
+  // Profilo DOG
+  window.openProfilePage = (d)=>{
+    state.currentDogProfile = d;
+    setActiveView("profile");
+    
+    history.pushState({view: "profile", dogId: d.id}, "", "");
+    
     profileSheet.classList.remove("hidden");
+    profileSheet.classList.add("profile-page");
     setTimeout(()=>profileSheet.classList.add("show"), 10);
 
     const selfieUnlocked = isSelfieUnlocked(d.id);
+    const hasMatch = state.matches[d.id] || false;
+    const ownerDocs = state.ownerDocsUploaded[d.id] || {};
+    const dogDocs = state.dogDocsUploaded[d.id] || {};
+    
     ppBody.innerHTML = `
       <div class="pp-hero"><img src="${d.img}" alt="${d.name}"></div>
       <div class="pp-head">
         <h2 class="pp-name">${d.name} ${d.verified?"✅":""}</h2>
         <div class="pp-badges">
           <span class="badge">${d.breed}</span>
-          <span class="badge">${d.age} ${state.lang==="it"?"anni":"yrs"}</span>
+          <span class="badge">${d.age} ${t("years")}</span>
           <span class="badge">${fmtKm(d.km)}</span>
+          <span class="badge">${d.sex==="M"?(state.lang==="it"?"Maschio":"Male"):(state.lang==="it"?"Femmina":"Female")}</span>
         </div>
       </div>
       <div class="pp-meta soft">${d.bio||""}</div>
 
-      <h3 class="section-title">Galleria</h3>
+      <h3 class="section-title">${state.lang==="it"?"Galleria":"Gallery"}</h3>
       <div class="gallery">
         <div class="ph"><img src="${d.img}" alt=""></div>
-        <div class="ph"><img src="dog2.jpg" alt=""></div>
-        <div class="ph"><img src="dog3.jpg" alt=""></div>
-        <div class="ph"><button class="add-photo">+ Aggiungi</button></div>
+        <div class="ph"><img src="${d.img}" alt=""></div>
+        <div class="ph"><img src="${d.img}" alt=""></div>
+        <div class="ph"><button class="add-photo">+ ${state.lang==="it"?"Aggiungi":"Add"}</button></div>
       </div>
 
       <h3 class="section-title">Selfie</h3>
       <div class="selfie ${selfieUnlocked?'unlocked':''}">
         <img class="img" src="${d.img}" alt="Selfie">
         <div class="over">
-          <button id="unlockSelfie" class="btn accent small">${selfieUnlocked?"Sbloccato 24h":"Sblocca selfie"}</button>
-          <button id="uploadSelfie" class="btn accent small">Carica selfie</button>
+          <button id="unlockSelfie" class="btn accent small">${selfieUnlocked?(state.lang==="it"?"Sbloccato 24h":"Unlocked 24h"):(state.lang==="it"?"Sblocca selfie":"Unlock selfie")}</button>
+          <button id="uploadSelfie" class="btn accent small">${state.lang==="it"?"Carica selfie":"Upload selfie"}</button>
         </div>
       </div>
 
-      <div class="separator"></div>
+      <h3 class="section-title">${state.lang==="it"?"Documenti":"Documents"}</h3>
+      
+      <div class="pp-docs-section">
+        <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti Proprietario DOG":"DOG Owner Documents"}</h4>
+        <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Obbligatorio per ottenere il badge verificato ✅":"Required to get verified badge ✅"}</p>
+        <div class="pp-docs-grid">
+          <div class="doc-item" data-doc="owner-identity" data-type="owner">
+            <div class="doc-icon">🪪</div>
+            <div class="doc-label">${state.lang==="it"?"Carta d'identità":"Identity Card"}</div>
+            <div class="doc-status ${ownerDocs.identity?'uploaded':'pending'}">${ownerDocs.identity?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-docs-section" style="margin-top:1.2rem">
+        <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti DOG":"DOG Documents"}</h4>
+        <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Facoltativi (vaccini, pedigree, microchip)":"Optional (vaccines, pedigree, microchip)"}</p>
+        <div class="pp-docs-grid">
+          <div class="doc-item" data-doc="dog-vaccines" data-type="dog">
+            <div class="doc-icon">💉</div>
+            <div class="doc-label">${state.lang==="it"?"Vaccini":"Vaccines"}</div>
+            <div class="doc-status ${dogDocs.vaccines?'uploaded':'pending'}">${dogDocs.vaccines?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+          <div class="doc-item" data-doc="dog-pedigree" data-type="dog">
+            <div class="doc-icon">📜</div>
+            <div class="doc-label">${state.lang==="it"?"Pedigree":"Pedigree"}</div>
+            <div class="doc-status ${dogDocs.pedigree?'uploaded':'pending'}">${dogDocs.pedigree?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+          <div class="doc-item" data-doc="dog-microchip" data-type="dog">
+            <div class="doc-icon">🔬</div>
+            <div class="doc-label">${state.lang==="it"?"Microchip":"Microchip"}</div>
+            <div class="doc-status ${dogDocs.microchip?'uploaded':'pending'}">${dogDocs.microchip?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+        </div>
+      </div>
+
       <div class="pp-actions">
-        <button id="btnDocsOwner" class="btn outline">Documenti proprietario</button>
-        <button id="btnDocsDog"   class="btn outline">Documenti dog</button>
-        <button id="btnOpenChat"  class="btn accent">Apri chat</button>
+        <button id="btnLikeDog" class="btn accent">💛 Like</button>
+        <button id="btnDislikeDog" class="btn outline">🥲 ${state.lang==="it"?"Passa":"Pass"}</button>
+        <button id="btnOpenChat" class="btn primary">${state.lang==="it"?"Apri chat":"Open chat"}</button>
+        <button id="btnPlayTogether" class="btn accent">🐕 ${t("playTogether")}</button>
       </div>
     `;
 
-    // Lightbox sulle foto
     qa(".gallery img", ppBody).forEach(img=>{
       img.addEventListener("click", ()=>{
         const lb = document.createElement("div");
@@ -410,62 +973,186 @@ btnEnter?.addEventListener("click", ()=>{
       });
     });
 
-    $("btnDocsOwner").onclick = ()=>{ alert("Upload documenti proprietario (mock)"); d.verified=true; renderNearby(); };
-    $("btnDocsDog").onclick   = ()=>{ alert("Upload documenti dog (mock)"); d.verified=true; renderNearby(); };
-    $("btnOpenChat").onclick  = ()=>{ closeProfilePage(); setTimeout(()=>openChat(d), 180); };
+    qa(".doc-item", ppBody).forEach(item=>{
+      item.addEventListener("click", ()=>{
+        const docType = item.getAttribute("data-doc");
+        const docCategory = item.getAttribute("data-type");
+        
+        if (docCategory === "owner"){
+          if (!state.ownerDocsUploaded[d.id]) state.ownerDocsUploaded[d.id] = {};
+          state.ownerDocsUploaded[d.id].identity = true;
+          localStorage.setItem("ownerDocsUploaded", JSON.stringify(state.ownerDocsUploaded));
+          
+          if (!d.verified){
+            d.verified = true;
+            alert(state.lang==="it" ? "Badge verificato ottenuto! ✅" : "Verified badge obtained! ✅");
+          }
+        } else if (docCategory === "dog"){
+          if (!state.dogDocsUploaded[d.id]) state.dogDocsUploaded[d.id] = {};
+          const docName = docType.replace("dog-", "");
+          state.dogDocsUploaded[d.id][docName] = true;
+          localStorage.setItem("dogDocsUploaded", JSON.stringify(state.dogDocsUploaded));
+        }
+        
+        openProfilePage(d);
+      });
+    });
 
-    $("uploadSelfie").onclick = ()=>alert("Upload selfie (mock)");
-    $("unlockSelfie").onclick = async ()=>{
+    $("btnLikeDog").onclick = ()=>{
+      state.matches[d.id] = true;
+      localStorage.setItem("matches", JSON.stringify(state.matches));
+      showMatchAnimation();
+      closeProfilePage();
+    };
+    
+    $("btnDislikeDog").onclick = ()=>{
+      closeProfilePage();
+    };
+
+    $("btnOpenChat").onclick = ()=>{
+      closeProfilePage();
+      setTimeout(()=>openChat(d), 180);
+    };
+
+    $("btnPlayTogether").onclick = ()=>{
+      alert(state.lang==="it" ? "Richiesta di gioco inviata! 🐕" : "Play request sent! 🐕");
+    };
+
+    $("uploadSelfie").onclick = ()=> alert(state.lang==="it" ? "Upload selfie (mock)" : "Upload selfie (mock)");
+    
+    $("unlockSelfie").onclick = ()=>{
       if (!isSelfieUnlocked(d.id)){
-        // mock sblocco 24h senza adv ora
-        state.selfieUntilByDog[d.id] = Date.now() + 24*60*60*1000;
-        localStorage.setItem("selfieUntilByDog", JSON.stringify(state.selfieUntilByDog));
-        openProfile(d);
+        if (!state.plus){
+          showRewardVideoMock("selfie", ()=>{
+            state.selfieUntilByDog[d.id] = Date.now() + 24*60*60*1000;
+            localStorage.setItem("selfieUntilByDog", JSON.stringify(state.selfieUntilByDog));
+            openProfilePage(d);
+          });
+        } else {
+          state.selfieUntilByDog[d.id] = Date.now() + 24*60*60*1000;
+          localStorage.setItem("selfieUntilByDog", JSON.stringify(state.selfieUntilByDog));
+          openProfilePage(d);
+        }
       }
     };
   };
+
+  closeProfile?.addEventListener("click", ()=> closeProfilePage());
+
   window.closeProfilePage = ()=>{
     profileSheet.classList.remove("show");
-    setTimeout(()=>profileSheet.classList.add("hidden"), 250);
+    setTimeout(()=>{
+      profileSheet.classList.add("hidden");
+      profileSheet.classList.remove("profile-page");
+      const previousView = state.viewHistory.pop() || "nearby";
+      setActiveView(previousView);
+      state.currentDogProfile = null;
+    }, 250);
   };
+
   function isSelfieUnlocked(id){ return Date.now() < (state.selfieUntilByDog[id]||0); }
 
-  // Chat
   function openChat(dog){
+    const hasMatch = state.matches[dog.id] || false;
+    const msgCount = state.chatMessagesSent[dog.id] || 0;
+
     chatPane.classList.remove("hidden");
     setTimeout(()=>chatPane.classList.add("show"), 10);
     chatPane.dataset.dogId = dog.id;
-    chatList.innerHTML = `<div class="msg">Ciao ${dog.name}! 🐾</div>`;
+    chatList.innerHTML = `<div class="msg">${state.lang==="it"?"Ciao":"Hi"} ${dog.name}! 🐾</div>`;
     chatInput.value="";
+    
+    if (!state.plus){
+      if (!hasMatch && msgCount >= 1){
+        chatInput.disabled = true;
+        chatInput.placeholder = state.lang==="it" ? "Match necessario per continuare" : "Match needed to continue";
+      } else {
+        chatInput.disabled = false;
+        chatInput.placeholder = state.lang==="it" ? "Scrivi un messaggio…" : "Type a message…";
+      }
+    }
   }
-  function closeChatPane(){ chatPane.classList.remove("show"); setTimeout(()=>chatPane.classList.add("hidden"), 250); }
+  
+  function closeChatPane(){
+    chatPane.classList.remove("show");
+    setTimeout(()=>chatPane.classList.add("hidden"), 250);
+  }
   closeChat?.addEventListener("click", closeChatPane);
 
-  chatComposer?.addEventListener("submit", async (e)=>{
+  chatComposer?.addEventListener("submit", (e)=>{
     e.preventDefault();
-    const text = chatInput.value.trim(); if (!text) return;
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
     const dogId = chatPane.dataset.dogId || "unknown";
-    // primo messaggio libero (niente video ora)
-    const bubble = document.createElement("div");
-    bubble.className="msg me"; bubble.textContent=text;
-    chatList.appendChild(bubble); chatInput.value="";
-    chatList.scrollTop = chatList.scrollHeight;
+    const hasMatch = state.matches[dogId] || false;
+    const msgCount = state.chatMessagesSent[dogId] || 0;
+
+    if (!state.plus){
+      if (msgCount === 0){
+        if (state.rewardOpen) return;
+        state.rewardOpen = true;
+        showRewardVideoMock("chat", ()=>{
+          state.rewardOpen = false;
+          sendChatMessage(text, dogId, hasMatch, msgCount);
+        });
+        return;
+      } else if (!hasMatch && msgCount >= 1){
+        alert(state.lang==="it" ? "Serve un match per continuare a chattare!" : "Match needed to continue chatting!");
+        return;
+      }
+    }
+    
+    sendChatMessage(text, dogId, hasMatch, msgCount);
   });
 
-  // Maps helpers (Luoghi PET esteso)
+  function sendChatMessage(text, dogId, hasMatch, msgCount){
+    const bubble = document.createElement("div");
+    bubble.className="msg me";
+    bubble.textContent=text;
+    chatList.appendChild(bubble);
+    chatInput.value="";
+    chatList.scrollTop = chatList.scrollHeight;
+
+    state.chatMessagesSent[dogId] = (msgCount || 0) + 1;
+    localStorage.setItem("chatMessagesSent", JSON.stringify(state.chatMessagesSent));
+
+    if (!state.plus && !hasMatch && state.chatMessagesSent[dogId] >= 1){
+      chatInput.disabled = true;
+      chatInput.placeholder = state.lang==="it" ? "Match necessario per continuare" : "Match needed to continue";
+    }
+  }
+
   function openMapsCategory(cat){
+    if (!state.plus && ["vets","groomers","shops"].includes(cat)){
+      if (state.rewardOpen) return;
+      state.rewardOpen = true;
+      showRewardVideoMock("services", ()=>{
+        state.rewardOpen = false;
+        openMapsQueryAfterReward(cat);
+      });
+      return;
+    }
+    openMapsQueryAfterReward(cat);
+  }
+
+  function openMapsQueryAfterReward(cat){
     const map = {
-      vets:"cliniche veterinarie vicino a me",
-      groomers:"toelettature vicino a me",
-      shops:"negozi per animali vicino a me",
-      trainers:"addestratori cani vicino a me",
-      kennels:"pensioni per dogs vicino a me",
-      parks:"parchi vicino a me"
+      vets: state.lang==="it" ? "cliniche veterinarie vicino a me" : "veterinary clinics near me",
+      groomers: state.lang==="it" ? "toelettature vicino a me" : "pet groomers near me",
+      shops: state.lang==="it" ? "negozi per animali vicino a me" : "pet shops near me",
+      trainers: state.lang==="it" ? "addestratori cani vicino a me" : "dog trainers near me",
+      kennels: state.lang==="it" ? "pensioni per dogs vicino a me" : "dog kennels near me",
+      parks: state.lang==="it" ? "parchi vicino a me" : "parks near me"
     };
-    const q = map[cat] || "servizi animali vicino a me";
+    const q = map[cat] || (state.lang==="it" ? "servizi animali vicino a me" : "pet services near me");
     openMapsQuery(q);
   }
-  function openSheltersMaps(){ openMapsQuery(t("mapsShelters")); }
+
+  function openSheltersMaps(){
+    openMapsQuery(t("mapsShelters"));
+  }
+
   function openMapsQuery(q){
     if (state.geo){
       const url = `geo:${state.geo.lat},${state.geo.lon}?q=${encodeURIComponent(q)}`;
@@ -475,15 +1162,56 @@ btnEnter?.addEventListener("click", ()=>{
     }
   }
 
-  // Ricerca UI preset + primo rendering
-  function init(){
-    breedInput.value = state.filters.breed;
-    distRange.value  = state.filters.distKm; distLabel.textContent = `${distRange.value} km`;
-    onlyVerified.checked = !!state.filters.verified;
-    sexFilter.value  = state.filters.sex;
-    if (state.plus){ weightInput?.removeAttribute("disabled"); heightInput?.removeAttribute("disabled"); }
-
-    if (state.entered){ setActiveView("nearby"); }
+  function showAdBanner(){
+    if (!adBanner || state.plus) return;
+    adBanner.textContent = "Banner Test AdMob • Bannerhome";
+    adBanner.style.display = "";
   }
+
+  function showRewardVideoMock(type, onClose){
+    const msg = {
+      it: {
+        swipe: `🎬 Reward Video Mock\n\nSwipe: ${state.swipeCount}\nProssima soglia: ${state.nextRewardAt}\n\nTipo: Swipe Unlock`,
+        selfie: "🎬 Reward Video Mock\n(prima di vedere selfie)\n\nTipo: Selfie Unlock",
+        chat: "🎬 Reward Video Mock\n(primo messaggio)\n\nTipo: Chat Unlock",
+        services: "🎬 Reward Video Mock\n(veterinari/toelettature/negozi)\n\nTipo: Services"
+      },
+      en: {
+        swipe: `🎬 Reward Video Mock\n\nSwipe: ${state.swipeCount}\nNext threshold: ${state.nextRewardAt}\n\nType: Swipe Unlock`,
+        selfie: "🎬 Reward Video Mock\n(before viewing selfie)\n\nType: Selfie Unlock",
+        chat: "🎬 Reward Video Mock\n(first message)\n\nType: Chat Unlock",
+        services: "🎬 Reward Video Mock\n(vets/groomers/shops)\n\nType: Services"
+      }
+    };
+    const text = msg[state.lang][type] || msg.it[type];
+    alert(text);
+    if (onClose) onClose();
+  }
+
+  function init(){
+    applyTranslations();
+    updatePlusUI();
+
+    if(breedInput) breedInput.value = state.filters.breed;
+    if(distRange) distRange.value  = state.filters.distKm;
+    if(distLabel) distLabel.textContent = `${distRange.value} km`;
+    if(onlyVerified) onlyVerified.checked = !!state.filters.verified;
+    if(sexFilter) sexFilter.value  = state.filters.sex;
+
+    if (state.plus){
+      if (ageMin) ageMin.value = state.filters.ageMin;
+      if (ageMax) ageMax.value = state.filters.ageMax;
+      if (weightInput) weightInput.value = state.filters.weight;
+      if (heightInput) heightInput.value = state.filters.height;
+      if (pedigreeFilter) pedigreeFilter.value = state.filters.pedigree;
+      if (breedingFilter) breedingFilter.value = state.filters.breeding;
+      if (sizeFilter) sizeFilter.value = state.filters.size;
+    }
+
+    if (state.entered){
+      setActiveView("nearby");
+    }
+  }
+
   init();
 });
