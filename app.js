@@ -1,10 +1,10 @@
 /* =========================================================
-   PLUTOO – app.js FINALE CON STORIES FUNZIONANTI
+   PLUTOO – app.js FINALE CON TUTTI I FIX
    ✅ FIX: Stories visibili in "Vicino a te"
-   ✅ FIX: "Giochiamo insieme" → "Amicizia"
-   ✅ FIX: Stories nel profilo con upload e visualizzazione
-   ✅ FIX: Stories viewer mostra SOLO storie del cane cliccato
-   ✅ FIX: Banner AdMob nel profilo
+   ✅ FIX: Video reward NON in loop (usa modal HTML)
+   ✅ FIX: Stories SEMPRE visibili nel profilo
+   ✅ FIX: Bottone "Carica Story" sempre presente
+   ✅ FIX: Click Story nel profilo → controlla Match
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -884,9 +884,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const ownerDocs = state.ownerDocsUploaded[d.id] || {};
     const dogDocs = state.dogDocsUploaded[d.id] || {};
     
-    // ✅ Recupera le stories del cane
+    // ✅ FIX: Recupera le stories del cane (SEMPRE VISIBILI)
     const dogStories = StoriesState.stories.find(s => s.userId === d.id);
-    const storiesHTML = dogStories && hasRelationship ? `
+    const storiesHTML = dogStories ? `
       <div class="pp-stories-section">
         <div class="pp-stories-header">
           <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
@@ -901,7 +901,7 @@ document.addEventListener("DOMContentLoaded", () => {
           `).join('')}
         </div>
       </div>
-    ` : (hasRelationship ? `
+    ` : `
       <div class="pp-stories-section">
         <div class="pp-stories-header">
           <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
@@ -909,7 +909,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:1rem 0">${state.lang==="it"?"Nessuna story disponibile":"No stories available"}</p>
       </div>
-    ` : '');
+    `;
     
     profileContent.innerHTML = `
       <div class="pp-hero"><img src="${d.img}" alt="${d.name}"></div>
@@ -987,12 +987,21 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    // ✅ Event listener per Stories del cane
-    if(hasRelationship && dogStories){
+    // ✅ FIX: Event listener per Stories del cane (CON CONTROLLO MATCH)
+    if(dogStories){
       qa(".pp-story-item", profileContent).forEach(item => {
         item.addEventListener("click", ()=>{
           const idx = parseInt(item.getAttribute("data-story-index"));
-          openDogStoryViewer(d.id, idx);
+          
+          // ✅ Controlla se hai Match/Amicizia PRIMA di aprire
+          const hasMatch = state.matches[d.id] || false;
+          const hasFriendship = state.friendships[d.id] || false;
+          
+          if (!hasMatch && !hasFriendship) {
+            showStoryRewardVideo(dogStories, d.id);
+          } else {
+            openDogStoryViewer(d.id, idx);
+          }
         });
       });
     }
@@ -1400,7 +1409,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupFiltersGrid();
   }
 
-  // ✅ FIX: MOSTRA TUTTE LE STORIES (controllo match solo all'apertura)
+  // ✅ MOSTRA TUTTE LE STORIES (controllo match solo all'apertura)
   function renderStoriesBar() {
     const container = $("storiesContainer");
     if (!container) return;
@@ -1449,7 +1458,7 @@ document.addEventListener("DOMContentLoaded", () => {
     startStoryProgress();
   }
 
-  // ✅ FIX: Apre Story Viewer da profilo
+  // ✅ Apre Story Viewer da profilo
   function openDogStoryViewer(userId, mediaIndex) {
     const story = StoriesState.stories.find(s => s.userId === userId);
     if (!story) return;
@@ -1547,7 +1556,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ✅ FIX: Passa alla prossima media DELLO STESSO CANE, poi chiude
+  // ✅ Passa alla prossima media DELLO STESSO CANE, poi chiude
   function nextStoryMedia() {
     stopStoryProgress();
     
@@ -1816,6 +1825,7 @@ document.addEventListener("DOMContentLoaded", () => {
     alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.");
   }
 
+  // ✅ FIX: USA MODAL HTML invece di alert()
   function showStoryRewardVideo(story, userId) {
     const modal = $("rewardVideoModal");
     if (!modal) return;
@@ -1829,6 +1839,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let countdown = duration;
     const countdownEl = $("rewardCountdown");
     const closeBtn = $("closeRewardVideo");
+    
+    if (!countdownEl || !closeBtn) return;
     
     countdownEl.textContent = `${countdown}s`;
     closeBtn.disabled = true;
@@ -1845,10 +1857,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 1000);
     
-    closeBtn.onclick = () => {
+    // ✅ FIX: Rimuovi event listener precedenti per evitare loop
+    const newCloseBtn = closeBtn.cloneNode(true);
+    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+    
+    newCloseBtn.onclick = () => {
       if (countdown <= 0) {
         modal.classList.add("hidden");
         clearInterval(interval);
+        // ✅ FIX: Apri Story Viewer SOLO se countdown finito
         openStoryViewerFromBar(userId);
       }
     };
@@ -1860,13 +1877,12 @@ document.addEventListener("DOMContentLoaded", () => {
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: 5.0 FINALE               ║
+  ║   Versione: 6.0 FINALE               ║
   ║                                       ║
-  ║   ✅ Stories VISIBILI in "Vicino"   ║
+  ║   ✅ Stories VISIBILI ovunque       ║
+  ║   ✅ Video reward NON in loop       ║
+  ║   ✅ Stories nel profilo sempre     ║
   ║   ✅ "Amicizia" invece di "Play"    ║
-  ║   ✅ Stories nel profilo             ║
-  ║   ✅ Banner AdMob nel profilo        ║
-  ║   ✅ Viewer mostra SOLO 1 cane      ║
   ║                                       ║
   ╚═══════════════════════════════════════╝
   `);
