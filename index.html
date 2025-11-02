@@ -112,21 +112,21 @@
       </div>
     </header>
 
-    <!-- STORIES BAR (AGGIUNTO) -->
-    <div id="storiesBar" class="stories-bar hidden">
-      <div class="stories-scroll">
-        <button id="addStoryBtn" class="story-circle add-story" type="button">
-          <div class="story-avatar">
-            <img src="plutoo-icon-192.png" alt="Tu" />
-            <div class="add-icon">+</div>
-          </div>
-          <span class="story-name">Tua Story</span>
-        </button>
-        <div id="storiesContainer" class="stories-list"></div>
-      </div>
-    </div>
-
     <main class="content" aria-live="polite">
+      <!-- ✅ FIX: Stories Bar DENTRO main, visibile SOLO in Vicino a te -->
+      <div id="storiesBar" class="stories-bar hidden">
+        <div class="stories-scroll">
+          <button id="addStoryBtn" class="story-circle add-story" type="button">
+            <div class="story-avatar">
+              <img src="plutoo-icon-192.png" alt="Tu" />
+              <div class="add-icon">+</div>
+            </div>
+            <span class="story-name">Tua Story</span>
+          </button>
+          <div id="storiesContainer" class="stories-list"></div>
+        </div>
+      </div>
+
       <section id="viewNearby" class="view active" aria-labelledby="nearbyTitle">
         <h2 id="nearbyTitle" class="visually-hidden">Vicino a te</h2>
         <div id="nearGrid" class="grid-2"></div>
@@ -171,7 +171,7 @@
       </section>
     </main>
 
-    <!-- STORY VIEWER FULLSCREEN (AGGIUNTO) -->
+    <!-- ✅ FIX: Story Viewer con z-index corretto (sotto panel/modal) -->
     <div id="storyViewer" class="story-viewer hidden">
       <div class="story-header">
         <div id="storyProgressBars" class="story-progress-bars"></div>
@@ -185,9 +185,9 @@
         </div>
       </div>
       <div class="story-content-wrapper">
-        <button class="story-nav-prev" id="storyNavPrev"></button>
+        <button class="story-nav-prev" id="storyNavPrev" type="button"></button>
         <div id="storyContent" class="story-content"></div>
-        <button class="story-nav-next" id="storyNavNext"></button>
+        <button class="story-nav-next" id="storyNavNext" type="button"></button>
       </div>
       <div id="storyPrivacyBadge" class="story-privacy-badge hidden"></div>
     </div>
@@ -381,7 +381,7 @@
     </div>
   </section>
 
-  <!-- UPLOAD STORY MODAL (AGGIUNTO) -->
+  <!-- ✅ Upload Story Modal -->
   <section id="uploadStoryModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content story-upload-modal">
@@ -416,13 +416,6 @@
                 <option value="happy">Happy Dogs</option>
                 <option value="chill">Chill Walk</option>
                 <option value="playful">Playful</option>
-                <option value="morning">Morning</option>
-                <option value="adventure">Adventure</option>
-                <option value="cozy">Cozy</option>
-                <option value="park">Park Day</option>
-                <option value="dreamy">Dreamy</option>
-                <option value="friends">Friends</option>
-                <option value="sunset">Sunset</option>
               </select>
             </div>
             <div class="customize-section">
@@ -460,7 +453,7 @@
     </div>
   </section>
 
-  <!-- REWARD VIDEO MODAL (AGGIUNTO) -->
+  <!-- ✅ Reward Video Modal -->
   <section id="rewardVideoModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content reward-modal">
