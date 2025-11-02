@@ -113,8 +113,8 @@
     </header>
 
     <main class="content" aria-live="polite">
-      <!-- ✅ FIX: Stories Bar DENTRO main, visibile SOLO in Vicino a te -->
-      <div id="storiesBar" class="stories-bar hidden">
+      <!-- ✅ FIX: Stories Bar parte SENZA hidden -->
+      <div id="storiesBar" class="stories-bar">
         <div class="stories-scroll">
           <button id="addStoryBtn" class="story-circle add-story" type="button">
             <div class="story-avatar">
@@ -171,7 +171,7 @@
       </section>
     </main>
 
-    <!-- ✅ FIX: Story Viewer con z-index corretto (sotto panel/modal) -->
+    <!-- ✅ Story Viewer -->
     <div id="storyViewer" class="story-viewer hidden">
       <div class="story-header">
         <div id="storyProgressBars" class="story-progress-bars"></div>
@@ -204,10 +204,15 @@
       </form>
     </aside>
 
-    <aside id="profileSheet" class="sheet hidden" role="dialog" aria-modal="true">
-      <button id="closeProfile" class="profile-close" type="button" aria-label="Chiudi profilo">✕</button>
-      <div id="ppBody" class="sheet-body"></div>
-    </aside>
+    <!-- ✅ FIX: Profilo DOG = pagina dedicata fullscreen scrollabile (NO banner sponsor) -->
+    <section id="profilePage" class="profile-page hidden">
+      <header class="profile-navbar">
+        <button id="profileBack" class="btn tiny ghost" type="button">← Indietro</button>
+        <div class="profile-title">Profilo</div>
+        <button id="profileClose" class="btn tiny ghost" type="button">✕</button>
+      </header>
+      <div id="profileContent" class="profile-content"></div>
+    </section>
 
     <footer class="sponsor">
       <div class="sponsor-wrap">
