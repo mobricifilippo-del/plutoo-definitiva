@@ -112,7 +112,7 @@
       </div>
     </header>
 
-    <!-- STORIES BAR -->
+    <!-- STORIES BAR (AGGIUNTO) -->
     <div id="storiesBar" class="stories-bar hidden">
       <div class="stories-scroll">
         <button id="addStoryBtn" class="story-circle add-story" type="button">
@@ -171,7 +171,7 @@
       </section>
     </main>
 
-    <!-- STORY VIEWER FULLSCREEN -->
+    <!-- STORY VIEWER FULLSCREEN (AGGIUNTO) -->
     <div id="storyViewer" class="story-viewer hidden">
       <div class="story-header">
         <div id="storyProgressBars" class="story-progress-bars"></div>
@@ -206,25 +206,27 @@
 
     <aside id="profileSheet" class="sheet hidden" role="dialog" aria-modal="true">
       <button id="closeProfile" class="profile-close" type="button" aria-label="Chiudi profilo">✕</button>
-      <div class="sheet-body profile-body">
-        <div class="profile-gallery" id="profileGallery"></div>
-        <div class="profile-meta" id="profileMeta"></div>
-        <div class="profile-docs" id="profileDocs"></div>
-      </div>
+      <div id="ppBody" class="sheet-body"></div>
     </aside>
 
-    <footer class="app-sponsor">
-      <a id="sponsorLinkApp" href="https://www.fido.it/" target="_blank" rel="noopener" class="sponsor-card-app">
-        <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo-app" />
-        <div class="sponsor-copy-app">Fido, il gelato per i nostri amici</div>
-      </a>
+    <footer class="sponsor">
+      <div class="sponsor-wrap">
+        <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
+        <a id="sponsorLinkApp" href="https://www.fido.it/" target="_blank" rel="noopener" aria-label="Apri sponsor Fido">
+          <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo" />
+        </a>
+        <div class="sponsor-copy">Fido, il gelato per i nostri amici a quattro zampe</div>
+      </div>
+
       <div class="legal-links legal-purple">
-        <a href="termini.html" target="_blank" rel="noopener">Termini</a>
+        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">Termini</a>
         <span>·</span>
-        <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>
+        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy</a>
         <span>·</span>
         <a href="mailto:plutoo.team@gmail.com">Contatti</a>
       </div>
+
+      <div id="adBanner" class="ad-banner" aria-hidden="true"></div>
     </footer>
   </section>
 
@@ -379,7 +381,7 @@
     </div>
   </section>
 
-  <!-- UPLOAD STORY MODAL -->
+  <!-- UPLOAD STORY MODAL (AGGIUNTO) -->
   <section id="uploadStoryModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content story-upload-modal">
@@ -458,7 +460,7 @@
     </div>
   </section>
 
-  <!-- REWARD VIDEO MODAL -->
+  <!-- REWARD VIDEO MODAL (AGGIUNTO) -->
   <section id="rewardVideoModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content reward-modal">
