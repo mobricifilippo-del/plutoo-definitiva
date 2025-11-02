@@ -1,8 +1,8 @@
 /* =====================================================
-   PLUTOO – VIOLET EDITION + STORIES + PROFILO PAGINA
-   ✅ FIX: Profilo DOG = pagina dedicata scrollabile
-   ✅ FIX: Stories Bar visibile correttamente
-   ✅ Baseline preservata al 100%
+   PLUTOO – VIOLET EDITION + STORIES + PROFILO COMPLETO
+   ✅ FIX: Banner AdMob nel profilo
+   ✅ FIX: Sezione Stories nel profilo
+   ✅ "Giochiamo insieme" → "Amicizia"
    ===================================================== */
 
 :root{
@@ -345,7 +345,27 @@ a{color:inherit;text-decoration:none}
 
 .profile-content{
   flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:1rem;
+  padding:1rem;padding-bottom:72px;
+}
+
+/* ✅ BANNER ADMOB NEL PROFILO */
+.profile-ad-banner{
+  position:sticky;bottom:0;left:0;right:0;
+  background:rgba(12,12,18,.95);
+  backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);
+  padding:.7rem 1rem;
+  z-index:1502;
+}
+
+.ad-banner-profile{
+  min-height:52px;
+  border:1px dashed rgba(255,255,255,.12);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);
+  font-size:.9rem;
+  background:rgba(18,18,38,.5);
 }
 
 .pp-hero{
@@ -379,6 +399,55 @@ a{color:inherit;text-decoration:none}
 .btn.outline:hover{background:rgba(138,123,255,.1);border-color:var(--violet-glow)}
 .section-title{
   color:var(--violet-glow);font-weight:900;margin:1.2rem 0 .6rem 0;font-size:1.15rem;
+}
+
+/* ✅ SEZIONE STORIES NEL PROFILO */
+.pp-stories-section{
+  background:rgba(138,123,255,.06);
+  border:1px solid rgba(138,123,255,.25);
+  border-radius:12px;
+  padding:.9rem;
+  margin:1rem 0;
+}
+
+.pp-stories-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:.8rem;
+}
+
+.pp-stories-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
+  gap:.7rem;
+}
+
+.pp-story-item{
+  position:relative;
+  aspect-ratio:9/16;
+  border-radius:12px;
+  overflow:hidden;
+  cursor:pointer;
+  border:2px solid rgba(138,123,255,.3);
+  transition:all .2s ease;
+}
+
+.pp-story-item:hover{
+  border-color:var(--violet);
+  transform:scale(1.05);
+}
+
+.pp-story-item img{
+  width:100%;height:100%;object-fit:cover;
+}
+
+.pp-story-time{
+  position:absolute;bottom:.3rem;left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.7);
+  padding:.2rem .4rem;
+  border-radius:8px;
+  font-size:.7rem;
+  color:#fff;
 }
 
 .pp-docs-section{
@@ -783,3 +852,1008 @@ a{color:inherit;text-decoration:none}
   90%{transform:scale(1.02);filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 20px rgba(138,123,255,.4))}
   100%{transform:scale(1);filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 0 rgba(138,123,255,0))}
 }
+// ✅ PROFILO DOG CON SEZIONE STORIES + BANNER ADMOB
+  window.openProfilePage = (d)=>{
+    state.currentDogProfile = d;
+    setActiveView("profile");
+    
+    history.pushState({view: "profile", dogId: d.id}, "", "");
+    
+    profilePage.classList.remove("hidden");
+
+    const selfieUnlocked = isSelfieUnlocked(d.id);
+    const hasMatch = state.matches[d.id] || false;
+    const hasFriendship = state.friendships[d.id] || false;
+    const hasRelationship = hasMatch || hasFriendship;
+    const ownerDocs = state.ownerDocsUploaded[d.id] || {};
+    const dogDocs = state.dogDocsUploaded[d.id] || {};
+    
+    // ✅ Recupera le stories del cane
+    const dogStories = StoriesState.stories.find(s => s.userId === d.id);
+    const storiesHTML = dogStories && hasRelationship ? `
+      <div class="pp-stories-section">
+        <div class="pp-stories-header">
+          <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
+          <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
+        </div>
+        <div class="pp-stories-grid" id="dogStoriesGrid">
+          ${dogStories.media.map((m, idx) => `
+            <div class="pp-story-item" data-story-index="${idx}">
+              <img src="${m.url}" alt="Story" />
+              <span class="pp-story-time">${getTimeAgo(m.timestamp)}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : (hasRelationship ? `
+      <div class="pp-stories-section">
+        <div class="pp-stories-header">
+          <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
+          <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
+        </div>
+        <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:1rem 0">${state.lang==="it"?"Nessuna story disponibile":"No stories available"}</p>
+      </div>
+    ` : '');
+    
+    profileContent.innerHTML = `
+      <div class="pp-hero"><img src="${d.img}" alt="${d.name}"></div>
+      <div class="pp-head">
+        <h2 class="pp-name">${d.name} ${d.verified?"✅":""}</h2>
+        <div class="pp-badges">
+          <span class="badge">${d.breed}</span>
+          <span class="badge">${d.age} ${t("years")}</span>
+          <span class="badge">${fmtKm(d.km)}</span>
+          <span class="badge">${d.sex==="M"?(state.lang==="it"?"Maschio":"Male"):(state.lang==="it"?"Femmina":"Female")}</span>
+        </div>
+      </div>
+      <div class="pp-meta soft">${d.bio||""}</div>
+
+      ${storiesHTML}
+
+      <h3 class="section-title">${state.lang==="it"?"Galleria":"Gallery"}</h3>
+      <div class="gallery">
+        <div class="ph"><img src="${d.img}" alt=""></div>
+        <div class="ph"><img src="${d.img}" alt=""></div>
+        <div class="ph"><img src="${d.img}" alt=""></div>
+        <div class="ph"><button class="add-photo">+ ${state.lang==="it"?"Aggiungi":"Add"}</button></div>
+      </div>
+
+      <h3 class="section-title">Selfie</h3>
+      <div class="selfie ${selfieUnlocked?'unlocked':''}">
+        <img class="img" src="${d.img}" alt="Selfie">
+        <div class="over">
+          <button id="unlockSelfie" class="btn accent small">${selfieUnlocked?(state.lang==="it"?"Sbloccato 24h":"Unlocked 24h"):(state.lang==="it"?"Sblocca selfie":"Unlock selfie")}</button>
+          <button id="uploadSelfie" class="btn accent small">${state.lang==="it"?"Carica selfie":"Upload selfie"}</button>
+        </div>
+      </div>
+
+      <h3 class="section-title">${state.lang==="it"?"Documenti":"Documents"}</h3>
+      
+      <div class="pp-docs-section">
+        <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti Proprietario DOG":"DOG Owner Documents"}</h4>
+        <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Obbligatorio per ottenere il badge verificato ✅":"Required to get verified badge ✅"}</p>
+        <div class="pp-docs-grid">
+          <div class="doc-item" data-doc="owner-identity" data-type="owner">
+            <div class="doc-icon">🪪</div>
+            <div class="doc-label">${state.lang==="it"?"Carta d'identità":"Identity Card"}</div>
+            <div class="doc-status ${ownerDocs.identity?'uploaded':'pending'}">${ownerDocs.identity?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-docs-section" style="margin-top:1.2rem">
+        <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti DOG":"DOG Documents"}</h4>
+        <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Facoltativi (vaccini, pedigree, microchip)":"Optional (vaccines, pedigree, microchip)"}</p>
+        <div class="pp-docs-grid">
+          <div class="doc-item" data-doc="dog-vaccines" data-type="dog">
+            <div class="doc-icon">💉</div>
+            <div class="doc-label">${state.lang==="it"?"Vaccini":"Vaccines"}</div>
+            <div class="doc-status ${dogDocs.vaccines?'uploaded':'pending'}">${dogDocs.vaccines?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+          <div class="doc-item" data-doc="dog-pedigree" data-type="dog">
+            <div class="doc-icon">📜</div>
+            <div class="doc-label">${state.lang==="it"?"Pedigree":"Pedigree"}</div>
+            <div class="doc-status ${dogDocs.pedigree?'uploaded':'pending'}">${dogDocs.pedigree?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+          <div class="doc-item" data-doc="dog-microchip" data-type="dog">
+            <div class="doc-icon">🔬</div>
+            <div class="doc-label">${state.lang==="it"?"Microchip":"Microchip"}</div>
+            <div class="doc-status ${dogDocs.microchip?'uploaded':'pending'}">${dogDocs.microchip?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pp-actions">
+        <button id="btnLikeDog" class="btn accent">💛 Like</button>
+        <button id="btnDislikeDog" class="btn outline">🥲 ${state.lang==="it"?"Passa":"Pass"}</button>
+        <button id="btnOpenChat" class="btn primary">${state.lang==="it"?"Apri chat":"Open chat"}</button>
+        <button id="btnFriendship" class="btn accent">🐕 ${t("friendship")}</button>
+      </div>
+    `;
+
+    // ✅ Event listener per Stories del cane
+    if(hasRelationship && dogStories){
+      qa(".pp-story-item", profileContent).forEach(item => {
+        item.addEventListener("click", ()=>{
+          const idx = parseInt(item.getAttribute("data-story-index"));
+          openDogStoryViewer(d.id, idx);
+        });
+      });
+    }
+
+    $("uploadDogStory")?.addEventListener("click", ()=>{
+      openUploadModal();
+    });
+
+    qa(".gallery img", profileContent).forEach(img=>{
+      img.addEventListener("click", ()=>{
+        const lb = document.createElement("div");
+        lb.className = "lightbox";
+        lb.innerHTML = `<button class="close" aria-label="Chiudi">✕</button><img src="${img.src}" alt="">`;
+        document.body.appendChild(lb);
+        qs(".close", lb).onclick = ()=> lb.remove();
+        lb.addEventListener("click", (e)=>{ if(e.target===lb) lb.remove(); });
+      });
+    });
+
+    qa(".doc-item", profileContent).forEach(item=>{
+      item.addEventListener("click", ()=>{
+        const docType = item.getAttribute("data-doc");
+        const docCategory = item.getAttribute("data-type");
+        
+        if (docCategory === "owner"){
+          if (!state.ownerDocsUploaded[d.id]) state.ownerDocsUploaded[d.id] = {};
+          state.ownerDocsUploaded[d.id].identity = true;
+          localStorage.setItem("ownerDocsUploaded", JSON.stringify(state.ownerDocsUploaded));
+          
+          if (!d.verified){
+            d.verified = true;
+            alert(state.lang==="it" ? "Badge verificato ottenuto! ✅" : "Verified badge obtained! ✅");
+          }
+        } else if (docCategory === "dog"){
+          if (!state.dogDocsUploaded[d.id]) state.dogDocsUploaded[d.id] = {};
+          const docName = docType.replace("dog-", "");
+          state.dogDocsUploaded[d.id][docName] = true;
+          localStorage.setItem("dogDocsUploaded", JSON.stringify(state.dogDocsUploaded));
+        }
+        
+        openProfilePage(d);
+      });
+    });
+
+    $("btnLikeDog").onclick = ()=>{
+      state.matches[d.id] = true;
+      localStorage.setItem("matches", JSON.stringify(state.matches));
+      showMatchAnimation();
+      closeProfilePage();
+    };
+    
+    $("btnDislikeDog").onclick = ()=>{
+      closeProfilePage();
+    };
+
+    $("btnOpenChat").onclick = ()=>{
+      closeProfilePage();
+      setTimeout(()=>openChat(d), 180);
+    };
+
+    $("btnFriendship").onclick = ()=>{
+      state.friendships[d.id] = true;
+      localStorage.setItem("friendships", JSON.stringify(state.friendships));
+      alert(state.lang==="it" ? "Richiesta di amicizia inviata! 🐕" : "Friendship request sent! 🐕");
+    };
+
+    $("uploadSelfie").onclick = ()=> alert(state.lang==="it" ? "Upload selfie (mock)" : "Upload selfie (mock)");
+    
+    $("unlockSelfie").onclick = ()=>{
+      if (!isSelfieUnlocked(d.id)){
+        if (!state.plus){
+          showRewardVideoMock("selfie", ()=>{
+            state.selfieUntilByDog[d.id] = Date.now() + 24*60*60*1000;
+            localStorage.setItem("selfieUntilByDog", JSON.stringify(state.selfieUntilByDog));
+            openProfilePage(d);
+          });
+        } else {
+          state.selfieUntilByDog[d.id] = Date.now() + 24*60*60*1000;
+          localStorage.setItem("selfieUntilByDog", JSON.stringify(state.selfieUntilByDog));
+          openProfilePage(d);
+        }
+      }
+    };
+  };
+
+  profileBack?.addEventListener("click", ()=> closeProfilePage());
+  profileClose?.addEventListener("click", ()=> closeProfilePage());
+
+  window.closeProfilePage = ()=>{
+    profilePage.classList.add("hidden");
+    const previousView = state.viewHistory.pop() || "nearby";
+    setActiveView(previousView);
+    state.currentDogProfile = null;
+  };
+
+  function isSelfieUnlocked(id){ return Date.now() < (state.selfieUntilByDog[id]||0); }
+
+  function openChat(dog){
+    const hasMatch = state.matches[dog.id] || false;
+    const msgCount = state.chatMessagesSent[dog.id] || 0;
+
+    chatPane.classList.remove("hidden");
+    setTimeout(()=>chatPane.classList.add("show"), 10);
+    chatPane.dataset.dogId = dog.id;
+    chatList.innerHTML = `<div class="msg">${state.lang==="it"?"Ciao":"Hi"} ${dog.name}! 🐾</div>`;
+    chatInput.value="";
+    
+    if (!state.plus){
+      if (!hasMatch && msgCount >= 1){
+        chatInput.disabled = true;
+        chatInput.placeholder = state.lang==="it" ? "Match necessario per continuare" : "Match needed to continue";
+      } else {
+        chatInput.disabled = false;
+        chatInput.placeholder = state.lang==="it" ? "Scrivi un messaggio…" : "Type a message…";
+      }
+    }
+  }
+  
+  function closeChatPane(){
+    chatPane.classList.remove("show");
+    setTimeout(()=>chatPane.classList.add("hidden"), 250);
+  }
+  closeChat?.addEventListener("click", closeChatPane);
+
+  chatComposer?.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
+    const dogId = chatPane.dataset.dogId || "unknown";
+    const hasMatch = state.matches[dogId] || false;
+    const msgCount = state.chatMessagesSent[dogId] || 0;
+
+    if (!state.plus){
+      if (msgCount === 0){
+        if (state.rewardOpen) return;
+        state.rewardOpen = true;
+        showRewardVideoMock("chat", ()=>{
+          state.rewardOpen = false;
+          sendChatMessage(text, dogId, hasMatch, msgCount);
+        });
+        return;
+      } else if (!hasMatch && msgCount >= 1){
+        alert(state.lang==="it" ? "Serve un match per continuare a chattare!" : "Match needed to continue chatting!");
+        return;
+      }
+    }
+    
+    sendChatMessage(text, dogId, hasMatch, msgCount);
+  });
+
+  function sendChatMessage(text, dogId, hasMatch, msgCount){
+    const bubble = document.createElement("div");
+    bubble.className="msg me";
+    bubble.textContent=text;
+    chatList.appendChild(bubble);
+    chatInput.value="";
+    chatList.scrollTop = chatList.scrollHeight;
+
+    state.chatMessagesSent[dogId] = (msgCount || 0) + 1;
+    localStorage.setItem("chatMessagesSent", JSON.stringify(state.chatMessagesSent));
+
+    if (!state.plus && !hasMatch && state.chatMessagesSent[dogId] >= 1){
+      chatInput.disabled = true;
+      chatInput.placeholder = state.lang==="it" ? "Match necessario per continuare" : "Match needed to continue";
+    }
+  }
+
+  function openMapsCategory(cat){
+    if (!state.plus && ["vets","groomers","shops"].includes(cat)){
+      if (state.rewardOpen) return;
+      state.rewardOpen = true;
+      showRewardVideoMock("services", ()=>{
+        state.rewardOpen = false;
+        openMapsQueryAfterReward(cat);
+      });
+      return;
+    }
+    openMapsQueryAfterReward(cat);
+  }
+
+  function openMapsQueryAfterReward(cat){
+    const map = {
+      vets: state.lang==="it" ? "cliniche veterinarie vicino a me" : "veterinary clinics near me",
+      groomers: state.lang==="it" ? "toelettature vicino a me" : "pet groomers near me",
+      shops: state.lang==="it" ? "negozi per animali vicino a me" : "pet shops near me",
+      trainers: state.lang==="it" ? "addestratori cani vicino a me" : "dog trainers near me",
+      kennels: state.lang==="it" ? "pensioni per dogs vicino a me" : "dog kennels near me",
+      parks: state.lang==="it" ? "parchi vicino a me" : "parks near me"
+    };
+    const q = map[cat] || (state.lang==="it" ? "servizi animali vicino a me" : "pet services near me");
+    openMapsQuery(q);
+  }
+
+  function openSheltersMaps(){
+    openMapsQuery(t("mapsShelters"));
+  }
+
+  function openMapsQuery(q){
+    if (state.geo){
+      const url = `geo:${state.geo.lat},${state.geo.lon}?q=${encodeURIComponent(q)}`;
+      window.open(url,"_blank","noopener");
+    } else {
+      window.open(`https://www.google.com/maps/search/${encodeURIComponent(q)}`,"_blank","noopener");
+    }
+  }
+
+  function showAdBanner(){
+    if (!adBanner || state.plus) return;
+    adBanner.textContent = "Banner Test AdMob • Bannerhome";
+    adBanner.style.display = "";
+  }
+
+  function showRewardVideoMock(type, onClose){
+    const msg = {
+      it: {
+        swipe: `🎬 Reward Video Mock\n\nSwipe: ${state.swipeCount}\nProssima soglia: ${state.nextRewardAt}\n\nTipo: Swipe Unlock`,
+        selfie: "🎬 Reward Video Mock\n(prima di vedere selfie)\n\nTipo: Selfie Unlock",
+        chat: "🎬 Reward Video Mock\n(primo messaggio)\n\nTipo: Chat Unlock",
+        services: "🎬 Reward Video Mock\n(veterinari/toelettature/negozi)\n\nTipo: Services"
+      },
+      en: {
+        swipe: `🎬 Reward Video Mock\n\nSwipe: ${state.swipeCount}\nNext threshold: ${state.nextRewardAt}\n\nType: Swipe Unlock`,
+        selfie: "🎬 Reward Video Mock\n(before viewing selfie)\n\nType: Selfie Unlock",
+        chat: "🎬 Reward Video Mock\n(first message)\n\nType: Chat Unlock",
+        services: "🎬 Reward Video Mock\n(vets/groomers/shops)\n\nType: Services"
+      }
+    };
+    const text = msg[state.lang][type] || msg.it[type];
+    alert(text);
+    if (onClose) onClose();
+  }
+
+  function init(){
+    applyTranslations();
+    updatePlusUI();
+
+    if(breedInput) breedInput.value = state.filters.breed;
+    if(distRange) distRange.value  = state.filters.distKm;
+    if(distLabel) distLabel.textContent = `${distRange.value} km`;
+    if(onlyVerified) onlyVerified.checked = !!state.filters.verified;
+    if(sexFilter) sexFilter.value  = state.filters.sex;
+
+    if (state.plus){
+      if (ageMin) ageMin.value = state.filters.ageMin;
+      if (ageMax) ageMax.value = state.filters.ageMax;
+      if (weightInput) weightInput.value = state.filters.weight;
+      if (heightInput) heightInput.value = state.filters.height;
+      if (pedigreeFilter) pedigreeFilter.value = state.filters.pedigree;
+      if (breedingFilter) breedingFilter.value = state.filters.breeding;
+      if (sizeFilter) sizeFilter.value = state.filters.size;
+    }
+
+    if (state.entered){
+      initStories();
+      setActiveView("nearby");
+    }
+  }
+
+  init();
+
+  // ========== SISTEMA STORIES ==========
+  
+  const STORIES_CONFIG = {
+    PHOTO_DURATION: 15000,
+    VIDEO_MAX_DURATION: 90,
+    MAX_PHOTO_SIZE: 10 * 1024 * 1024,
+    MAX_VIDEO_SIZE: 50 * 1024 * 1024,
+    STORY_LIFETIME: 24 * 60 * 60 * 1000,
+    FREE_DAILY_LIMIT: 3,
+    REWARD_VIDEO_SHORT: 15,
+    REWARD_VIDEO_LONG: 30
+  };
+
+  const StoriesState = {
+    stories: [],
+    currentStoryUserId: null,
+    currentMediaIndex: 0,
+    progressInterval: null,
+    uploadedFile: null,
+    selectedFilter: "none",
+    selectedMusic: "",
+    selectedPrivacy: "public",
+    
+    loadStories() {
+      const saved = localStorage.getItem("plutoo_stories");
+      if (saved) {
+        this.stories = JSON.parse(saved);
+        this.cleanExpiredStories();
+      } else {
+        this.stories = this.generateMockStories();
+        this.saveStories();
+      }
+    },
+    
+    saveStories() {
+      localStorage.setItem("plutoo_stories", JSON.stringify(this.stories));
+    },
+    
+    cleanExpiredStories() {
+      const now = Date.now();
+      this.stories = this.stories.filter(story => {
+        story.media = story.media.filter(m => (now - m.timestamp) < STORIES_CONFIG.STORY_LIFETIME);
+        return story.media.length > 0;
+      });
+      this.saveStories();
+    },
+    
+    getTodayStoriesCount() {
+      const today = new Date().toDateString();
+      const userStory = this.stories.find(s => s.userId === "currentUser");
+      if (!userStory) return 0;
+      return userStory.media.filter(m => new Date(m.timestamp).toDateString() === today).length;
+    },
+    
+    canUploadStory() {
+      if (state.plus) return true;
+      return this.getTodayStoriesCount() < STORIES_CONFIG.FREE_DAILY_LIMIT;
+    },
+    
+    generateMockStories() {
+      return [
+        {
+          userId: "d1",
+          userName: "Luna",
+          avatar: "dog1.jpg",
+          verified: true,
+          media: [{
+            id: "m1",
+            type: "image",
+            url: "dog1.jpg",
+            timestamp: Date.now() - 3600000,
+            filter: "none",
+            music: "",
+            privacy: "public",
+            viewed: false
+          }]
+        },
+        {
+          userId: "d2",
+          userName: "Rex",
+          avatar: "dog2.jpg",
+          verified: true,
+          media: [
+            {
+              id: "m2",
+              type: "image",
+              url: "dog2.jpg",
+              timestamp: Date.now() - 7200000,
+              filter: "warm",
+              music: "happy",
+              privacy: "public",
+              viewed: false
+            },
+            {
+              id: "m3",
+              type: "image",
+              url: "dog3.jpg",
+              timestamp: Date.now() - 5400000,
+              filter: "sepia",
+              music: "",
+              privacy: "public",
+              viewed: false
+            }
+          ]
+        },
+        {
+          userId: "d3",
+          userName: "Maya",
+          avatar: "dog3.jpg",
+          verified: false,
+          media: [{
+            id: "m4",
+            type: "image",
+            url: "dog4.jpg",
+            timestamp: Date.now() - 10800000,
+            filter: "grayscale",
+            music: "",
+            privacy: "private",
+            viewed: false
+          }]
+        }
+      ];
+    }
+  };
+
+  function initStories() {
+    StoriesState.loadStories();
+    renderStoriesBar();
+    setupStoriesEvents();
+  }
+
+  function setupStoriesEvents() {
+    $("addStoryBtn")?.addEventListener("click", openUploadModal);
+    $("closeStoryViewer")?.addEventListener("click", closeStoryViewer);
+    $("storyNavPrev")?.addEventListener("click", prevStoryMedia);
+    $("storyNavNext")?.addEventListener("click", nextStoryMedia);
+    $("closeUploadStory")?.addEventListener("click", closeUploadModal);
+    $("cancelUpload")?.addEventListener("click", closeUploadModal);
+    $("storyFileInput")?.addEventListener("change", handleFileSelect);
+    $("nextToCustomize")?.addEventListener("click", showCustomizeStep);
+    $("backToUpload")?.addEventListener("click", showUploadStep);
+    $("publishStory")?.addEventListener("click", publishStory);
+    
+    setupFiltersGrid();
+  }
+
+  function renderStoriesBar() {
+    const container = $("storiesContainer");
+    if (!container) return;
+    
+    container.innerHTML = "";
+    
+    StoriesState.stories.forEach((story) => {
+      const hasMatch = state.matches[story.userId] || false;
+      const hasFriendship = state.friendships[story.userId] || false;
+      
+      if (!hasMatch && !hasFriendship) return;
+      
+      const allViewed = story.media.every(m => m.viewed);
+      
+      const circle = document.createElement("button");
+      circle.className = `story-circle ${allViewed ? "viewed" : ""}`;
+      circle.type = "button";
+      circle.innerHTML = `
+        <div class="story-avatar">
+          <img src="${story.avatar}" alt="${story.userName}" />
+        </div>
+        <span class="story-name">${story.userName}</span>
+      `;
+      circle.addEventListener("click", () => openStoryViewerFromBar(story.userId));
+      container.appendChild(circle);
+    });
+  }
+
+  // ✅ FIX: Apre Story Viewer SOLO per quel cane
+  function openStoryViewerFromBar(userId) {
+    const story = StoriesState.stories.find(s => s.userId === userId);
+    if (!story) return;
+    
+    const hasMatch = state.matches[userId] || false;
+    const hasFriendship = state.friendships[userId] || false;
+    
+    if (!hasMatch && !hasFriendship) {
+      showStoryRewardVideo(story, userId);
+      return;
+    }
+    
+    StoriesState.currentStoryUserId = userId;
+    StoriesState.currentMediaIndex = 0;
+    
+    $("storyViewer")?.classList.remove("hidden");
+    document.body.classList.add("noscroll");
+    
+    renderStoryViewer();
+    startStoryProgress();
+  }
+
+  // ✅ FIX: Apre Story Viewer da profilo
+  function openDogStoryViewer(userId, mediaIndex) {
+    const story = StoriesState.stories.find(s => s.userId === userId);
+    if (!story) return;
+    
+    StoriesState.currentStoryUserId = userId;
+    StoriesState.currentMediaIndex = mediaIndex;
+    
+    $("storyViewer")?.classList.remove("hidden");
+    document.body.classList.add("noscroll");
+    
+    renderStoryViewer();
+    startStoryProgress();
+  }
+
+  function renderStoryViewer() {
+    const story = StoriesState.stories.find(s => s.userId === StoriesState.currentStoryUserId);
+    if (!story) return;
+    
+    const media = story.media[StoriesState.currentMediaIndex];
+    if (!media) return;
+    
+    $("storyUserAvatar").src = story.avatar;
+    $("storyUserName").textContent = story.userName;
+    $("storyTimestamp").textContent = getTimeAgo(media.timestamp);
+    
+    renderProgressBars(story.media.length);
+    renderStoryContent(media);
+    
+    if (media.privacy === "private") {
+      $("storyPrivacyBadge").textContent = "🔒 Storia Privata";
+      $("storyPrivacyBadge").classList.remove("hidden");
+    } else {
+      $("storyPrivacyBadge").classList.add("hidden");
+    }
+    
+    media.viewed = true;
+    StoriesState.saveStories();
+  }
+
+  function renderProgressBars(count) {
+    const container = $("storyProgressBars");
+    container.innerHTML = "";
+    
+    for (let i = 0; i < count; i++) {
+      const bar = document.createElement("div");
+      bar.className = "story-progress-bar";
+      if (i < StoriesState.currentMediaIndex) bar.classList.add("completed");
+      if (i === StoriesState.currentMediaIndex) bar.classList.add("active");
+      bar.innerHTML = '<div class="story-progress-fill"></div>';
+      container.appendChild(bar);
+    }
+  }
+
+  function renderStoryContent(media) {
+    const content = $("storyContent");
+    content.innerHTML = "";
+    
+    if (media.type === "image") {
+      const img = document.createElement("img");
+      img.src = media.url;
+      img.alt = "Story";
+      img.className = `filter-${media.filter}`;
+      content.appendChild(img);
+    } else if (media.type === "video") {
+      const video = document.createElement("video");
+      video.src = media.url;
+      video.autoplay = true;
+      video.muted = false;
+      video.className = `filter-${media.filter}`;
+      video.addEventListener("ended", nextStoryMedia);
+      content.appendChild(video);
+    }
+    
+    if (media.music) playStoryMusic(media.music);
+  }
+
+  function startStoryProgress() {
+    stopStoryProgress();
+    
+    const story = StoriesState.stories.find(s => s.userId === StoriesState.currentStoryUserId);
+    if (!story) return;
+    
+    const media = story.media[StoriesState.currentMediaIndex];
+    if (!media) return;
+    
+    if (media.type === "image") {
+      StoriesState.progressInterval = setTimeout(nextStoryMedia, STORIES_CONFIG.PHOTO_DURATION);
+    }
+  }
+
+  function stopStoryProgress() {
+    if (StoriesState.progressInterval) {
+      clearTimeout(StoriesState.progressInterval);
+      StoriesState.progressInterval = null;
+    }
+  }
+
+  // ✅ FIX: Passa alla prossima media DELLO STESSO CANE, poi chiude
+  function nextStoryMedia() {
+    stopStoryProgress();
+    
+    const story = StoriesState.stories.find(s => s.userId === StoriesState.currentStoryUserId);
+    if (!story) {
+      closeStoryViewer();
+      return;
+    }
+    
+    if (StoriesState.currentMediaIndex < story.media.length - 1) {
+      StoriesState.currentMediaIndex++;
+      renderStoryViewer();
+      startStoryProgress();
+    } else {
+      closeStoryViewer();
+    }
+  }
+
+  function prevStoryMedia() {
+    stopStoryProgress();
+    
+    if (StoriesState.currentMediaIndex > 0) {
+      StoriesState.currentMediaIndex--;
+      renderStoryViewer();
+      startStoryProgress();
+    }
+  }
+
+  function closeStoryViewer() {
+    stopStoryProgress();
+    $("storyViewer")?.classList.add("hidden");
+    document.body.classList.remove("noscroll");
+    renderStoriesBar();
+  }
+
+  function getTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return "ora";
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m fa`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h fa`;
+    return `${Math.floor(seconds / 86400)}g fa`;
+  }
+
+  function playStoryMusic(musicId) {
+    console.log("🎵 Playing music:", musicId);
+  }
+
+  function openUploadModal() {
+    if (!StoriesState.canUploadStory()) {
+      alert(`⚠️ Limite raggiunto!\n\nHai già caricato ${STORIES_CONFIG.FREE_DAILY_LIMIT} Stories oggi.\n\nAttiva Plutoo Plus 💎 per Stories illimitate!`);
+      return;
+    }
+    
+    $("uploadStoryModal")?.classList.remove("hidden");
+    showUploadStep();
+  }
+
+  function closeUploadModal() {
+    $("uploadStoryModal")?.classList.add("hidden");
+    resetUploadForm();
+  }
+
+  function resetUploadForm() {
+    StoriesState.uploadedFile = null;
+    StoriesState.selectedFilter = "none";
+    StoriesState.selectedMusic = "";
+    StoriesState.selectedPrivacy = "public";
+    $("storyFileInput").value = "";
+    $("uploadPreview").classList.add("hidden");
+    $("uploadPreview").innerHTML = "";
+    $("nextToCustomize").disabled = true;
+    showUploadStep();
+  }
+
+  function showUploadStep() {
+    $("uploadStoryStep1")?.classList.add("active");
+    $("uploadStoryStep2")?.classList.remove("active");
+  }
+
+  function showCustomizeStep() {
+    if (!StoriesState.uploadedFile) return;
+    $("uploadStoryStep1")?.classList.remove("active");
+    $("uploadStoryStep2")?.classList.add("active");
+    renderCustomizePreview();
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    
+    if (!isImage && !isVideo) {
+      alert("⚠️ Formato non supportato!\n\nCarica solo immagini (JPG, PNG, WEBP) o video (MP4, WEBM).");
+      return;
+    }
+    
+    if (isImage && file.size > STORIES_CONFIG.MAX_PHOTO_SIZE) {
+      alert(`⚠️ Foto troppo grande!\n\nMax ${STORIES_CONFIG.MAX_PHOTO_SIZE / 1024 / 1024}MB`);
+      return;
+    }
+    
+    if (isVideo && file.size > STORIES_CONFIG.MAX_VIDEO_SIZE) {
+      alert(`⚠️ Video troppo grande!\n\nMax ${STORIES_CONFIG.MAX_VIDEO_SIZE / 1024 / 1024}MB`);
+      return;
+    }
+    
+    if (isVideo) {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = function() {
+        window.URL.revokeObjectURL(video.src);
+        if (video.duration > STORIES_CONFIG.VIDEO_MAX_DURATION) {
+          alert(`⚠️ Video troppo lungo!\n\nMax ${STORIES_CONFIG.VIDEO_MAX_DURATION} secondi`);
+          return;
+        }
+        processFile(file, isImage, isVideo);
+      };
+      video.src = URL.createObjectURL(file);
+    } else {
+      processFile(file, isImage, isVideo);
+    }
+  }
+
+  function processFile(file, isImage, isVideo) {
+    StoriesState.uploadedFile = {
+      file: file,
+      type: isImage ? "image" : "video",
+      url: URL.createObjectURL(file)
+    };
+    
+    showFilePreview();
+    $("nextToCustomize").disabled = false;
+  }
+
+  function showFilePreview() {
+    const preview = $("uploadPreview");
+    preview.classList.remove("hidden");
+    preview.innerHTML = "";
+    
+    if (StoriesState.uploadedFile.type === "image") {
+      const img = document.createElement("img");
+      img.src = StoriesState.uploadedFile.url;
+      preview.appendChild(img);
+    } else {
+      const video = document.createElement("video");
+      video.src = StoriesState.uploadedFile.url;
+      video.controls = true;
+      preview.appendChild(video);
+    }
+  }
+
+  function setupFiltersGrid() {
+    const grid = $("filtersGrid");
+    if (!grid) return;
+    
+    const filters = [
+      { id: "none", name: "Nessuno", premium: false },
+      { id: "grayscale", name: "B&N", premium: false },
+      { id: "sepia", name: "Vintage", premium: false },
+      { id: "warm", name: "Caldo", premium: false }
+    ];
+    
+    grid.innerHTML = "";
+    
+    filters.forEach(filter => {
+      const btn = document.createElement("button");
+      btn.className = `filter-btn ${filter.id === "none" ? "active" : ""} ${filter.premium && !state.plus ? "locked" : ""}`;
+      btn.type = "button";
+      btn.dataset.filter = filter.id;
+      
+      btn.innerHTML = `
+        <div class="filter-preview"></div>
+        <span>${filter.name}</span>
+      `;
+      
+      btn.addEventListener("click", () => {
+        if (filter.premium && !state.plus) {
+          alert("🔒 Filtro Premium\n\nAttiva Plutoo Plus 💎 per sbloccare tutti i filtri!");
+          return;
+        }
+        selectFilter(filter.id);
+      });
+      
+      grid.appendChild(btn);
+    });
+  }
+
+  function selectFilter(filterId) {
+    StoriesState.selectedFilter = filterId;
+    qa(".filter-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.filter === filterId);
+    });
+    renderCustomizePreview();
+  }
+
+  function renderCustomizePreview() {
+    const preview = $("uploadPreview");
+    if (!preview || !StoriesState.uploadedFile) return;
+    
+    preview.innerHTML = "";
+    
+    if (StoriesState.uploadedFile.type === "image") {
+      const img = document.createElement("img");
+      img.src = StoriesState.uploadedFile.url;
+      img.className = `filter-${StoriesState.selectedFilter}`;
+      preview.appendChild(img);
+    } else {
+      const video = document.createElement("video");
+      video.src = StoriesState.uploadedFile.url;
+      video.controls = true;
+      video.className = `filter-${StoriesState.selectedFilter}`;
+      preview.appendChild(video);
+    }
+  }
+
+  function publishStory() {
+    if (!StoriesState.uploadedFile) return;
+    
+    const musicSelect = $("storyMusicSelect");
+    StoriesState.selectedMusic = musicSelect.value;
+    
+    const privacyRadios = document.getElementsByName("storyPrivacy");
+    privacyRadios.forEach(radio => {
+      if (radio.checked) StoriesState.selectedPrivacy = radio.value;
+    });
+    
+    const targetUserId = state.currentDogProfile ? state.currentDogProfile.id : "currentUser";
+    
+    const newMedia = {
+      id: `m${Date.now()}`,
+      type: StoriesState.uploadedFile.type,
+      url: StoriesState.uploadedFile.url,
+      timestamp: Date.now(),
+      filter: StoriesState.selectedFilter,
+      music: StoriesState.selectedMusic,
+      privacy: StoriesState.selectedPrivacy,
+      viewed: false
+    };
+    
+    let story = StoriesState.stories.find(s => s.userId === targetUserId);
+    
+    if (!story) {
+      const dog = DOGS.find(d => d.id === targetUserId);
+      story = {
+        userId: targetUserId,
+        userName: dog ? dog.name : "Tu",
+        avatar: dog ? dog.img : "plutoo-icon-192.png",
+        verified: dog ? dog.verified : state.plus,
+        media: []
+      };
+      StoriesState.stories.unshift(story);
+    }
+    
+    story.media.push(newMedia);
+    StoriesState.saveStories();
+    
+    closeUploadModal();
+    renderStoriesBar();
+    
+    if(state.currentDogProfile){
+      openProfilePage(state.currentDogProfile);
+    }
+    
+    alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.");
+  }
+
+  function showStoryRewardVideo(story, userId) {
+    const modal = $("rewardVideoModal");
+    if (!modal) return;
+    
+    const media = story.media[0];
+    const isPrivate = media.privacy === "private";
+    const duration = isPrivate ? STORIES_CONFIG.REWARD_VIDEO_LONG : STORIES_CONFIG.REWARD_VIDEO_SHORT;
+    
+    modal.classList.remove("hidden");
+    
+    let countdown = duration;
+    const countdownEl = $("rewardCountdown");
+    const closeBtn = $("closeRewardVideo");
+    
+    countdownEl.textContent = `${countdown}s`;
+    closeBtn.disabled = true;
+    closeBtn.textContent = "Chiudi (attendi...)";
+    
+    const interval = setInterval(() => {
+      countdown--;
+      countdownEl.textContent = `${countdown}s`;
+      
+      if (countdown <= 0) {
+        clearInterval(interval);
+        closeBtn.disabled = false;
+        closeBtn.textContent = "Chiudi";
+      }
+    }, 1000);
+    
+    closeBtn.onclick = () => {
+      if (countdown <= 0) {
+        modal.classList.add("hidden");
+        clearInterval(interval);
+        openStoryViewerFromBar(userId);
+      }
+    };
+  }
+
+  console.log(`
+  ╔═══════════════════════════════════════╗
+  ║                                       ║
+  ║           🐕 PLUTOO 🐕               ║
+  ║                                       ║
+  ║   Social network per cani            ║
+  ║   Versione: 4.0 FINALE               ║
+  ║                                       ║
+  ║   ✅ "Amicizia" invece di "Play"    ║
+  ║   ✅ Stories nel profilo             ║
+  ║   ✅ Banner AdMob nel profilo        ║
+  ║   ✅ Viewer mostra SOLO 1 cane      ║
+  ║                                       ║
+  ╚═══════════════════════════════════════╝
+  `);
+
+});
