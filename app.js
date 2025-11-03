@@ -1,10 +1,9 @@
 /* =========================================================
    PLUTOO – app.js VERSIONE FINALE
-   ✅ Stories TUTTE pubbliche
-   ✅ Video reward UNA VOLTA per dog (localStorage)
-   ✅ Progress bar FUNZIONANTE (fix createElement)
-   ✅ NO privacy Stories
-   ✅ Identica a Instagram
+   ✅ Stories fullscreen + topbar nascosta
+   ✅ Plus: Stories senza video + video 90 secondi
+   ✅ Free: Video reward + video 15 secondi
+   ✅ Progress bar FUNZIONANTE
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -114,7 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
     selfieUntilByDog: JSON.parse(localStorage.getItem("selfieUntilByDog")||"{}"),
     ownerDocsUploaded: JSON.parse(localStorage.getItem("ownerDocsUploaded")||"{}"),
     dogDocsUploaded: JSON.parse(localStorage.getItem("dogDocsUploaded")||"{}"),
-    storyRewardViewed: JSON.parse(localStorage.getItem("storyRewardViewed")||"{}"), // ✅ NUOVO
+    storyRewardViewed: JSON.parse(localStorage.getItem("storyRewardViewed")||"{}"),
     currentLoveIdx: 0,
     currentPlayIdx: 0,
     currentView: "nearby",
@@ -193,6 +192,8 @@ document.addEventListener("DOMContentLoaded", () => {
       plusFeature3: "Messaggi illimitati",
       plusFeature4: "Tutti i filtri Gold sbloccati",
       plusFeature5: "Supporto prioritario",
+      plusFeature6: "Vedi tutte le Stories senza video",
+      plusFeature7: "Stories video fino a 90 secondi",
       planMonthly: "Mensile",
       planYearly: "Annuale",
       planSave: "Risparmia €20!",
@@ -257,6 +258,8 @@ document.addEventListener("DOMContentLoaded", () => {
       plusFeature3: "Unlimited messages",
       plusFeature4: "All Gold filters unlocked",
       plusFeature5: "Priority support",
+      plusFeature6: "View all Stories without videos",
+      plusFeature7: "Video stories up to 90 seconds",
       planMonthly: "Monthly",
       planYearly: "Yearly",
       planSave: "Save €20!",
@@ -1253,11 +1256,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   init();
 
-  // ========== SISTEMA STORIES (✅ FINALE SEMPLIFICATO) ==========
+  // ========== SISTEMA STORIES (✅ FINALE CON TUTTE LE MODIFICHE) ==========
   
   const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
-    VIDEO_MAX_DURATION: 90,
+    VIDEO_MAX_DURATION_FREE: 15,  // ✅ Free: 15 secondi
+    VIDEO_MAX_DURATION_PLUS: 90,  // ✅ Plus: 90 secondi
     MAX_PHOTO_SIZE: 10 * 1024 * 1024,
     MAX_VIDEO_SIZE: 50 * 1024 * 1024,
     STORY_LIFETIME: 24 * 60 * 60 * 1000,
@@ -1416,38 +1420,42 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ✅ FUNZIONE CON controllo Match + Video reward (UNA SOLA VOLTA)
+  // ✅ FUNZIONE CON controllo Plus + Match + Video reward
   function openStoryViewerFromBar(userId) {
     const story = StoriesState.stories.find(s => s.userId === userId);
     if (!story) return;
+    
+    // ✅ Se Plus → Apri subito SEMPRE (nessun video)
+    if (state.plus) {
+      openStoryViewerDirect(userId);
+      return;
+    }
     
     const hasMatch = state.matches[userId] || false;
     const hasFriendship = state.friendships[userId] || false;
     const hasRewardViewed = state.storyRewardViewed[userId] || false;
     
-    // ✅ Se ha Match/Amicizia → Apri subito
     if (hasMatch || hasFriendship) {
       openStoryViewerDirect(userId);
       return;
     }
     
-    // ✅ Se video reward già visto → Apri subito
     if (hasRewardViewed) {
       openStoryViewerDirect(userId);
       return;
     }
     
-    // ✅ Prima volta → Mostra video reward
     showStoryRewardVideo(story, userId);
   }
 
-  // ✅ FUNZIONE DIRETTA (senza controlli)
+  // ✅ FUNZIONE DIRETTA con body.story-open
   function openStoryViewerDirect(userId) {
     StoriesState.currentStoryUserId = userId;
     StoriesState.currentMediaIndex = 0;
     
     $("storyViewer")?.classList.remove("hidden");
     document.body.classList.add("noscroll");
+    document.body.classList.add("story-open"); // ✅ NASCONDE TOPBAR
     
     renderStoryViewer();
     startStoryProgress();
@@ -1459,6 +1467,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     $("storyViewer")?.classList.remove("hidden");
     document.body.classList.add("noscroll");
+    document.body.classList.add("story-open"); // ✅ NASCONDE TOPBAR
     
     renderStoryViewer();
     startStoryProgress();
@@ -1482,7 +1491,7 @@ document.addEventListener("DOMContentLoaded", () => {
     StoriesState.saveStories();
   }
 
-  // ✅ FIX: Progress bar con createElement (NON innerHTML)
+  // ✅ FIX: Progress bar con createElement
   function renderProgressBars(count) {
     const container = $("storyProgressBars");
     if (!container) return;
@@ -1581,10 +1590,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // ✅ RIMUOVI body.story-open
   function closeStoryViewer() {
     stopStoryProgress();
     $("storyViewer")?.classList.add("hidden");
     document.body.classList.remove("noscroll");
+    document.body.classList.remove("story-open"); // ✅ MOSTRA TOPBAR
     renderStoriesBar();
   }
 
@@ -1665,8 +1676,17 @@ document.addEventListener("DOMContentLoaded", () => {
       video.preload = "metadata";
       video.onloadedmetadata = function() {
         window.URL.revokeObjectURL(video.src);
-        if (video.duration > STORIES_CONFIG.VIDEO_MAX_DURATION) {
-          alert(`⚠️ Video troppo lungo!\n\nMax ${STORIES_CONFIG.VIDEO_MAX_DURATION} secondi`);
+        
+        // ✅ Controllo durata in base a Plus
+        const maxDuration = state.plus 
+          ? STORIES_CONFIG.VIDEO_MAX_DURATION_PLUS 
+          : STORIES_CONFIG.VIDEO_MAX_DURATION_FREE;
+        
+        if (video.duration > maxDuration) {
+          const msg = state.plus 
+            ? `⚠️ Video troppo lungo!\n\nMax ${maxDuration} secondi con Plutoo Plus`
+            : `⚠️ Video troppo lungo!\n\nMax ${maxDuration} secondi\n\nCon Plutoo Plus 💎: fino a 90 secondi!`;
+          alert(msg);
           return;
         }
         processFile(file, isImage, isVideo);
@@ -1814,7 +1834,7 @@ document.addEventListener("DOMContentLoaded", () => {
     alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.\n\n📸 Carica solo foto del tuo cane!");
   }
 
-  // ✅ Video reward con salvataggio in localStorage
+  // ✅ Video reward con salvataggio localStorage
   function showStoryRewardVideo(story, userId) {
     const modal = $("rewardVideoModal");
     if (!modal) return;
@@ -1839,7 +1859,6 @@ document.addEventListener("DOMContentLoaded", () => {
         clearInterval(interval);
         modal.classList.add("hidden");
         
-        // ✅ Salva che video è stato visto
         state.storyRewardViewed[userId] = true;
         localStorage.setItem("storyRewardViewed", JSON.stringify(state.storyRewardViewed));
         
@@ -1855,7 +1874,6 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.classList.add("hidden");
         clearInterval(interval);
         
-        // ✅ Salva che video è stato visto
         state.storyRewardViewed[userId] = true;
         localStorage.setItem("storyRewardViewed", JSON.stringify(state.storyRewardViewed));
         
@@ -1870,12 +1888,13 @@ document.addEventListener("DOMContentLoaded", () => {
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: 9.0 FINAL RELEASE        ║
+  ║   Versione: 10.0 FINAL RELEASE       ║
   ║                                       ║
-  ║   ✅ Stories TUTTE pubbliche         ║
-  ║   ✅ Video reward UNA VOLTA          ║
-  ║   ✅ Progress bar FUNZIONANTE        ║
-  ║   ✅ NO privacy Stories              ║
+  ║   ✅ Stories fullscreen              ║
+  ║   ✅ Topbar NASCOSTA                 ║
+  ║   ✅ Plus: NO video + 90s            ║
+  ║   ✅ Free: Video 1x + 15s            ║
+  ║   ✅ Progress bar ANIMATA            ║
   ║   ✅ PRONTO PER GOOGLE PLAY         ║
   ║                                       ║
   ╚═══════════════════════════════════════╝
