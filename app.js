@@ -1,9 +1,8 @@
 /* =========================================================
-   PLUTOO – app.js FINALE INSTAGRAM-LIKE
-   ✅ FIX: Video reward si apre automaticamente
-   ✅ FIX: Story Viewer come Instagram (progress bar, nome, avatar)
-   ✅ FIX: Story NON a tutto schermo (max-width 500px)
-   ✅ FIX: Stories sempre visibili nel profilo
+   PLUTOO – app.js VERSIONE FINALE (FIX DOUBLE VIDEO)
+   ✅ FIX: Video reward NON parte 2 volte
+   ✅ FIX: Dopo countdown → apre Story SENZA ricontrollare Match
+   ✅ FIX: 2 funzioni separate (con e senza controllo Match)
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -1259,7 +1258,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   init();
 
-  // ========== SISTEMA STORIES (✅ INSTAGRAM-LIKE) ==========
+  // ========== SISTEMA STORIES (✅ FIX DOUBLE VIDEO) ==========
   
   const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
@@ -1428,6 +1427,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ✅ FUNZIONE 1: CON controllo Match (per click manuale)
   function openStoryViewerFromBar(userId) {
     const story = StoriesState.stories.find(s => s.userId === userId);
     if (!story) return;
@@ -1440,6 +1440,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     
+    // ✅ Se ha Match → usa funzione DIRETTA
+    openStoryViewerDirect(userId);
+  }
+
+  // ✅ FUNZIONE 2: SENZA controllo Match (dopo video reward)
+  function openStoryViewerDirect(userId) {
     StoriesState.currentStoryUserId = userId;
     StoriesState.currentMediaIndex = 0;
     
@@ -1489,7 +1495,6 @@ document.addEventListener("DOMContentLoaded", () => {
     StoriesState.saveStories();
   }
 
-  // ✅ FIX: Progress bar animata (Instagram-like)
   function renderProgressBars(count) {
     const container = $("storyProgressBars");
     container.innerHTML = "";
@@ -1823,7 +1828,7 @@ document.addEventListener("DOMContentLoaded", () => {
     alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.");
   }
 
-  // ✅ FIX: Video reward si apre AUTOMATICAMENTE
+  // ✅ FIX: Video reward chiama funzione DIRETTA
   function showStoryRewardVideo(story, userId) {
     const modal = $("rewardVideoModal");
     if (!modal) return;
@@ -1850,14 +1855,13 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (countdown <= 0) {
         clearInterval(interval);
-        
-        // ✅ FIX: Apri automaticamente la Story quando countdown finisce
         modal.classList.add("hidden");
-        openStoryViewerFromBar(userId);
+        
+        // ✅ FIX: USA FUNZIONE DIRETTA (senza controllo Match)
+        openStoryViewerDirect(userId);
       }
     }, 1000);
     
-    // Rimuovi event listener precedenti
     const newCloseBtn = closeBtn.cloneNode(true);
     closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
     
@@ -1865,7 +1869,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (countdown <= 0) {
         modal.classList.add("hidden");
         clearInterval(interval);
-        openStoryViewerFromBar(userId);
+        
+        // ✅ FIX: USA FUNZIONE DIRETTA (senza controllo Match)
+        openStoryViewerDirect(userId);
       }
     };
   }
@@ -1876,12 +1882,13 @@ document.addEventListener("DOMContentLoaded", () => {
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: 7.0 INSTAGRAM-LIKE       ║
+  ║   Versione: 8.0 FINAL RELEASE        ║
   ║                                       ║
-  ║   ✅ Video reward automatico         ║
+  ║   ✅ Video reward UNA SOLA VOLTA    ║
   ║   ✅ Progress bar animata            ║
-  ║   ✅ Nome + avatar + tempo visibili  ║
-  ║   ✅ Story NON fullscreen (500px)    ║
+  ║   ✅ Instagram-like layout           ║
+  ║   ✅ Stories nel profilo             ║
+  ║   ✅ PRONTO PER GOOGLE PLAY         ║
   ║                                       ║
   ╚═══════════════════════════════════════╝
   `);
