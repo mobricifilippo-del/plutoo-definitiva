@@ -1,10 +1,9 @@
 /* =========================================================
-   PLUTOO – app.js FINALE CON TUTTI I FIX
-   ✅ FIX: Stories visibili in "Vicino a te"
-   ✅ FIX: Video reward NON in loop (usa modal HTML)
-   ✅ FIX: Stories SEMPRE visibili nel profilo
-   ✅ FIX: Bottone "Carica Story" sempre presente
-   ✅ FIX: Click Story nel profilo → controlla Match
+   PLUTOO – app.js FINALE INSTAGRAM-LIKE
+   ✅ FIX: Video reward si apre automaticamente
+   ✅ FIX: Story Viewer come Instagram (progress bar, nome, avatar)
+   ✅ FIX: Story NON a tutto schermo (max-width 500px)
+   ✅ FIX: Stories sempre visibili nel profilo
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -136,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     breeds: []
   };
 
-  // I18N (✅ "Giochiamo insieme" → "Amicizia")
+  // I18N
   const I18N = {
     it: {
       brand: "Plutoo",
@@ -298,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if(state.entered) renderNearby();
   });
 
-  // 8 PROFILI DOG (✅ mode: "play" → "friendship")
+  // 8 PROFILI DOG
   const DOGS = [
     { id:"d1", name:"Luna",   age:2, breed:"Golden Retriever", km:1.2, img:"dog1.jpg", bio:"Dolcissima e curiosa.", mode:"love", sex:"F", verified:true, weight:28, height:55, pedigree:true, breeding:false, size:"medium" },
     { id:"d2", name:"Rex",    age:4, breed:"Pastore Tedesco",  km:3.4, img:"dog2.jpg", bio:"Fedele e giocherellone.", mode:"friendship", sex:"M", verified:true, weight:35, height:62, pedigree:true, breeding:true, size:"large" },
@@ -868,7 +867,7 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("f_size", state.filters.size||"");
   }
 
-  // ✅ PROFILO DOG CON SEZIONE STORIES + BANNER ADMOB
+  // PROFILO DOG CON SEZIONE STORIES
   window.openProfilePage = (d)=>{
     state.currentDogProfile = d;
     setActiveView("profile");
@@ -884,7 +883,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const ownerDocs = state.ownerDocsUploaded[d.id] || {};
     const dogDocs = state.dogDocsUploaded[d.id] || {};
     
-    // ✅ FIX: Recupera le stories del cane (SEMPRE VISIBILI)
     const dogStories = StoriesState.stories.find(s => s.userId === d.id);
     const storiesHTML = dogStories ? `
       <div class="pp-stories-section">
@@ -987,13 +985,11 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
-    // ✅ FIX: Event listener per Stories del cane (CON CONTROLLO MATCH)
     if(dogStories){
       qa(".pp-story-item", profileContent).forEach(item => {
         item.addEventListener("click", ()=>{
           const idx = parseInt(item.getAttribute("data-story-index"));
           
-          // ✅ Controlla se hai Match/Amicizia PRIMA di aprire
           const hasMatch = state.matches[d.id] || false;
           const hasFriendship = state.friendships[d.id] || false;
           
@@ -1263,7 +1259,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   init();
 
-  // ========== SISTEMA STORIES (✅ CORRETTO) ==========
+  // ========== SISTEMA STORIES (✅ INSTAGRAM-LIKE) ==========
   
   const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
@@ -1409,7 +1405,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setupFiltersGrid();
   }
 
-  // ✅ MOSTRA TUTTE LE STORIES (controllo match solo all'apertura)
   function renderStoriesBar() {
     const container = $("storiesContainer");
     if (!container) return;
@@ -1433,7 +1428,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ✅ FIX: Apre Story Viewer SOLO per quel cane
   function openStoryViewerFromBar(userId) {
     const story = StoriesState.stories.find(s => s.userId === userId);
     if (!story) return;
@@ -1441,13 +1435,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const hasMatch = state.matches[userId] || false;
     const hasFriendship = state.friendships[userId] || false;
     
-    // ✅ Se NON hai match/amicizia → mostra reward video
     if (!hasMatch && !hasFriendship) {
       showStoryRewardVideo(story, userId);
       return;
     }
     
-    // ✅ Se hai match/amicizia → apri direttamente
     StoriesState.currentStoryUserId = userId;
     StoriesState.currentMediaIndex = 0;
     
@@ -1458,7 +1450,6 @@ document.addEventListener("DOMContentLoaded", () => {
     startStoryProgress();
   }
 
-  // ✅ Apre Story Viewer da profilo
   function openDogStoryViewer(userId, mediaIndex) {
     const story = StoriesState.stories.find(s => s.userId === userId);
     if (!story) return;
@@ -1498,6 +1489,7 @@ document.addEventListener("DOMContentLoaded", () => {
     StoriesState.saveStories();
   }
 
+  // ✅ FIX: Progress bar animata (Instagram-like)
   function renderProgressBars(count) {
     const container = $("storyProgressBars");
     container.innerHTML = "";
@@ -1505,8 +1497,15 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let i = 0; i < count; i++) {
       const bar = document.createElement("div");
       bar.className = "story-progress-bar";
-      if (i < StoriesState.currentMediaIndex) bar.classList.add("completed");
-      if (i === StoriesState.currentMediaIndex) bar.classList.add("active");
+      
+      if (i < StoriesState.currentMediaIndex) {
+        bar.classList.add("completed");
+      }
+      
+      if (i === StoriesState.currentMediaIndex) {
+        bar.classList.add("active");
+      }
+      
       bar.innerHTML = '<div class="story-progress-fill"></div>';
       container.appendChild(bar);
     }
@@ -1556,7 +1555,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ✅ Passa alla prossima media DELLO STESSO CANE, poi chiude
   function nextStoryMedia() {
     stopStoryProgress();
     
@@ -1825,7 +1823,7 @@ document.addEventListener("DOMContentLoaded", () => {
     alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.");
   }
 
-  // ✅ FIX: USA MODAL HTML invece di alert()
+  // ✅ FIX: Video reward si apre AUTOMATICAMENTE
   function showStoryRewardVideo(story, userId) {
     const modal = $("rewardVideoModal");
     if (!modal) return;
@@ -1852,12 +1850,14 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (countdown <= 0) {
         clearInterval(interval);
-        closeBtn.disabled = false;
-        closeBtn.textContent = "Chiudi";
+        
+        // ✅ FIX: Apri automaticamente la Story quando countdown finisce
+        modal.classList.add("hidden");
+        openStoryViewerFromBar(userId);
       }
     }, 1000);
     
-    // ✅ FIX: Rimuovi event listener precedenti per evitare loop
+    // Rimuovi event listener precedenti
     const newCloseBtn = closeBtn.cloneNode(true);
     closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
     
@@ -1865,7 +1865,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (countdown <= 0) {
         modal.classList.add("hidden");
         clearInterval(interval);
-        // ✅ FIX: Apri Story Viewer SOLO se countdown finito
         openStoryViewerFromBar(userId);
       }
     };
@@ -1877,12 +1876,12 @@ document.addEventListener("DOMContentLoaded", () => {
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: 6.0 FINALE               ║
+  ║   Versione: 7.0 INSTAGRAM-LIKE       ║
   ║                                       ║
-  ║   ✅ Stories VISIBILI ovunque       ║
-  ║   ✅ Video reward NON in loop       ║
-  ║   ✅ Stories nel profilo sempre     ║
-  ║   ✅ "Amicizia" invece di "Play"    ║
+  ║   ✅ Video reward automatico         ║
+  ║   ✅ Progress bar animata            ║
+  ║   ✅ Nome + avatar + tempo visibili  ║
+  ║   ✅ Story NON fullscreen (500px)    ║
   ║                                       ║
   ╚═══════════════════════════════════════╝
   `);
