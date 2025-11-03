@@ -1,8 +1,10 @@
 /* =========================================================
-   PLUTOO – app.js VERSIONE FINALE (FIX DOUBLE VIDEO)
-   ✅ FIX: Video reward NON parte 2 volte
-   ✅ FIX: Dopo countdown → apre Story SENZA ricontrollare Match
-   ✅ FIX: 2 funzioni separate (con e senza controllo Match)
+   PLUTOO – app.js VERSIONE FINALE
+   ✅ Stories TUTTE pubbliche
+   ✅ Video reward UNA VOLTA per dog (localStorage)
+   ✅ Progress bar FUNZIONANTE (fix createElement)
+   ✅ NO privacy Stories
+   ✅ Identica a Instagram
    ========================================================= */
 document.getElementById('plutooSplash')?.remove();
 document.getElementById('splash')?.remove();
@@ -112,6 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
     selfieUntilByDog: JSON.parse(localStorage.getItem("selfieUntilByDog")||"{}"),
     ownerDocsUploaded: JSON.parse(localStorage.getItem("ownerDocsUploaded")||"{}"),
     dogDocsUploaded: JSON.parse(localStorage.getItem("dogDocsUploaded")||"{}"),
+    storyRewardViewed: JSON.parse(localStorage.getItem("storyRewardViewed")||"{}"), // ✅ NUOVO
     currentLoveIdx: 0,
     currentPlayIdx: 0,
     currentView: "nearby",
@@ -988,15 +991,7 @@ document.addEventListener("DOMContentLoaded", () => {
       qa(".pp-story-item", profileContent).forEach(item => {
         item.addEventListener("click", ()=>{
           const idx = parseInt(item.getAttribute("data-story-index"));
-          
-          const hasMatch = state.matches[d.id] || false;
-          const hasFriendship = state.friendships[d.id] || false;
-          
-          if (!hasMatch && !hasFriendship) {
-            showStoryRewardVideo(dogStories, d.id);
-          } else {
-            openDogStoryViewer(d.id, idx);
-          }
+          openDogStoryViewer(d.id, idx);
         });
       });
     }
@@ -1258,7 +1253,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   init();
 
-  // ========== SISTEMA STORIES (✅ FIX DOUBLE VIDEO) ==========
+  // ========== SISTEMA STORIES (✅ FINALE SEMPLIFICATO) ==========
   
   const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
@@ -1267,8 +1262,7 @@ document.addEventListener("DOMContentLoaded", () => {
     MAX_VIDEO_SIZE: 50 * 1024 * 1024,
     STORY_LIFETIME: 24 * 60 * 60 * 1000,
     FREE_DAILY_LIMIT: 3,
-    REWARD_VIDEO_SHORT: 15,
-    REWARD_VIDEO_LONG: 30
+    REWARD_VIDEO_DURATION: 15
   };
 
   const StoriesState = {
@@ -1279,7 +1273,6 @@ document.addEventListener("DOMContentLoaded", () => {
     uploadedFile: null,
     selectedFilter: "none",
     selectedMusic: "",
-    selectedPrivacy: "public",
     
     loadStories() {
       const saved = localStorage.getItem("plutoo_stories");
@@ -1331,7 +1324,6 @@ document.addEventListener("DOMContentLoaded", () => {
             timestamp: Date.now() - 3600000,
             filter: "none",
             music: "",
-            privacy: "public",
             viewed: false
           }]
         },
@@ -1348,7 +1340,6 @@ document.addEventListener("DOMContentLoaded", () => {
               timestamp: Date.now() - 7200000,
               filter: "warm",
               music: "happy",
-              privacy: "public",
               viewed: false
             },
             {
@@ -1358,7 +1349,6 @@ document.addEventListener("DOMContentLoaded", () => {
               timestamp: Date.now() - 5400000,
               filter: "sepia",
               music: "",
-              privacy: "public",
               viewed: false
             }
           ]
@@ -1375,7 +1365,6 @@ document.addEventListener("DOMContentLoaded", () => {
             timestamp: Date.now() - 10800000,
             filter: "grayscale",
             music: "",
-            privacy: "private",
             viewed: false
           }]
         }
@@ -1427,24 +1416,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ✅ FUNZIONE 1: CON controllo Match (per click manuale)
+  // ✅ FUNZIONE CON controllo Match + Video reward (UNA SOLA VOLTA)
   function openStoryViewerFromBar(userId) {
     const story = StoriesState.stories.find(s => s.userId === userId);
     if (!story) return;
     
     const hasMatch = state.matches[userId] || false;
     const hasFriendship = state.friendships[userId] || false;
+    const hasRewardViewed = state.storyRewardViewed[userId] || false;
     
-    if (!hasMatch && !hasFriendship) {
-      showStoryRewardVideo(story, userId);
+    // ✅ Se ha Match/Amicizia → Apri subito
+    if (hasMatch || hasFriendship) {
+      openStoryViewerDirect(userId);
       return;
     }
     
-    // ✅ Se ha Match → usa funzione DIRETTA
-    openStoryViewerDirect(userId);
+    // ✅ Se video reward già visto → Apri subito
+    if (hasRewardViewed) {
+      openStoryViewerDirect(userId);
+      return;
+    }
+    
+    // ✅ Prima volta → Mostra video reward
+    showStoryRewardVideo(story, userId);
   }
 
-  // ✅ FUNZIONE 2: SENZA controllo Match (dopo video reward)
+  // ✅ FUNZIONE DIRETTA (senza controlli)
   function openStoryViewerDirect(userId) {
     StoriesState.currentStoryUserId = userId;
     StoriesState.currentMediaIndex = 0;
@@ -1457,9 +1454,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function openDogStoryViewer(userId, mediaIndex) {
-    const story = StoriesState.stories.find(s => s.userId === userId);
-    if (!story) return;
-    
     StoriesState.currentStoryUserId = userId;
     StoriesState.currentMediaIndex = mediaIndex;
     
@@ -1484,24 +1478,23 @@ document.addEventListener("DOMContentLoaded", () => {
     renderProgressBars(story.media.length);
     renderStoryContent(media);
     
-    if (media.privacy === "private") {
-      $("storyPrivacyBadge").textContent = "🔒 Storia Privata";
-      $("storyPrivacyBadge").classList.remove("hidden");
-    } else {
-      $("storyPrivacyBadge").classList.add("hidden");
-    }
-    
     media.viewed = true;
     StoriesState.saveStories();
   }
 
+  // ✅ FIX: Progress bar con createElement (NON innerHTML)
   function renderProgressBars(count) {
     const container = $("storyProgressBars");
+    if (!container) return;
+    
     container.innerHTML = "";
     
     for (let i = 0; i < count; i++) {
       const bar = document.createElement("div");
       bar.className = "story-progress-bar";
+      
+      const fill = document.createElement("div");
+      fill.className = "story-progress-fill";
       
       if (i < StoriesState.currentMediaIndex) {
         bar.classList.add("completed");
@@ -1511,7 +1504,7 @@ document.addEventListener("DOMContentLoaded", () => {
         bar.classList.add("active");
       }
       
-      bar.innerHTML = '<div class="story-progress-fill"></div>';
+      bar.appendChild(fill);
       container.appendChild(bar);
     }
   }
@@ -1626,7 +1619,6 @@ document.addEventListener("DOMContentLoaded", () => {
     StoriesState.uploadedFile = null;
     StoriesState.selectedFilter = "none";
     StoriesState.selectedMusic = "";
-    StoriesState.selectedPrivacy = "public";
     $("storyFileInput").value = "";
     $("uploadPreview").classList.add("hidden");
     $("uploadPreview").innerHTML = "";
@@ -1781,12 +1773,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!StoriesState.uploadedFile) return;
     
     const musicSelect = $("storyMusicSelect");
-    StoriesState.selectedMusic = musicSelect.value;
-    
-    const privacyRadios = document.getElementsByName("storyPrivacy");
-    privacyRadios.forEach(radio => {
-      if (radio.checked) StoriesState.selectedPrivacy = radio.value;
-    });
+    StoriesState.selectedMusic = musicSelect ? musicSelect.value : "";
     
     const targetUserId = state.currentDogProfile ? state.currentDogProfile.id : "currentUser";
     
@@ -1797,7 +1784,6 @@ document.addEventListener("DOMContentLoaded", () => {
       timestamp: Date.now(),
       filter: StoriesState.selectedFilter,
       music: StoriesState.selectedMusic,
-      privacy: StoriesState.selectedPrivacy,
       viewed: false
     };
     
@@ -1825,21 +1811,17 @@ document.addEventListener("DOMContentLoaded", () => {
       openProfilePage(state.currentDogProfile);
     }
     
-    alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.");
+    alert("✅ Story pubblicata!\n\nLa tua Story è ora visibile per 24 ore.\n\n📸 Carica solo foto del tuo cane!");
   }
 
-  // ✅ FIX: Video reward chiama funzione DIRETTA
+  // ✅ Video reward con salvataggio in localStorage
   function showStoryRewardVideo(story, userId) {
     const modal = $("rewardVideoModal");
     if (!modal) return;
     
-    const media = story.media[0];
-    const isPrivate = media.privacy === "private";
-    const duration = isPrivate ? STORIES_CONFIG.REWARD_VIDEO_LONG : STORIES_CONFIG.REWARD_VIDEO_SHORT;
-    
     modal.classList.remove("hidden");
     
-    let countdown = duration;
+    let countdown = STORIES_CONFIG.REWARD_VIDEO_DURATION;
     const countdownEl = $("rewardCountdown");
     const closeBtn = $("closeRewardVideo");
     
@@ -1857,7 +1839,10 @@ document.addEventListener("DOMContentLoaded", () => {
         clearInterval(interval);
         modal.classList.add("hidden");
         
-        // ✅ FIX: USA FUNZIONE DIRETTA (senza controllo Match)
+        // ✅ Salva che video è stato visto
+        state.storyRewardViewed[userId] = true;
+        localStorage.setItem("storyRewardViewed", JSON.stringify(state.storyRewardViewed));
+        
         openStoryViewerDirect(userId);
       }
     }, 1000);
@@ -1870,7 +1855,10 @@ document.addEventListener("DOMContentLoaded", () => {
         modal.classList.add("hidden");
         clearInterval(interval);
         
-        // ✅ FIX: USA FUNZIONE DIRETTA (senza controllo Match)
+        // ✅ Salva che video è stato visto
+        state.storyRewardViewed[userId] = true;
+        localStorage.setItem("storyRewardViewed", JSON.stringify(state.storyRewardViewed));
+        
         openStoryViewerDirect(userId);
       }
     };
@@ -1882,12 +1870,12 @@ document.addEventListener("DOMContentLoaded", () => {
   ║           🐕 PLUTOO 🐕               ║
   ║                                       ║
   ║   Social network per cani            ║
-  ║   Versione: 8.0 FINAL RELEASE        ║
+  ║   Versione: 9.0 FINAL RELEASE        ║
   ║                                       ║
-  ║   ✅ Video reward UNA SOLA VOLTA    ║
-  ║   ✅ Progress bar animata            ║
-  ║   ✅ Instagram-like layout           ║
-  ║   ✅ Stories nel profilo             ║
+  ║   ✅ Stories TUTTE pubbliche         ║
+  ║   ✅ Video reward UNA VOLTA          ║
+  ║   ✅ Progress bar FUNZIONANTE        ║
+  ║   ✅ NO privacy Stories              ║
   ║   ✅ PRONTO PER GOOGLE PLAY         ║
   ║                                       ║
   ╚═══════════════════════════════════════╝
