@@ -3,6 +3,7 @@
    ✅ FIX: Banner AdMob nel profilo
    ✅ FIX: Sezione Stories nel profilo
    ✅ "Giochiamo insieme" → "Amicizia"
+   ✅ FIX: Stories fullscreen + topbar nascosta
    ===================================================== */
 
 :root{
@@ -221,7 +222,7 @@ a{color:inherit;text-decoration:none}
 
 /* ================= STORY VIEWER ================= */
 .story-viewer{
-  position:fixed;inset:0;z-index:900;
+  position:fixed;inset:0;z-index:9999;
   background:#000;display:flex;flex-direction:column;
 }
 .story-header{
@@ -851,4 +852,10 @@ a{color:inherit;text-decoration:none}
   80%{transform:scale(1.05);filter:drop-shadow(0 13px 25px rgba(0,0,0,.55)) drop-shadow(0 0 32px rgba(138,123,255,.6))}
   90%{transform:scale(1.02);filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 20px rgba(138,123,255,.4))}
   100%{transform:scale(1);filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 0 rgba(138,123,255,0))}
+}
+
+/* ✅ FIX STORIES FULLSCREEN - NASCONDE TOPBAR */
+body.story-open #mainTopbar,
+body.story-open #storiesBar {
+  display: none !important;
 }
