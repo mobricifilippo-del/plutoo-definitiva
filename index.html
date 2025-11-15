@@ -1,273 +1,252 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="max-age=31536000, immutable">
+  <meta name="theme-color" content="#0B0B0F">
+  <meta name="description" content="Plutoo – l'app per l'accoppiamento dei DOG">
   <title>Plutoo</title>
-
-  <!-- PWA / Meta -->
-  <meta name="theme-color" content="#0B0B0F" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="description" content="Plutoo — social per dogs: vicini a te, swipe Amore/Amicizia, chat, selfie, servizi e sponsor." />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="plutoo-icon-192.png" />
-  <link rel="apple-touch-icon" href="plutoo-icon-512.png" />
-
-  <!-- CSS -->
-  <link rel="stylesheet" href="style.css" />
-  <noscript>Attiva JavaScript per usare Plutoo.</noscript>
+  <link rel="icon" type="image/png" href="plutoo-icon-192.png">
+  <link rel="apple-touch-icon" href="plutoo-icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- ✅ PRELOAD IMMAGINI PER CARICAMENTO VELOCE -->
+  <link rel="preload" as="image" href="dog1.jpg">
+  <link rel="preload" as="image" href="dog2.jpg">
+  <link rel="preload" as="image" href="dog3.jpg">
+  
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Flash overlay animazione ingresso -->
+  <div id="flashOverlay"></div>
+  <script>
+  // Service worker cleanup
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for(let registration of registrations) {
+        registration.unregister();
+      }
+    });
+  }
+  </script>
 
-  <!-- =============== HOME =============== -->
-  <section id="homeScreen" class="home" aria-labelledby="homeTitle">
-    <header class="home-top">
-      <div class="home-bar">
-        <div class="home-left">
-          <div class="logo-row">
-            <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small" />
-            <h1 id="homeTitle" class="brand" data-i18n="brand">Plutoo</h1>
+  <!-- ==================== HOME SCREEN ==================== -->
+  <div id="homeScreen" class="home">
+    <div class="home-top">
+      <div class="container">
+        <div class="home-bar">
+          <!-- Logo + Brand -->
+          <div class="home-left">
+            <div class="logo-row">
+              <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small">
+              <h1 class="brand" data-i18n="brand">Plutoo</h1>
+            </div>
           </div>
-        </div>
-        <div class="home-center"></div>
-        <div class="home-right">
-          <div class="lang-flags">
-            <button id="langIT" class="btn tiny ghost" type="button" aria-label="Italiano">🇮🇹</button>
-            <button id="langEN" class="btn tiny ghost" type="button" aria-label="English">🇬🇧</button>
-          </div>
-          <div class="auth-links">
-            <a href="#" id="btnLogin" data-i18n="login">Login</a>
-            <span>·</span>
-            <a href="#" id="btnRegister" data-i18n="register">Registrati</a>
+
+          <div class="home-center"></div>
+
+          <!-- Lang + Auth -->
+          <div class="home-right">
+            <div class="lang-flags">
+              <button id="langIT" class="btn tiny ghost" aria-label="Italiano">🇮🇹</button>
+              <button id="langEN" class="btn tiny ghost" aria-label="English">🇬🇧</button>
+            </div>
+            <div class="auth-links">
+              <a href="#" data-i18n="login">Login</a> · 
+              <a href="#" data-i18n="register">Registrati</a>
+            </div>
           </div>
         </div>
       </div>
-    </header>
-
-    <div class="home-hero">
-      <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo" />
-      <button id="btnEnter" class="btn primary xl" type="button" data-i18n="enter">Entra</button>
     </div>
 
-    <footer class="home-sponsor">
-      <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
-      <a id="sponsorLink" href="https://www.fido.it/" target="_blank" rel="noopener" class="sponsor-card" aria-label="Apri sponsor Fido">
-        <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo" />
-        <div class="sponsor-copy">Fido, il gelato per i nostri amici a quattro zampe</div>
-      </a>
+    <!-- Hero -->
+    <div class="home-hero">
+      <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo">
+      <button id="btnEnter" class="btn primary xl" data-i18n="enter">Entra</button>
+    </div>
 
-      <button id="ethicsButton" class="btn ethics" type="button" aria-label="Canili nelle vicinanze">
-        <span class="emoji">🐾</span>
-        <span class="ethics-lines">
-          <span class="l1" data-i18n="ethicsLine1">Non abbandonare mai i tuoi amici</span>
-          <span class="l2" data-i18n="ethicsLine2">(canili nelle vicinanze)</span>
-        </span>
+    <!-- Sponsor -->
+    <div class="home-sponsor">
+      <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
+      <a href="https://www.gelatofido.it/" id="sponsorLink" class="sponsor-card" target="_blank" rel="noopener">
+        <img src="sponsor-logo.png"
+             alt="Fido Gelato" 
+             class="sponsor-logo"
+             loading="eager">
+        <div class="sponsor-copy" data-i18n="sponsorCopy">Fido, il gelato per i nostri amici a quattro zampe</div>
+      </a>
+      
+      <button id="ethicsButton" class="btn ethics">
+        <span>🏠</span>
+        <div class="ethics-lines">
+          <div class="l1" data-i18n="ethicsLine1">Non abbandonare mai i tuoi amici</div>
+          <div class="l2" data-i18n="ethicsLine2">(rifugi nelle vicinanze)</div>
+        </div>
       </button>
 
       <div class="legal-links legal-purple">
-        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">Termini</a>
-        <span>·</span>
-        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy</a>
-        <span>·</span>
-        <a href="mailto:plutoo.team@gmail.com">Contatti</a>
+        <a href="termini.html">Termini</a> · 
+        <a href="privacy.html">Privacy</a> · 
+        <a href="contatti.html">Contatti</a>
       </div>
-    </footer>
-  </section>
+    </div>
+  </div>
 
-  <!-- =============== APP =============== -->
-  <section id="appScreen" class="app hidden" aria-hidden="true">
-    <header id="mainTopbar" class="topbar">
+  <!-- ==================== APP SCREEN ==================== -->
+  <div id="appScreen" class="app hidden">
+    
+    <!-- Top Bar -->
+    <div id="mainTopbar" class="topbar">
       <div class="left">
-        <button id="btnBack" class="btn tiny ghost" type="button" aria-label="Indietro">←</button>
-        <img src="plutoo-icon-192.png" alt="Plutoo" class="logo" width="28" height="28" />
-        <strong class="brand-mini">Plutoo</strong>
+        <button id="btnBack" class="btn small ghost" aria-label="Back">←</button>
+        <img src="plutoo-icon-192.png" alt="Plutoo" class="logo" style="width:32px;height:32px">
+        <span class="brand-mini" data-i18n="brand">Plutoo</span>
       </div>
 
-      <nav class="tabs" role="tablist" aria-label="Sezioni">
-        <button id="tabNearby" class="tab active" role="tab" aria-selected="true" data-i18n="nearby">Vicino a te</button>
-        <button id="tabLove"   class="tab" role="tab" aria-selected="false" data-i18n="love">Amore</button>
-        <button id="tabPlay"   class="tab" role="tab" aria-selected="false" data-i18n="friendship">Amicizia</button>
-
-        <div class="tab dropdown">
-          <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false">Luoghi PET ▾</button>
-          <div id="luoghiMenu" class="dropdown-menu" role="menu" aria-label="Luoghi PET">
-            <button class="menu-item" data-cat="vets"      role="menuitem">Veterinari / Cliniche</button>
-            <button class="menu-item" data-cat="groomers"  role="menuitem">Toelettature</button>
-            <button class="menu-item" data-cat="shops"     role="menuitem">Negozi per animali</button>
-            <button class="menu-item" data-cat="trainers"  role="menuitem">Addestratori / Educatori</button>
-            <button class="menu-item" data-cat="kennels"   role="menuitem">Pensioni / Asili per dogs</button>
-            <button class="menu-item" data-cat="parks"     role="menuitem">Parchi</button>
+      <div class="tabs" role="tablist">
+        <button id="tabNearby" class="tab active" role="tab" data-i18n="nearby">Vicino a te</button>
+        <button id="tabLove" class="tab" role="tab" data-i18n="love">Amore</button>
+        <button id="tabPlay" class="tab" role="tab" data-i18n="friendship">Amicizia</button>
+        <div class="tab dropdown" role="menuitem">
+          <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false">LuoghiPET 🐾 ▼</button>
+          <div id="luoghiMenu" class="dropdown-menu" role="menu">
+            <button class="menu-item" data-cat="vets">🏥 Veterinari</button>
+            <button class="menu-item" data-cat="groomers">✂️ Toelettature</button>
+            <button class="menu-item" data-cat="shops">🛒 Negozi</button>
+            <button class="menu-item" data-cat="trainers">🎓 Addestratori</button>
+            <button class="menu-item" data-cat="kennels">🏠 Pensioni</button>
+            <button class="menu-item" data-cat="parks">🌳 Parchi</button>
           </div>
         </div>
-      </nav>
+      </div>
 
       <div class="right">
-        <div class="search-plus-wrapper">
-          <button id="btnSearchPanel" class="btn ghost small" type="button" aria-haspopup="dialog" data-i18n="searchAdvanced">Ricerca personalizzata</button>
-          <button id="btnPlus" class="btn plus-btn" type="button" aria-label="Plutoo Plus">
-            <span class="plus-icon">💎</span>
-            <span data-i18n="plusBtn">PLUS</span>
-          </button>
-        </div>
+        <button id="btnPlus" class="btn small plus-btn" aria-label="Plutoo Plus">
+          <span class="plus-icon">💎</span>
+          <span data-i18n="plusBtn">PLUS</span>
+        </button>
       </div>
-    </header>
-
-    <main class="content" aria-live="polite">
-      <div id="storiesBar" class="stories-bar">
-        <div class="stories-scroll">
-          <button id="addStoryBtn" class="story-circle add-story" type="button">
-            <div class="story-avatar">
-              <img src="plutoo-icon-192.png" alt="Tu" />
-              <div class="add-icon">+</div>
-            </div>
-            <span class="story-name">Tua Story</span>
-          </button>
-          <div id="storiesContainer" class="stories-list"></div>
-        </div>
-      </div>
-
-      <section id="viewNearby" class="view active" aria-labelledby="nearbyTitle">
-        <h2 id="nearbyTitle" class="visually-hidden">Vicino a te</h2>
-        <div id="nearGrid" class="grid-2"></div>
-      </section>
-
-      <section id="viewLove" class="view" aria-labelledby="loveTitle">
-        <div class="view-header">
-          <button id="btnBackLove" class="btn tiny ghost" type="button">← Indietro</button>
-        </div>
-        <h2 id="loveTitle" class="visually-hidden">Amore</h2>
-        <article id="loveCard" class="card swipe">
-          <img id="loveImg" class="card-img" src="dog1.jpg" alt="Foto dog" />
-          <div class="card-info">
-            <h3 id="loveTitleTxt">Nome · Età</h3>
-            <p id="loveMeta" class="meta">Razza · Distanza</p>
-            <p id="loveBio" class="bio">Bio…</p>
-          </div>
-          <div class="card-actions" id="loveActions">
-            <button id="loveNo"  class="btn no"  type="button" aria-label="No">🥲</button>
-            <button id="loveYes" class="btn yes" type="button" aria-label="Sì">💛</button>
-          </div>
-        </article>
-      </section>
-
-      <section id="viewPlay" class="view" aria-labelledby="playTitle">
-        <div class="view-header">
-          <button id="btnBackPlay" class="btn tiny ghost" type="button">← Indietro</button>
-        </div>
-        <h2 id="playTitle" class="visually-hidden" data-i18n="friendship">Amicizia</h2>
-        <article id="playCard" class="card swipe">
-          <img id="playImg" class="card-img" src="dog2.jpg" alt="Foto dog" />
-          <div class="card-info">
-            <h3 id="playTitleTxt">Nome · Età</h3>
-            <p id="playMeta" class="meta">Razza · Distanza</p>
-            <p id="playBio" class="bio">Bio…</p>
-          </div>
-          <div class="card-actions" id="playActions">
-            <button id="playNo"  class="btn no"  type="button" aria-label="No">🥲</button>
-            <button id="playYes" class="btn yes" type="button" aria-label="Sì">🐕</button>
-          </div>
-        </article>
-      </section>
-    </main>
-
-    <div id="storyViewer" class="story-viewer hidden">
-      <div class="story-header">
-        <div id="storyProgressBars" class="story-progress-bars"></div>
-        <div class="story-top-info">
-          <div class="story-user-info">
-            <img id="storyUserAvatar" class="story-user-avatar" src="" alt="" />
-            <span id="storyUserName" class="story-user-name"></span>
-            <span id="storyTimestamp" class="story-timestamp"></span>
-          </div>
-          <button id="closeStoryViewer" class="story-close-btn" type="button">✕</button>
-        </div>
-      </div>
-      <div class="story-content-wrapper">
-        <button class="story-nav-prev" id="storyNavPrev" type="button"></button>
-        <div id="storyContent" class="story-content"></div>
-        <button class="story-nav-next" id="storyNavNext" type="button"></button>
-      </div>
-      <div id="storyPrivacyBadge" class="story-privacy-badge hidden"></div>
     </div>
 
-    <aside id="chatPane" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="chatHeader">
-      <div class="sheet-header">
-        <div id="chatHeader">Chat</div>
-        <button id="closeChat" class="icon close" type="button" aria-label="Chiudi">✕</button>
+    <!-- ✅ STORIES BAR -->
+    <div id="storiesBar" class="stories-bar">
+      <div class="stories-scroll">
+        <div class="stories-list" id="storiesContainer">
+          <!-- Stories generate dinamicamente -->
+        </div>
+        <button id="addStoryBtn" class="story-circle add-story" type="button">
+          <div class="story-avatar">
+            <span class="add-icon">+</span>
+          </div>
+          <span class="story-name">Aggiungi</span>
+        </button>
       </div>
-      <div id="chatList" class="chat-list sheet-body"></div>
-      <form id="chatComposer" class="composer">
-        <input id="chatInput" type="text" placeholder="Scrivi un messaggio…" autocomplete="off" data-i18n-placeholder="typeMessage" />
-        <button type="submit" class="btn accent small" data-i18n="send">Invia</button>
-      </form>
-    </aside>
+    </div>
 
-    <!-- ✅ PROFILO PAGINA CON STORIES + BANNER ADMOB -->
-    <section id="profilePage" class="profile-page hidden">
-      <header class="profile-navbar">
-        <button id="profileBack" class="btn tiny ghost" type="button">← Indietro</button>
-        <div class="profile-title">Profilo</div>
-        <button id="profileClose" class="btn tiny ghost" type="button">✕</button>
-      </header>
-      <div id="profileContent" class="profile-content"></div>
-      <!-- ✅ Banner AdMob fisso in fondo -->
-      <div class="profile-ad-banner">
-        <div class="ad-banner-profile">Banner AdMob • Monetizzazione</div>
+    <!-- Content -->
+    <div class="content">
+      
+      <!-- VICINO A TE -->
+      <div id="viewNearby" class="view active">
+        <div class="view-header">
+          <div class="search-plus-wrapper">
+            <button id="btnSearchPanel" class="btn plus-btn">
+              <span data-i18n="searchAdvanced">Ricerca personalizzata</span>
+            </button>
+          </div>
+        </div>
+        <div id="nearGrid" class="grid-2"></div>
       </div>
-    </section>
 
-    <footer class="sponsor">
+      <!-- AMORE -->
+      <div id="viewLove" class="view">
+        <button id="btnBackLove" class="btn small ghost" style="margin-bottom:.6rem">← Indietro</button>
+        <div id="loveCard" class="card swipe">
+          <img id="loveImg" src="" alt="" class="card-img">
+          <div class="card-info">
+            <h3 id="loveTitleTxt"></h3>
+            <p id="loveMeta" class="meta"></p>
+            <p id="loveBio" class="bio"></p>
+          </div>
+          <div class="card-actions">
+            <button id="loveNo" class="btn no" aria-label="No">🥲</button>
+            <button id="loveYes" class="btn yes" aria-label="Sì">💛</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AMICIZIA -->
+      <div id="viewPlay" class="view">
+        <button id="btnBackPlay" class="btn small ghost" style="margin-bottom:.6rem">← Indietro</button>
+        <div id="playCard" class="card swipe">
+          <img id="playImg" src="" alt="" class="card-img">
+          <div class="card-info">
+            <h3 id="playTitleTxt"></h3>
+            <p id="playMeta" class="meta"></p>
+            <p id="playBio" class="bio"></p>
+          </div>
+          <div class="card-actions">
+            <button id="playNo" class="btn no" aria-label="No">🥲</button>
+            <button id="playYes" class="btn yes" aria-label="Sì">💜</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Banner Sponsor -->
+    <div class="sponsor">
       <div class="sponsor-wrap">
         <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
-        <a id="sponsorLinkApp" href="https://www.fido.it/" target="_blank" rel="noopener" aria-label="Apri sponsor Fido">
-          <img src="sponsor-logo.png" alt="Fido" class="sponsor-logo" />
+        <a href="https://www.gelatofido.it/" id="sponsorLinkApp" style="display:inline-block" target="_blank" rel="noopener">
+          <img src="sponsor-logo.png"
+               alt="Fido Gelato" 
+               class="sponsor-logo"
+               loading="eager">
         </a>
-        <div class="sponsor-copy">Fido, il gelato per i nostri amici a quattro zampe</div>
+        <div class="sponsor-copy" data-i18n="sponsorCopy">Fido, il gelato per i nostri amici a quattro zampe</div>
       </div>
-
+      <div id="adBanner" class="ad-banner">Banner Test AdMob • Banner App</div>
       <div class="legal-links legal-purple">
-        <a href="termini.html" target="_blank" rel="noopener" data-i18n="terms">Termini</a>
-        <span>·</span>
-        <a href="privacy.html" target="_blank" rel="noopener" data-i18n="privacy">Privacy</a>
-        <span>·</span>
-        <a href="mailto:plutoo.team@gmail.com">Contatti</a>
+        <a href="termini.html">Termini</a> · 
+        <a href="privacy.html">Privacy</a> · 
+        <a href="contatti.html">Contatti</a>
       </div>
+    </div>
+  </div>
 
-      <div id="adBanner" class="ad-banner" aria-hidden="true"></div>
-    </footer>
-  </section>
-
-  <section id="searchPanel" class="panel hidden" role="dialog" aria-modal="true" aria-labelledby="searchTitle">
+  <!-- ==================== SEARCH PANEL ==================== -->
+  <div id="searchPanel" class="panel hidden">
     <div class="panel-inner">
       <div class="panel-head">
-        <h3 id="searchTitle" data-i18n="searchAdvanced">Ricerca personalizzata</h3>
-        <button id="closeSearch" class="btn tiny ghost" type="button" aria-label="Chiudi">✕</button>
+        <h3 data-i18n="searchAdvanced">Ricerca personalizzata</h3>
+        <button id="closeSearch" class="btn small ghost">✕</button>
       </div>
-
-      <form id="searchForm" class="filters" autocomplete="off">
+      <form class="filters">
         <fieldset class="filter-group">
           <legend data-i18n="freeFilters">Filtri base</legend>
+          
+          <div class="f">
+            <label data-i18n="distance">Distanza</label>
+            <input id="distRange" type="range" min="1" max="100" value="50">
+            <span id="distLabel" style="font-size:.9rem;color:var(--muted)">50 km</span>
+          </div>
 
           <div class="f">
-            <label for="sexFilter" data-i18n="sexFilter">Sesso</label>
+            <label data-i18n="breed">Razza</label>
+            <input id="breedInput" type="text" data-i18n-placeholder="breedPh" placeholder="Cerca razza…">
+            <div id="breedsList" class="suggestions"></div>
+          </div>
+
+          <div class="f">
+            <label data-i18n="sexFilter">Sesso</label>
             <select id="sexFilter">
               <option value="" data-i18n="sexAll">Tutti</option>
               <option value="M" data-i18n="sexMale">Maschio</option>
               <option value="F" data-i18n="sexFemale">Femmina</option>
             </select>
-          </div>
-
-          <div class="f">
-            <label for="distRange">
-              <span data-i18n="distance">Distanza</span>: <span id="distLabel">5 km</span>
-            </label>
-            <input id="distRange" type="range" min="1" max="50" value="5" />
-          </div>
-
-          <div class="f">
-            <label for="breedInput" data-i18n="breed">Razza</label>
-            <input id="breedInput" type="text" inputmode="search" placeholder="Cerca razza…" autocomplete="off" data-i18n-placeholder="breedPh" />
-            <div id="breedsList" class="suggestions" role="listbox" aria-label="Suggerimenti razza"></div>
           </div>
         </fieldset>
 
@@ -278,218 +257,212 @@
           </legend>
 
           <div class="f switch f-gold">
-            <span data-i18n="onlyVerified">Solo con badge verificato ✅</span>
-            <label class="switcher">
-              <input id="onlyVerified" type="checkbox" />
-              <span class="track"></span>
-            </label>
-            <span class="lock-icon">🔒</span>
-          </div>
-
-          <div class="f-row">
-            <div class="f f-gold">
-              <label for="ageMin" data-i18n="ageMin">Età minima (anni)</label>
-              <input id="ageMin" type="number" min="0" max="20" placeholder="—" />
-              <span class="lock-icon">🔒</span>
-            </div>
-            <div class="f f-gold">
-              <label for="ageMax" data-i18n="ageMax">Età massima (anni)</label>
-              <input id="ageMax" type="number" min="0" max="20" placeholder="—" />
-              <span class="lock-icon">🔒</span>
-            </div>
+            <label data-i18n="onlyVerified">Solo con badge verificato ✅</label>
+            <input id="onlyVerified" type="checkbox" disabled>
           </div>
 
           <div class="f f-gold">
-            <label for="weightInput" data-i18n="weight">Peso (kg)</label>
-            <input id="weightInput" type="number" min="1" max="100" placeholder="—" />
-            <span class="lock-icon">🔒</span>
+            <label data-i18n="ageMin">Età minima (anni)</label>
+            <input id="ageMin" type="number" min="0" max="20" placeholder="0" disabled>
           </div>
 
           <div class="f f-gold">
-            <label for="heightInput" data-i18n="height">Altezza (cm)</label>
-            <input id="heightInput" type="number" min="10" max="120" placeholder="—" />
-            <span class="lock-icon">🔒</span>
+            <label data-i18n="ageMax">Età massima (anni)</label>
+            <input id="ageMax" type="number" min="0" max="20" placeholder="20" disabled>
           </div>
 
           <div class="f f-gold">
-            <label for="pedigreeFilter" data-i18n="pedigree">Pedigree</label>
-            <select id="pedigreeFilter">
+            <label data-i18n="weight">Peso (kg)</label>
+            <input id="weightInput" type="number" min="0" placeholder="Min peso" disabled>
+          </div>
+
+          <div class="f f-gold">
+            <label data-i18n="height">Altezza (cm)</label>
+            <input id="heightInput" type="number" min="0" placeholder="Min altezza" disabled>
+          </div>
+
+          <div class="f f-gold">
+            <label data-i18n="pedigree">Pedigree</label>
+            <select id="pedigreeFilter" disabled>
               <option value="" data-i18n="indifferent">Indifferente</option>
               <option value="yes" data-i18n="yes">Sì</option>
               <option value="no" data-i18n="no">No</option>
             </select>
-            <span class="lock-icon">🔒</span>
           </div>
 
           <div class="f f-gold">
-            <label for="breedingFilter" data-i18n="breeding">Disponibile per accoppiamento</label>
-            <select id="breedingFilter">
+            <label data-i18n="breeding">Disponibile per accoppiamento</label>
+            <select id="breedingFilter" disabled>
               <option value="" data-i18n="indifferent">Indifferente</option>
               <option value="yes" data-i18n="yes">Sì</option>
               <option value="no" data-i18n="no">No</option>
             </select>
-            <span class="lock-icon">🔒</span>
           </div>
 
           <div class="f f-gold">
-            <label for="sizeFilter" data-i18n="size">Taglia</label>
-            <select id="sizeFilter">
+            <label data-i18n="size">Taglia</label>
+            <select id="sizeFilter" disabled>
               <option value="" data-i18n="indifferent">Indifferente</option>
               <option value="small" data-i18n="sizeSmall">Piccola</option>
               <option value="medium" data-i18n="sizeMedium">Media</option>
               <option value="large" data-i18n="sizeLarge">Grande</option>
             </select>
-            <span class="lock-icon">🔒</span>
+          </div>
+
+          <div class="unlock-hint" data-i18n="unlockHint">
+            Vuoi sbloccare i filtri Gold? Attiva <strong>Plutoo Plus 💎</strong>
           </div>
         </fieldset>
 
-        <div class="panel-actions">
-          <button id="applyFilters" class="btn primary" type="submit" data-i18n="apply">Applica</button>
-          <button id="resetFilters" class="btn ghost" type="button" data-i18n="reset">Reset</button>
+        <div class="actions">
+          <button id="applyFilters" type="button" class="btn primary" data-i18n="apply">Applica</button>
+          <button id="resetFilters" type="button" class="btn outline" data-i18n="reset">Reset</button>
         </div>
-
-        <p class="hint" data-i18n="unlockHint">Vuoi sbloccare i filtri Gold? Attiva <strong>Plutoo Plus 💎</strong></p>
       </form>
-    </div>
-  </section>
-
-  <section id="plusModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="plusTitle">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content">
-      <button id="closePlus" class="modal-close" type="button" aria-label="Chiudi">✕</button>
-      <div class="modal-body">
-        <div class="plus-icon-large">💎</div>
-        <h2 id="plusTitle" data-i18n="plusTitle">Plutoo Plus</h2>
-        <p data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
-        
-        <ul class="plus-features">
-          <li><span class="check">✓</span> <span data-i18n="plusFeature1">Nessuna pubblicità</span></li>
-          <li><span class="check">✓</span> <span data-i18n="plusFeature2">Swipe illimitati</span></li>
-          <li><span class="check">✓</span> <span data-i18n="plusFeature3">Messaggi illimitati</span></li>
-          <li><span class="check">✓</span> <span data-i18n="plusFeature4">Tutti i filtri Gold sbloccati</span></li>
-          <li><span class="check">✓</span> <span data-i18n="plusFeature5">Supporto prioritario</span></li>
-          <!-- ✅ NUOVE VOCI AGGIUNTE -->
-          <li><span class="check">✓</span> <span data-i18n="plusFeature6">Vedi tutte le Stories senza video</span></li>
-          <li><span class="check">✓</span> <span data-i18n="plusFeature7">Stories video fino a 90 secondi</span></li>
-        </ul>
-
-        <div class="plus-plan-selector">
-          <button id="planMonthly" class="plan-btn active" type="button">
-            <span class="plan-name" data-i18n="planMonthly">Mensile</span>
-            <span class="plan-price">€4.99<span class="plan-period">/mese</span></span>
-          </button>
-          <button id="planYearly" class="plan-btn" type="button">
-            <span class="plan-name" data-i18n="planYearly">Annuale</span>
-            <span class="plan-price">€40<span class="plan-period">/anno</span></span>
-            <span class="plan-save" data-i18n="planSave">Risparmia €20!</span>
-          </button>
-        </div>
-
-        <button id="activatePlus" class="btn primary large" type="button" data-i18n="activatePlus">Attiva Plutoo Plus</button>
-        <button id="cancelPlus" class="btn ghost" type="button" data-i18n="cancel">Annulla</button>
-      </div>
-    </div>
-  </section>
-
-  <section id="uploadStoryModal" class="modal hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content story-upload-modal">
-      <button id="closeUploadStory" class="modal-close" type="button">✕</button>
-      <div class="modal-body">
-        <h2 class="story-modal-title">📸 Carica Story</h2>
-        <div id="uploadStoryStep1" class="upload-step active">
-          <div class="upload-zone" id="uploadZone">
-            <input type="file" id="storyFileInput" accept="image/*,video/*" hidden />
-            <label for="storyFileInput" class="upload-label">
-              <div class="upload-icon">📁</div>
-              <div class="upload-text">Tocca per caricare</div>
-              <div class="upload-hint">Foto max 10MB | Video max 90s, 50MB</div>
-            </label>
-          </div>
-          <div id="uploadPreview" class="upload-preview hidden"></div>
-          <div class="story-actions">
-            <button id="cancelUpload" class="btn ghost" type="button">Annulla</button>
-            <button id="nextToCustomize" class="btn primary" type="button" disabled>Avanti →</button>
-          </div>
-        </div>
-        <div id="uploadStoryStep2" class="upload-step">
-          <div class="story-customize">
-            <div class="customize-section">
-              <h3 class="customize-title">🎨 Filtri</h3>
-              <div id="filtersGrid" class="filters-grid"></div>
-            </div>
-            <div class="customize-section">
-              <h3 class="customize-title">🎵 Musica</h3>
-              <select id="storyMusicSelect" class="story-select">
-                <option value="">Nessuna</option>
-                <option value="happy">Happy Dogs</option>
-                <option value="chill">Chill Walk</option>
-                <option value="playful">Playful</option>
-              </select>
-            </div>
-            <div class="customize-section">
-              <h3 class="customize-title">🔒 Privacy</h3>
-              <div class="privacy-options">
-                <label class="privacy-option">
-                  <input type="radio" name="storyPrivacy" value="public" checked />
-                  <div class="privacy-card">
-                    <div class="privacy-icon">🌍</div>
-                    <div class="privacy-info">
-                      <strong>Pubblica</strong>
-                      <span>Visibile a tutti</span>
-                    </div>
-                  </div>
-                </label>
-                <label class="privacy-option">
-                  <input type="radio" name="storyPrivacy" value="private" />
-                  <div class="privacy-card">
-                    <div class="privacy-icon">🔒</div>
-                    <div class="privacy-info">
-                      <strong>Privata</strong>
-                      <span>Solo verificati ✅</span>
-                    </div>
-                  </div>
-                </label>
-              </div>
-            </div>
-          </div>
-          <div class="story-actions">
-            <button id="backToUpload" class="btn ghost" type="button">← Indietro</button>
-            <button id="publishStory" class="btn primary" type="button">Pubblica 🚀</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="rewardVideoModal" class="modal hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content reward-modal">
-      <div class="modal-body">
-        <h3 class="reward-title">🎬 Guarda video</h3>
-        <p class="reward-text">Per vedere questa Story</p>
-        <div id="rewardVideoContainer" class="reward-video-box">
-          <div class="reward-placeholder">📺<br/><span id="rewardCountdown">15s</span></div>
-        </div>
-        <button id="closeRewardVideo" class="btn primary" type="button" disabled>Chiudi (attendi...)</button>
-      </div>
-    </div>
-  </section>
-
-  <div id="matchOverlay" class="match-overlay hidden">
-    <div class="match-content">
-      <img src="plutoo-icon-512.png" alt="Plutoo" class="match-logo" />
-      <h2 class="match-title">È un Match!</h2>
     </div>
   </div>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(()=>{});
-      });
-    }
-  </script>
+  <!-- ==================== PLUTOO PLUS MODAL ==================== -->
+  <div id="plusModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content plus-modal">
+      <button id="closePlus" class="modal-close">✕</button>
+      <div class="modal-body">
+        <div class="plus-icon-big">💎</div>
+        <h2 data-i18n="plusTitle">Plutoo Plus</h2>
+        <p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
+        
+        <ul class="plus-features">
+          <li data-i18n="plusFeature1">✓ Nessuna pubblicità</li>
+          <li data-i18n="plusFeature2">✓ Swipe illimitati</li>
+          <li data-i18n="plusFeature3">✓ Messaggi illimitati</li>
+          <li data-i18n="plusFeature4">✓ Tutti i filtri Gold sbloccati</li>
+          <li data-i18n="plusFeature5">✓ Supporto prioritario</li>
+          <li data-i18n="plusFeature6">✓ Vedi tutte le Stories senza video</li>
+          <li data-i18n="plusFeature7">✓ Stories video fino a 90 secondi</li>
+        </ul>
+
+        <div class="plan-selector">
+          <button id="planMonthly" class="plan-card active">
+            <div class="plan-name" data-i18n="planMonthly">Mensile</div>
+            <div class="plan-price">€4.99<span data-i18n="plusPeriod">/mese</span></div>
+          </button>
+          <button id="planYearly" class="plan-card">
+            <div class="plan-name" data-i18n="planYearly">Annuale</div>
+            <div class="plan-price">€40<span>/anno</span></div>
+            <div class="plan-save" data-i18n="planSave">Risparmia €20!</div>
+          </button>
+        </div>
+
+        <button id="activatePlus" class="btn primary xl" data-i18n="activatePlus">Attiva Plutoo Plus</button>
+        <button id="cancelPlus" class="btn ghost" data-i18n="cancel">Annulla</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CHAT PANE (MODALE CENTRATA) ==================== -->
+  <div id="chatPane" class="chat-pane hidden">
+    <div class="chat-pane-inner">
+      <div class="chat-header">
+        <button id="closeChat" class="btn small ghost">←</button>
+        <span data-i18n="chat">Chat</span>
+      </div>
+      <div id="chatList" class="chat-list"></div>
+      <form id="chatComposer" class="chat-composer">
+        <input id="chatInput" type="text" data-i18n-placeholder="typeMessage" placeholder="Scrivi un messaggio…">
+        <button type="submit" class="btn primary" data-i18n="send">Invia</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== PROFILE PAGE ==================== -->
+  <div id="profilePage" class="profile-page hidden">
+    <div class="profile-header">
+      <button id="profileBack" class="btn small ghost">←</button>
+      <span data-i18n="profile">Profilo</span>
+      <button id="profileClose" class="btn small ghost">✕</button>
+    </div>
+    <div id="profileContent" class="profile-content"></div>
+  </div>
+
+  <!-- ==================== MATCH OVERLAY ==================== -->
+  <div id="matchOverlay" class="match-overlay hidden">
+    <div class="match-content">
+      <div class="match-title">It's a Match! 💜</div>
+      <div class="match-hearts">💛 💜 💛</div>
+    </div>
+  </div>
+
+  <!-- ==================== STORY VIEWER ==================== -->
+  <div id="storyViewer" class="story-viewer hidden">
+    <div class="story-header">
+      <div class="story-user">
+        <img id="storyUserAvatar" src="" alt="" class="story-user-avatar">
+        <div class="story-user-info">
+          <span id="storyUserName" class="story-user-name"></span>
+          <span id="storyTimestamp" class="story-timestamp"></span>
+        </div>
+      </div>
+      <button id="closeStoryViewer" class="story-close">✕</button>
+    </div>
+    
+    <div id="storyProgressBars" class="story-progress-bars"></div>
+    
+    <div id="storyContent" class="story-content"></div>
+    
+    <button id="storyNavPrev" class="story-nav story-nav-prev" aria-label="Previous">‹</button>
+    <button id="storyNavNext" class="story-nav story-nav-next" aria-label="Next">›</button>
+  </div>
+
+  <!-- ==================== UPLOAD STORY MODAL ==================== -->
+  <div id="uploadStoryModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content upload-story-modal">
+      <button id="closeUploadStory" class="modal-close">✕</button>
+      
+      <div id="uploadStoryStep1" class="upload-step active">
+        <h2>📸 Carica una Story</h2>
+        <div class="upload-zone">
+          <input type="file" id="storyFileInput" accept="image/*,video/*" hidden>
+          <label for="storyFileInput" class="upload-label">
+            <div class="upload-icon">📤</div>
+            <div>Tocca per caricare foto o video</div>
+            <div class="upload-hint">Max 10MB foto, 50MB video</div>
+          </label>
+        </div>
+        <div id="uploadPreview" class="upload-preview hidden"></div>
+        <button id="nextToCustomize" class="btn primary" disabled>Avanti →</button>
+      </div>
+      
+      <div id="uploadStoryStep2" class="upload-step">
+        <h2>✨ Personalizza</h2>
+        <div class="upload-preview"></div>
+        
+        <div class="customize-section">
+          <h3>Filtri</h3>
+          <div id="filtersGrid" class="filters-grid"></div>
+        </div>
+        
+        <div class="customize-section">
+          <h3>Musica</h3>
+          <select id="storyMusicSelect" class="form-control">
+            <option value="">Nessuna musica</option>
+            <option value="happy">🎵 Happy</option>
+            <option value="chill">🎵 Chill</option>
+            <option value="energetic">🎵 Energetic</option>
+          </select>
+        </div>
+        
+        <div class="upload-actions">
+          <button id="backToUpload" class="btn outline">← Indietro</button>
+          <button id="publishStory" class="btn primary">Pubblica 🚀</button>
+        </div>
+      </div>
+      
+      <button id="cancelUpload" class="btn ghost">Annulla</button>
+    </div>
+  </div>
+
   <script src="app.js" defer></script>
 </body>
 </html>
