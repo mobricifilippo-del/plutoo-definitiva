@@ -422,13 +422,36 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // ============ Restore in APP ============
-  if (state.entered) {
-    homeScreen.classList.add("hidden");
-    appScreen.classList.remove("hidden");
-    setActiveView("nearby");
-    showAdBanner();
+  // =========== Restore in APP ===========
+if (state.entered) {
+  homeScreen.classList.add("hidden");
+  appScreen.classList.remove("hidden");
+
+  const viewToRestore = state.currentView || "nearby";
+
+  // Se ero su un profilo DOG, provo a riaprirlo
+  if (viewToRestore === "profile") {
+    const savedId = localStorage.getItem("currentProfileDogId");
+    if (savedId) {
+      const dog = DOGS.find(d => d.id == savedId);
+      if (dog && window.openProfilePage) {
+        // openProfilePage fa già setActiveView("profile")
+        window.openProfilePage(dog);
+      } else {
+        // se per qualsiasi motivo non riesco, torno a Nearby
+        setActiveView("nearby");
+      }
+    } else {
+      // nessun DOG salvato → torno a Nearby
+      setActiveView("nearby");
+    }
+  } else {
+    // per tutte le altre viste ripristino quella salvata
+    setActiveView(viewToRestore);
   }
+
+  showAdBanner();
+}
 
   // ============ Sponsor Ufficiale ============
 function openSponsor(){
@@ -524,7 +547,7 @@ sponsorLinkApp?.addEventListener("click",(e)=>{
   });
 
   function setActiveView(name){
-    localStorage.setItem("lastView", name);
+    localStorage.setItem("currentView", name);
     if (state.currentView !== name && state.currentView !== "profile"){
       state.viewHistory.push(state.currentView);
     }
@@ -1046,6 +1069,8 @@ sponsorLinkApp?.addEventListener("click",(e)=>{
   // ============ Profilo DOG (con Stories + Social) ============
   window.openProfilePage = (d)=>{
     state.currentDogProfile = d;
+    localStorage.setItem("currentProfileDogId", d.id);
+  setActiveView("profile");
     setActiveView("profile");
 
     history.pushState({view: "profile", dogId: d.id}, "", "");
