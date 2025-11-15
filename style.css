@@ -1,11 +1,3 @@
-/* =====================================================
-   PLUTOO – VIOLET EDITION + STORIES + PROFILO COMPLETO
-   ✅ FIX: Banner AdMob nel profilo
-   ✅ FIX: Sezione Stories nel profilo
-   ✅ "Giochiamo insieme" → "Amicizia"
-   ✅ FIX: Stories fullscreen + topbar nascosta
-   ===================================================== */
-
 :root{
   --bg-main:#0B0B0F;
   --bg-alt:#121226;
@@ -71,7 +63,7 @@ a{color:inherit;text-decoration:none}
 .btn.no,.btn.yes{
   width:60px;height:60px;border-radius:999px;padding:0;
   display:inline-flex;align-items:center;justify-content:center;
-  font-size:1.25rem;line-height:1;background:transparent;
+  font-size:1.4rem;line-height:1;background:transparent;
   border:2px solid rgba(138,123,255,.45);
   box-shadow:0 0 20px rgba(138,123,255,.3) inset, 0 0 24px rgba(138,123,255,.2);
   color:var(--violet-glow);transition:all .2s ease;
@@ -81,6 +73,11 @@ a{color:inherit;text-decoration:none}
   box-shadow:0 0 28px rgba(138,123,255,.4) inset, 0 0 32px rgba(138,123,255,.3);
   transform:scale(1.05);
 }
+
+/* Utility visibility */
+.hidden{display:none !important}
+.modal.hidden,.panel.hidden{display:none !important}
+.story-open .hidden{display:none !important}
 
 /* ================= HOME ================= */
 .home{min-height:100vh;display:flex;flex-direction:column;justify-content:space-between;padding:1.2rem}
@@ -112,11 +109,31 @@ a{color:inherit;text-decoration:none}
 .ethics-lines .l1{font-size:.92rem}
 .ethics-lines .l2{font-size:.82rem;opacity:.75}
 
-/* Link legali */
+/* Link legali - HOME */
 .legal-links{margin-top:.7rem;font-size:.9rem}
-.legal-links a{color:var(--muted)}
-.legal-links.legal-purple a{color:var(--violet)}
-.legal-links a:hover{filter:brightness(1.2)}
+.legal-links a{
+  color:var(--muted);
+  text-decoration:none;
+  transition:color .2s ease;
+  cursor:pointer;
+}
+.legal-links a:hover{
+  color:var(--text);
+  text-decoration:underline;
+}
+
+/* Link legali - APP */
+.legal-links.legal-purple a{
+  color:var(--violet);
+  text-decoration:none;
+  transition:all .2s ease;
+  cursor:pointer;
+}
+.legal-links.legal-purple a:hover{
+  color:var(--violet-glow);
+  filter:brightness(1.2);
+  text-decoration:underline;
+}
 
 /* ================= APP / NAVBAR ================= */
 .app{min-height:100vh;display:flex;flex-direction:column}
@@ -226,7 +243,7 @@ a{color:inherit;text-decoration:none}
   background:#000;display:flex;flex-direction:column;
 }
 .story-header{
-  position:absolute;top:0;left:0;right:0;z-index:901;padding:.8rem 1rem;
+  position:absolute;top:0;left:0;right:0;z-index:906;padding:.8rem 1rem;
   background:linear-gradient(180deg,rgba(0,0,0,.7) 0%,transparent 100%);
 }
 .story-progress-bars{display:flex;gap:4px;margin-bottom:.7rem}
@@ -270,7 +287,7 @@ a{color:inherit;text-decoration:none}
 }
 .story-nav-prev,.story-nav-next{
   position:absolute;top:0;bottom:0;width:35%;background:transparent;
-  border:0;cursor:pointer;z-index:902;outline:none;
+  border:0;cursor:pointer;z-index:904;outline:none;
 }
 .story-nav-prev{left:0}
 .story-nav-next{right:0}
@@ -279,6 +296,12 @@ a{color:inherit;text-decoration:none}
   background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
   padding:.5rem .9rem;border-radius:20px;font-size:.85rem;color:#fff;
   border:1px solid rgba(138,123,255,.4);
+}
+
+/* ✅ FIX: NASCONDE TOPBAR QUANDO STORY APERTA */
+body.story-open #mainTopbar,
+body.story-open #storiesBar {
+  display: none !important;
 }
 
 /* ================= CONTENT ================= */
@@ -349,7 +372,6 @@ a{color:inherit;text-decoration:none}
   padding:1rem;padding-bottom:72px;
 }
 
-/* ✅ BANNER ADMOB NEL PROFILO */
 .profile-ad-banner{
   position:sticky;bottom:0;left:0;right:0;
   background:rgba(12,12,18,.95);
@@ -402,7 +424,7 @@ a{color:inherit;text-decoration:none}
   color:var(--violet-glow);font-weight:900;margin:1.2rem 0 .6rem 0;font-size:1.15rem;
 }
 
-/* ✅ SEZIONE STORIES NEL PROFILO */
+/* SEZIONE STORIES NEL PROFILO */
 .pp-stories-section{
   background:rgba(138,123,255,.06);
   border:1px solid rgba(138,123,255,.25);
@@ -449,6 +471,118 @@ a{color:inherit;text-decoration:none}
   border-radius:8px;
   font-size:.7rem;
   color:#fff;
+}
+
+/* ✅ FIX: ICONE SOCIAL UFFICIALI VISIBILI */
+.pp-social-section {
+  background: rgba(138, 123, 255, 0.06);
+  border: 1px solid rgba(138, 123, 255, 0.25);
+  border-radius: 12px;
+  padding: 0.9rem;
+  margin: 1.2rem 0;
+}
+
+.pp-social-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: .8rem;
+  margin-top: .8rem;
+}
+
+.social-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  background: rgba(138, 123, 255, .08);
+  border: 1px solid rgba(138, 123, 255, .25);
+  border-radius: 12px;
+  padding: 1rem .8rem;
+  cursor: pointer;
+  transition: all .2s ease;
+  min-height: 90px;
+}
+
+.social-btn:hover {
+  background: rgba(138, 123, 255, .15);
+  border-color: rgba(138, 123, 255, .4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(138, 123, 255, .2);
+}
+
+.social-btn.social-fb:hover {
+  background: rgba(24, 119, 242, .1);
+  border-color: #1877F2;
+  box-shadow: 0 4px 12px rgba(24, 119, 242, .25);
+}
+
+.social-btn.social-ig:hover {
+  background: rgba(228, 64, 95, .1);
+  border-color: #E4405F;
+  box-shadow: 0 4px 12px rgba(228, 64, 95, .25);
+}
+
+.social-btn.social-tt:hover {
+  background: rgba(255, 255, 255, .1);
+  border-color: #fff;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, .2);
+}
+
+.social-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.social-svg {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+/* ✅ Colori brand hardcoded per massima visibilità */
+.social-fb .social-svg path {
+  fill: #1877F2 !important;
+}
+
+.social-ig .social-svg path {
+  fill: #E4405F !important;
+}
+
+.social-tt .social-svg path {
+  fill: #FFFFFF !important;
+}
+
+.social-label{
+  font-size:.85rem;
+  font-weight:700;
+  color:var(--text);
+  text-align:center;
+}
+
+@media (max-width: 520px) {
+  .pp-social-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: .6rem;
+  }
+  
+  .social-btn {
+    padding: .8rem .5rem;
+    min-height: 80px;
+  }
+  
+  .social-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .social-label {
+    font-size: .8rem;
+  }
 }
 
 .pp-docs-section{
@@ -732,38 +866,91 @@ a{color:inherit;text-decoration:none}
 .reward-placeholder{color:#B0B0B0;font-size:.9rem;text-align:center}
 .reward-placeholder div:first-child{font-size:2rem;margin-bottom:.5rem}
 
-/* ================= Sheets (Chat) ================= */
-.sheet{
-  position:fixed;left:0;right:0;bottom:0;background:var(--panel);
-  border-top:2px solid var(--violet);border-radius:20px 20px 0 0;
-  box-shadow:0 -8px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(138,123,255,.25) inset;
-  max-height:90vh;overflow-y:auto;
-  transform:translateY(100%);transition:transform .28s ease;z-index:160;
+/* ✅ FIX: CHAT MODALE CENTRATA NEL PROFILO */
+.chat-pane{
+  position:fixed;
+  inset:0;
+  z-index:2500;
+  background:rgba(0,0,0,.85);
+  backdrop-filter:blur(8px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:1rem;
 }
-.sheet.show{transform:translateY(0)}
+.chat-pane.show{
+  display:flex;
+}
 
-.sheet-header{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:.75rem 1rem;border-bottom:1px solid var(--line);
-  position:sticky;top:0;background:var(--panel);z-index:10;
+.chat-pane-inner{
+  background:var(--panel);
+  border:2px solid var(--violet);
+  border-radius:20px;
+  width:100%;
+  max-width:480px;
+  max-height:80vh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 16px 48px rgba(0,0,0,.7), inset 0 0 0 1px rgba(138,123,255,.25);
 }
-.sheet-header div{color:var(--violet-glow);font-weight:800;font-size:1.15rem}
-.sheet-body{padding:1rem;padding-bottom:2rem}
-.icon.close{background:transparent;border:0;color:var(--text);font-size:1.2rem;cursor:pointer}
 
-.chat-list{padding:.7rem 0;display:flex;flex-direction:column;gap:.55rem}
-.msg{background:#222238;padding:.6rem .85rem;border-radius:12px;width:max-content;max-width:85%;font-size:.95rem}
-.msg.me{align-self:flex-end;background:#2d2540;border:1px solid rgba(138,123,255,.25)}
-.composer{
-  display:flex;gap:.55rem;align-items:center;padding:.75rem 1rem;
-  border-top:1px solid var(--line);position:sticky;bottom:0;background:var(--panel);
+.chat-header{
+  display:flex;
+  align-items:center;
+  gap:.7rem;
+  padding:.75rem 1rem;
+  border-bottom:1px solid var(--line);
+  background:rgba(12,12,18,.95);
+  border-radius:20px 20px 0 0;
 }
-.composer input{
-  flex:1;padding:.6rem .75rem;border-radius:12px;border:1px solid #2a2a3e;
-  background:#0f0f18;color:var(--text);font-size:.96rem;
+
+.chat-list{
+  flex:1;
+  overflow-y:auto;
+  padding:1rem;
+  display:flex;
+  flex-direction:column;
+  gap:.55rem;
 }
-.composer input:focus{
-  outline:none;border-color:var(--violet);box-shadow:0 0 0 3px rgba(138,123,255,.2);
+
+.chat-composer{
+  display:flex;
+  gap:.55rem;
+  padding:.75rem 1rem;
+  border-top:1px solid var(--line);
+  background:rgba(12,12,18,.95);
+  border-radius:0 0 20px 20px;
+}
+
+.msg{
+  background:#222238;
+  padding:.6rem .85rem;
+  border-radius:12px;
+  width:max-content;
+  max-width:85%;
+  font-size:.95rem;
+}
+
+.msg.me{
+  align-self:flex-end;
+  background:#2d2540;
+  border:1px solid rgba(138,123,255,.25);
+}
+
+.chat-composer input{
+  flex:1;
+  padding:.6rem .75rem;
+  border-radius:12px;
+  border:1px solid #2a2a3e;
+  background:#0f0f18;
+  color:var(--text);
+  font-size:.96rem;
+}
+
+.chat-composer input:focus{
+  outline:none;
+  border-color:var(--violet);
+  box-shadow:0 0 0 3px rgba(138,123,255,.2);
 }
 
 /* ================= SPONSOR / BANNER ================= */
@@ -854,8 +1041,33 @@ a{color:inherit;text-decoration:none}
   100%{transform:scale(1);filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 0 rgba(138,123,255,0))}
 }
 
-/* ✅ FIX STORIES FULLSCREEN - NASCONDE TOPBAR */
-body.story-open #mainTopbar,
-body.story-open #storiesBar {
-  display: none !important;
+/* Heartbeat viola – WOW edition */
+.hero-logo.heartbeat-violet-wow{
+  animation: heartbeatVioletWOW 1.8s ease-out 1;
+  will-change: transform, filter;
+}
+
+@keyframes heartbeatVioletWOW{
+  0%{transform:scale(1);filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 0 rgba(138,123,255,0)) drop-shadow(0 0 0 rgba(205,164,52,0))}
+  20%{transform:scale(1.12);filter:drop-shadow(0 14px 28px rgba(0,0,0,.55)) drop-shadow(0 0 60px rgba(138,123,255,1)) drop-shadow(0 0 40px rgba(205,164,52,.9))}
+  40%{transform:scale(1.18);filter:drop-shadow(0 16px 32px rgba(0,0,0,.55)) drop-shadow(0 0 90px rgba(138,123,255,1)) drop-shadow(0 0 70px rgba(205,164,52,1))}
+  60%{transform:scale(1.10);filter:drop-shadow(0 14px 28px rgba(0,0,0,.55)) drop-shadow(0 0 70px rgba(138,123,255,.95)) drop-shadow(0 0 50px rgba(205,164,52,.9))}
+  80%{transform:scale(1.06);filter:drop-shadow(0 13px 25px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(138,123,255,.7)) drop-shadow(0 0 28px rgba(205,164,52,.6))}
+  100%{transform:scale(1);filter:drop-shadow(0 12px 24px rgba(0,0,0,.55)) drop-shadow(0 0 0 rgba(138,123,255,0)) drop-shadow(0 0 0 rgba(205,164,52,0))}
+}
+
+/* ✨ Animazione flash bianco ingresso */
+#flashOverlay {
+  position: fixed;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: opacity 1.2s ease-out;
+}
+
+#flashOverlay.active {
+  opacity: 1;
+  transition: opacity 0.4s ease-in;
 }
