@@ -1385,9 +1385,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateStoryLikeUI(mediaId) {
   if (!storyLikeBtn || !mediaId) return;
   const liked = isStoryLiked(mediaId);
-  const count = liked ? 1 : 0;
   storyLikeBtn.classList.toggle("liked", liked);
-  storyLikeBtn.textContent = "❤️ " + count;
+  storyLikeBtn.textContent = "❤️";
 }
 
   function toggleStoryLike(mediaId) {
