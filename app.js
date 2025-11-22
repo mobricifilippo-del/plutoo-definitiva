@@ -1355,8 +1355,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function updatePhotoLikeUI(dogId) {
   if (!profileLikeBtn || !dogId) return;
   const liked = isDogPhotoLiked(dogId);
-  const count = liked ? 1 : 0;   // 0 se non likato, 1 se likato
+  const count = liked ? 1 : 0;  // 0 se non likato, 1 se likato
+
   profileLikeBtn.classList.toggle("liked", liked);
+
+  profileLikeBtn.classList.remove("heart-anim");
+  void profileLikeBtn.offsetWidth;
+  profileLikeBtn.classList.add("heart-anim");
+
   profileLikeBtn.textContent = "❤️ " + count;
 }
 
@@ -1386,6 +1392,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!storyLikeBtn || !mediaId) return;
   const liked = isStoryLiked(mediaId);
   storyLikeBtn.classList.toggle("liked", liked);
+    storyLikeBtn.classList.remove("heart-anim");
+void storyLikeBtn.offsetWidth;
+storyLikeBtn.classList.add("heart-anim");
   storyLikeBtn.textContent = "❤️";
 }
 
