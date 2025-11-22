@@ -1579,15 +1579,40 @@ document.addEventListener("DOMContentLoaded", () => {
     $("uploadDogStory")?.addEventListener("click", ()=> { openUploadModal(); });
 
     qa(".gallery img", profileContent).forEach(img=>{
-      img.addEventListener("click", ()=>{
-        const lb = document.createElement("div");
-        lb.className = "lightbox";
-        lb.innerHTML = `<button class="close" aria-label="Chiudi">✕</button><img src="${img.src}" alt="">`;
-        document.body.appendChild(lb);
-        qs(".close", lb).onclick = ()=> lb.remove();
-        lb.addEventListener("click", (e)=>{ if(e.target===lb) lb.remove(); });
+  img.addEventListener("click", ()=>{
+    const lb = document.createElement("div");
+    lb.className = "lightbox";
+    lb.innerHTML = `
+      <button class="close" aria-label="Chiudi">✕</button>
+      <div class="lightbox-inner">
+        <img src="${img.src}" alt="">
+        <button class="story-like-btn lightbox-like-btn" type="button">❤️ 0</button>
+      </div>`;
+    document.body.appendChild(lb);
+
+    const closeBtn = qs(".close", lb);
+    if (closeBtn) closeBtn.onclick = ()=> lb.remove();
+    lb.addEventListener("click", (e)=>{ if(e.target===lb) lb.remove(); });
+
+    const likeBtn = qs(".lightbox-like-btn", lb);
+    if (likeBtn) {
+      const refresh = () => {
+        const liked = isDogPhotoLiked(d.id);
+        const count = liked ? 1 : 0;
+        likeBtn.textContent = "❤️ " + count;
+      };
+
+      likeBtn.addEventListener("click", (ev)=>{
+        ev.stopPropagation();
+        togglePhotoLike(d.id);
+        refresh();
+        updatePhotoLikeUI(d.id);
       });
-    });
+
+      refresh();
+    }
+  });
+});
 
     qa(".doc-item", profileContent).forEach(item=>{
       item.addEventListener("click", ()=>{
