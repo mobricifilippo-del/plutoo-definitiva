@@ -659,7 +659,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (storiesBar) {
       storiesBar.classList.toggle("hidden", name !== "nearby");
     }
-
+    tabNearby.classList.remove("active");
+  tabLove.classList.remove("active");
+  if (tabPlay) tabPlay.classList.remove("active");
+   
     if (name === "nearby") {
       if (viewNearby) {
         viewNearby.classList.remove("hidden");
