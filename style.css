@@ -309,7 +309,7 @@ a{color:inherit;text-decoration:none}
   position:absolute;
   bottom:1.4rem;
   left:50%;
-  transform:translateX(-50%);
+  transform:translateX(-50%) scale(1);
   background:rgba(0,0,0,.8);
   backdrop-filter:blur(10px);
   border-radius:999px;
@@ -327,6 +327,22 @@ a{color:inherit;text-decoration:none}
 
 .story-like-btn.liked{
   background:rgba(255,64,129,.95);
+}
+
+@keyframes heart-pop{
+  0%{
+    transform:translateX(-50%) scale(.85);
+  }
+  40%{
+    transform:translateX(-50%) scale(1.2);
+  }
+  100%{
+    transform:translateX(-50%) scale(1);
+  }
+}
+
+.heart-anim{
+  animation:heart-pop .28s ease-out;
 }
 
 /* ✅ FIX: NASCONDE TOPBAR QUANDO STORY APERTA */
@@ -1569,7 +1585,7 @@ line-height: 1.6;
   position:absolute;
   bottom:1.4rem;
   left:50%;
-  transform:translateX(-50%);
+  transform:translateX(-50%) scale(1);
   background:rgba(0,0,0,.8);
   backdrop-filter:blur(10px);
   border-radius:999px;
