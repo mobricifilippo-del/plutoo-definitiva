@@ -8,16 +8,17 @@
   <title>Plutoo</title>
   <link rel="icon" type="image/png" href="plutoo-icon-192.png">
   <link rel="apple-touch-icon" href="plutoo-icon-192.png">
-  <link rel="manifest" href="manifest.json">  <!-- ✅ PRELOAD IMMAGINI PER CARICAMENTO VELOCE -->  <link rel="preload" as="image" href="dog1.jpg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preload" as="image" href="dog1.jpg">
   <link rel="preload" as="image" href="dog2.jpg">
-  <link rel="preload" as="image" href="dog3.jpg">  <link rel="stylesheet" href="style.css">
+  <link rel="preload" as="image" href="dog3.jpg">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Flash overlay animazione ingresso -->
   <div id="whiteFlash"></div>
   <audio id="dogBark" preload="auto">
-  <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_2d8e73e9f8.mp3" type="audio/mpeg">
-</audio>  <!-- ==================== HOME SCREEN ==================== -->  <div id="homeScreen" class="home">
+    <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_2d8e73e9f8.mp3" type="audio/mpeg">
+  </audio>  <!-- ==================== HOME SCREEN ==================== -->  <div id="homeScreen" class="home">
     <div class="home-top">
       <div class="container">
         <div class="home-bar">
@@ -27,23 +28,22 @@
               <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small">
               <h1 class="brand" data-i18n="brand">Plutoo</h1>
             </div>
-          </div><div class="home-center"></div>
-
-      <!-- Lang + Auth -->
-      <div class="home-right">
-        <div class="lang-flags">
-          <button id="langIT" class="btn tiny ghost" aria-label="Italiano">🇮🇹</button>
-          <button id="langEN" class="btn tiny ghost" aria-label="English">🇬🇧</button>
-        </div>
-        <div class="auth-links">
-          <a href="#" data-i18n="login">Login</a> · 
-          <a href="#" data-i18n="register">Registrati</a>
+          </div>
+          <div class="home-center"></div>
+          <!-- Lang + Auth -->
+          <div class="home-right">
+            <div class="lang-flags">
+              <button id="langIT" class="btn tiny ghost" aria-label="Italiano">🇮🇹</button>
+              <button id="langEN" class="btn tiny ghost" aria-label="English">🇬🇧</button>
+            </div>
+            <div class="auth-links">
+              <a href="#" data-i18n="login">Login</a> ·
+              <a href="#" data-i18n="register">Registrati</a>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
-
-<!-- Hero -->
+    </div><!-- Hero -->
 <div class="home-hero">
   <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo">
   <button id="btnEnter" class="btn primary xl" data-i18n="enter">Entra</button>
@@ -54,12 +54,12 @@
   <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
   <a href="https://www.gelatofido.it/" id="sponsorLink" class="sponsor-card" target="_blank" rel="noopener">
     <img src="sponsor-logo.png"
-         alt="Fido Gelato" 
+         alt="Fido Gelato"
          class="sponsor-logo"
          loading="eager">
     <div class="sponsor-copy" data-i18n="sponsorCopy">Fido, il gelato per i nostri amici a quattro zampe</div>
   </a>
-  
+
   <button id="ethicsButton" class="btn ethics">
     <span>🏠</span>
     <div class="ethics-lines">
@@ -69,21 +69,20 @@
   </button>
 
   <div class="legal-links legal-purple">
-    <a href="termini.html">Termini</a> · 
-    <a href="privacy.html">Privacy</a> · 
+    <a href="termini.html">Termini</a> ·
+    <a href="privacy.html">Privacy</a> ·
     <a href="contatti.html">Contatti</a>
   </div>
 </div>
 
-  </div>  <!-- ==================== APP SCREEN ==================== -->  <div id="appScreen" class="app hidden"><!-- Top Bar -->
-<div id="mainTopbar" class="topbar">
-  <div class="left">
-    <button id="btnBack" class="btn small ghost" aria-label="Back">←</button>
-    <img src="plutoo-icon-192.png" alt="Plutoo" class="logo" style="width:32px;height:32px">
-    <span class="brand-mini" data-i18n="brand">Plutoo</span>
-  </div>
-
-  <div class="tabs" role="tablist">
+  </div>  <!-- ==================== APP SCREEN ==================== -->  <div id="appScreen" class="app hidden">
+    <!-- Top Bar -->
+    <div id="mainTopbar" class="topbar">
+      <div class="left">
+        <button id="btnBack" class="btn small ghost" aria-label="Back">←</button>
+        <img src="plutoo-icon-192.png" alt="Plutoo" class="logo" style="width:32px;height:32px">
+        <span class="brand-mini" data-i18n="brand">Plutoo</span>
+      </div><div class="tabs" role="tablist">
     <button id="tabNearby" class="tab active" role="tab" data-i18n="nearby">Vicino a te</button>
     <button id="tabLove" class="tab" role="tab" data-i18n="love">Accoppiamento</button>
     <div class="tab dropdown" role="menuitem">
@@ -110,7 +109,7 @@
   </div>
 </div>
 
-<!-- ✅ STORIES BAR -->
+<!-- STORIES BAR -->
 <div id="storiesBar" class="stories-bar">
   <div class="stories-scroll">
     <div class="stories-list" id="storiesContainer">
@@ -127,7 +126,6 @@
 
 <!-- Content -->
 <div class="content">
-  
   <!-- VICINO A TE -->
   <div id="viewNearby" class="view active">
     <div class="view-header">
@@ -156,9 +154,8 @@
       </div>
     </div>
   </div>
-</div>
 
- <!-- MESSAGGI -->
+  <!-- MESSAGGI -->
   <div id="viewMessages" class="view">
     <div class="messages-topbar">
       <button id="btnMsgBack" class="btn back-btn">
@@ -207,41 +204,38 @@
         </p>
       </div>
     </div>
-
   </div>
   <!-- fine MESSAGGI -->
+</div>
 
-</div>   <!-- Banner Sponsor GLOBALE (per tutte le pagine tranne Home) --><div id="globalSponsor" class="sponsor">
-  <div class="sponsor-wrap">
-    <div class="sponsor-title" data-i18n="sponsorTitle">
-      Sponsor ufficiale
-    </div>
+  </div>  <!-- Banner Sponsor GLOBALE (per tutte le pagine tranne Home) -->  <div id="globalSponsor" class="sponsor">
+    <div class="sponsor-wrap">
+      <div class="sponsor-title" data-i18n="sponsorTitle">
+        Sponsor ufficiale
+      </div><a href="https://www.gelatofido.it/" id="sponsorLinkBottom"
+     style="display:inline-block" target="_blank" rel="noopener">
+    <img src="sponsor-logo.png"
+         alt="Fido Gelato"
+         class="sponsor-logo"
+         loading="eager">
+  </a>
 
-    <a href="https://www.gelatofido.it/" id="sponsorLinkBottom"
-       style="display:inline-block" target="_blank" rel="noopener">
-      <img src="sponsor-logo.png"
-           alt="Fido Gelato"
-           class="sponsor-logo"
-           loading="eager">
-    </a>
-
-    <div class="sponsor-copy" data-i18n="sponsorCopy">
-      Fido, il gelato per i nostri amici a quattro zampe
-    </div>
-  </div>
-
-  <div id="adBanner" class="ad-banner">
-    Banner Test AdMob · Bannerhome
-  </div>
-
-  <div class="legal-links legal-purple">
-    <a href="termini.html">Termini</a> ·
-    <a href="privacy.html">Privacy</a> ·
-    <a href="contatti.html">Contatti</a>
+  <div class="sponsor-copy" data-i18n="sponsorCopy">
+    Fido, il gelato per i nostri amici a quattro zampe
   </div>
 </div>
 
-  <!-- ==================== SEARCH PANEL ==================== -->  <div id="searchPanel" class="panel hidden">
+<div id="adBanner" class="ad-banner">
+  Banner Test AdMob · Bannerhome
+</div>
+
+<div class="legal-links legal-purple">
+  <a href="termini.html">Termini</a> ·
+  <a href="privacy.html">Privacy</a> ·
+  <a href="contatti.html">Contatti</a>
+</div>
+
+  </div>  <!-- ==================== SEARCH PANEL ==================== -->  <div id="searchPanel" class="panel hidden">
     <div class="panel-inner">
       <div class="panel-head">
         <h3 data-i18n="searchAdvanced">Ricerca personalizzata</h3>
@@ -249,13 +243,12 @@
       </div>
       <form class="filters">
         <fieldset class="filter-group">
-          <legend data-i18n="freeFilters">Filtri base</legend><div class="f">
-        <label data-i18n="distance">Distanza</label>
-        <input id="distRange" type="range" min="1" max="100" value="50">
-        <span id="distLabel" style="font-size:.9rem;color:var(--muted)">50 km</span>
-      </div>
-
-      <div class="f">
+          <legend data-i18n="freeFilters">Filtri base</legend>
+          <div class="f">
+            <label data-i18n="distance">Distanza</label>
+            <input id="distRange" type="range" min="1" max="100" value="50">
+            <span id="distLabel" style="font-size:.9rem;color:var(--muted)">50 km</span>
+          </div><div class="f">
         <label data-i18n="breed">Razza</label>
         <input id="breedInput" type="text" data-i18n-placeholder="breedPh" placeholder="Cerca razza…">
         <div id="breedsList" class="suggestions"></div>
@@ -289,7 +282,7 @@
 
       <div class="f f-gold">
         <label data-i18n="ageMax">Età massima (anni)</label>
-        <input id="ageMax" type="number" min="0 max="20" placeholder="20" disabled>
+        <input id="ageMax" type="number" min="0" max="20" placeholder="20" disabled>
       </div>
 
       <div class="f f-gold">
@@ -346,56 +339,57 @@
     <div class="modal-backdrop"></div>
     <div class="modal-content plus-modal">
       <button id="closePlus" class="modal-close">✕</button>
-      <div class="modal-body"><div class="plus-title">
-
-<span class="icon">💎</span> <span data-i18n="plusTitle">Plutoo Plus</span>
-
-</div>
-<p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
+      <div class="modal-body">
+        <div class="plus-title">
+          <span class="icon">💎</span>
+          <span data-i18n="plusTitle">Plutoo Plus</span>
+        </div>
+        <p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
         <ul class="plus-features">
-  <li>
-    <span class="check">✓</span>
-    <span class="label" data-i18n="plusFeature1">Nessuna pubblicità</span>
-  </li>
-  <li>
-    <span class="check">✓</span>
-    <span class="label" data-i18n="plusFeature2">Swipe illimitati</span>
-  </li>
-  <li>
-    <span class="check">✓</span>
-    <span class="label" data-i18n="plusFeature3">Messaggi illimitati</span>
-  </li>
-  <li>
-    <span class="check">✓</span>
-    <span class="label" data-i18n="plusFeature4">Tutti i filtri Gold sbloccati</span>
-  </li>
-  <li>
-    <span class="check">✓</span>
-    <span class="label" data-i18n="plusFeature5">Supporto prioritario</span>
-  </li>
-  <li>
-    <span class="check">✓</span>
-    <span class="label" data-i18n="plusFeature6">Vedi tutte le Stories senza video</span>
-  </li>
-  <li>
-    <span class="check">✓</span>
-    <span class="label" data-i18n="plusFeature7">Stories video fino a 90 secondi</span>
-  </li>
-</ul>
+          <li>
+            <span class="check">✓</span>
+            <span class="label" data-i18n="plusFeature1">Nessuna pubblicità</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span class="label" data-i18n="plusFeature2">Swipe illimitati</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span class="label" data-i18n="plusFeature3">Messaggi illimitati</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span class="label" data-i18n="plusFeature4">Tutti i filtri Gold sbloccati</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span class="label" data-i18n="plusFeature5">Supporto prioritario</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span class="label" data-i18n="plusFeature6">Vedi tutte le Stories senza video</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span class="label" data-i18n="plusFeature7">Stories video fino a 90 secondi</span>
+          </li>
+        </ul>
         <div class="plan-selector">
-  <button id="planMonthly" class="plan-card active">
-    <div class="plan-name" data-i18n="planMonthly">Mensile</div>
-    <div class="plan-price">€4.99<span data-i18n="plusPeriod">/mese</span></div>
-  </button>  <button id="planYearly" class="plan-card">
-    <div class="plan-name" data-i18n="planYearly">Annuale</div>
-    <div class="plan-price">€40<span>/anno</span></div>
-    <div class="plan-save" data-i18n="planSave">Risparmia €20!</div>
-  </button>
-</div><button id="activatePlus" class="btn primary xl" data-i18n="activatePlus">Attiva Plutoo Plus</button>
-    <button id="cancelPlus" class="btn ghost" data-i18n="cancel">Annulla</button>
-  </div>
-</div>
-
+          <button id="planMonthly" class="plan-card active">
+            <div class="plan-name" data-i18n="planMonthly">Mensile</div>
+            <div class="plan-price">€4.99<span data-i18n="plusPeriod">/mese</span></div>
+          </button>
+          <button id="planYearly" class="plan-card">
+            <div class="plan-name" data-i18n="planYearly">Annuale</div>
+            <div class="plan-price">€40<span>/anno</span></div>
+            <div class="plan-save" data-i18n="planSave">Risparmia €20!</div>
+          </button>
+        </div>
+        <button id="activatePlus" class="btn primary xl" data-i18n="activatePlus">Attiva Plutoo Plus</button>
+        <button id="cancelPlus" class="btn ghost" data-i18n="cancel">Annulla</button>
+      </div>
+    </div>
   </div>  <!-- ==================== FOLLOWERS OVERLAY ==================== -->  <div id="followersOverlay" class="bottom-sheet hidden">
     <div class="sheet-backdrop"></div>
     <div class="sheet-content">
@@ -449,41 +443,38 @@
         </div>
       </div>
       <button id="closeStoryViewer" class="story-close">✕</button>
-    </div><div id="storyProgressBars" class="story-progress-bars"></div>
-
-<div id="storyContent" class="story-content">
-  <button id="storyLikeBtn" class="story-like-btn">❤️</button>
-</div>
-
-<button id="storyNavPrev" class="story-nav story-nav-prev" aria-label="Previous">‹</button>
-<button id="storyNavNext" class="story-nav story-nav-next" aria-label="Next">›</button>
-
+    </div>
+    <div id="storyProgressBars" class="story-progress-bars"></div>
+    <div id="storyContent" class="story-content">
+      <button id="storyLikeBtn" class="story-like-btn">❤️</button>
+    </div>
+    <button id="storyNavPrev" class="story-nav story-nav-prev" aria-label="Previous">‹</button>
+    <button id="storyNavNext" class="story-nav story-nav-next" aria-label="Next">›</button>
   </div>  <!-- ==================== UPLOAD STORY MODAL ==================== -->  <div id="uploadStoryModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content upload-story-modal">
-      <button id="closeUploadStory" class="modal-close">✕</button><div id="uploadStoryStep1" class="upload-step active">
-    <h2>📸 Carica una Story</h2>
-    <div class="upload-zone">
-      <input type="file" id="storyFileInput" accept="image/*,video/*" hidden>
-      <label for="storyFileInput" class="upload-label">
-        <div class="upload-icon">📤</div>
-        <div>Tocca per caricare foto o video</div>
-        <div class="upload-hint">Max 10MB foto, 50MB video</div>
-      </label>
-    </div>
-    <div id="uploadPreview" class="upload-preview hidden"></div>
-    <button id="nextToCustomize" class="btn primary" disabled>Avanti →</button>
-  </div>
-  
-  <div id="uploadStoryStep2" class="upload-step">
+      <button id="closeUploadStory" class="modal-close">✕</button>
+      <div id="uploadStoryStep1" class="upload-step active">
+        <h2>📸 Carica una Story</h2>
+        <div class="upload-zone">
+          <input type="file" id="storyFileInput" accept="image/*,video/*" hidden>
+          <label for="storyFileInput" class="upload-label">
+            <div class="upload-icon">📤</div>
+            <div>Tocca per caricare foto o video</div>
+            <div class="upload-hint">Max 10MB foto, 50MB video</div>
+          </label>
+        </div>
+        <div id="uploadPreview" class="upload-preview hidden"></div>
+        <button id="nextToCustomize" class="btn primary" disabled>Avanti →</button>
+      </div><div id="uploadStoryStep2" class="upload-step">
     <h2>✨ Personalizza</h2>
     <div class="upload-preview"></div>
-    
+
     <div class="customize-section">
       <h3>Filtri</h3>
       <div id="filtersGrid" class="filters-grid"></div>
     </div>
-    
+
     <div class="customize-section">
       <h3>Musica</h3>
       <select id="storyMusicSelect" class="form-control">
@@ -493,13 +484,13 @@
         <option value="energetic">🎵 Energetic</option>
       </select>
     </div>
-    
+
     <div class="upload-actions">
       <button id="backToUpload" class="btn outline">← Indietro</button>
       <button id="publishStory" class="btn primary">Pubblica 🚀</button>
     </div>
   </div>
-  
+
   <button id="cancelUpload" class="btn ghost">Annulla</button>
 </div>
 
