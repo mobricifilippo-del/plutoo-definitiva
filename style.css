@@ -1605,3 +1605,8 @@ line-height: 1.6;
 .photo-like-btn.liked{
   background:rgba(255,64,129,.95);
 }
+
+/* Nasconde la vecchia barra like sotto al profilo cane */
+.profile-like-btn{
+  display: none !important;
+}
