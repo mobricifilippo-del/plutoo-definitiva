@@ -1598,3 +1598,8 @@ line-height: 1.6;
   background:radial-gradient(circle at 30% 0%,#ff9ecb 0%,#ff7aa2 35%,#ff4f7b 100%);
   box-shadow:0 0 18px rgba(255,140,180,.85);
 }
+
+/* Nasconde il cuore fisso nel profilo: like solo quando apro la foto */
+.profile-like-btn{
+  display:none !important;
+}
