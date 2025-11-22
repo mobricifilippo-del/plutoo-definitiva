@@ -1353,11 +1353,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updatePhotoLikeUI(dogId) {
-    if (!profileLikeBtn || !dogId) return;
-    const liked = isDogPhotoLiked(dogId);
-    profileLikeBtn.classList.toggle("liked", liked);
-    profileLikeBtn.textContent = liked ? "❤️" : "🤍";
-  }
+  if (!profileLikeBtn || !dogId) return;
+  const liked = isDogPhotoLiked(dogId);
+  const count = liked ? 1 : 0;   // 0 se non likato, 1 se likato
+  profileLikeBtn.classList.toggle("liked", liked);
+  profileLikeBtn.textContent = "❤️ " + count;
+}
 
   function togglePhotoLike(dogId) {
     if (!dogId) return;
@@ -1382,11 +1383,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateStoryLikeUI(mediaId) {
-    if (!storyLikeBtn || !mediaId) return;
-    const liked = isStoryLiked(mediaId);
-    storyLikeBtn.classList.toggle("liked", liked);
-    storyLikeBtn.textContent = liked ? "❤️" : "🤍";
-  }
+  if (!storyLikeBtn || !mediaId) return;
+  const liked = isStoryLiked(mediaId);
+  const count = liked ? 1 : 0;
+  storyLikeBtn.classList.toggle("liked", liked);
+  storyLikeBtn.textContent = "❤️ " + count;
+}
 
   function toggleStoryLike(mediaId) {
     if (!mediaId) return;
