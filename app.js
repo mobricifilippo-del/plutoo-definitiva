@@ -1447,6 +1447,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="pp-head">
         <h2 class="pp-name">
           <span class="pp-name-main">${d.name} ${d.verified?"✅":""}</span>
+          <button type="button" id="followBtn" class="btn small pp-follow-btn">Segui 🐕🐾</button>
           <span class="pp-follow-stats">
             <button type="button" id="followersCount" class="pp-follow-count">0 follower</button>
             <span class="pp-follow-dot">·</span>
@@ -1526,6 +1527,32 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
 
     updateFollowerUI(d);
+    const followBtn = $("followBtn");
+    if (followBtn) {
+      const refreshFollowBtn = () => {
+        const myFollowing = getFollowing(); // lista dei cani che SEGUE il mio DOG
+        const isFollowing = myFollowing.includes(d.id);
+        if (state.lang === "it") {
+          followBtn.textContent = isFollowing ? "Seguito 🐕🐾" : "Segui 🐕🐾";
+        } else {
+          followBtn.textContent = isFollowing ? "Following 🐕🐾" : "Follow 🐕🐾";
+        }
+        followBtn.classList.toggle("is-following", isFollowing);
+      };
+
+      followBtn.onclick = () => {
+        const myFollowing = getFollowing();
+        const isFollowing = myFollowing.includes(d.id);
+        if (isFollowing) {
+          unfollowDog(d.id);
+        } else {
+          followDog(d.id);
+        }
+        refreshFollowBtn();
+      };
+
+      refreshFollowBtn();
+    }
 
     const followersCountEl = $("followersCount");
     const followingCountEl = $("followingCount");
