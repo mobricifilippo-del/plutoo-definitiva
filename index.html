@@ -13,11 +13,14 @@
   <link rel="preload" as="image" href="dog3.jpg">  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  
   <!-- Flash overlay animazione ingresso -->
   <div id="whiteFlash"></div>
   <audio id="dogBark" preload="auto">
   <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_2d8e73e9f8.mp3" type="audio/mpeg">
-</audio>  <!-- ==================== HOME SCREEN ==================== -->  <div id="homeScreen" class="home">
+</audio>
+  
+  <!-- ==================== HOME SCREEN ==================== -->  <div id="homeScreen" class="home">
     <div class="home-top">
       <div class="container">
         <div class="home-bar">
@@ -42,7 +45,6 @@
       </div>
     </div>
   </div>
-</div>
 
 <!-- Hero -->
 <div class="home-hero">
@@ -75,8 +77,11 @@
     <a href="contatti.html">Contatti</a>
   </div>
 </div>
-
-  </div>  <!-- ==================== APP SCREEN ==================== -->  <div id="appScreen" class="app hidden"><!-- Top Bar -->
+</div>
+  
+  <!-- ==================== APP SCREEN ==================== -->
+  <div id="appScreen" class="app hidden">
+    <!-- Top Bar -->
 <div id="mainTopbar" class="topbar">
   <div class="left">
     <button id="btnBack" class="btn small ghost" aria-label="Back">←</button>
@@ -209,10 +214,10 @@
       </div>
     </div>
 
-  </div>
-  <!-- fine MESSAGGI -->
-
-</div>   <!-- Banner Sponsor GLOBALE (per tutte le pagine tranne Home) --><div id="globalSponsor" class="sponsor">
+  </div> <!-- fine MESSAGGI -->
+</div>
+    
+    <!-- Banner Sponsor GLOBALE (per tutte le pagine tranne Home) --><div id="globalSponsor" class="sponsor">
   <div class="sponsor-wrap">
     <div class="sponsor-title" data-i18n="sponsorTitle">
       Sponsor ufficiale
@@ -342,8 +347,9 @@
     </div>
   </form>
 </div>
-
-  </div>  <!-- ==================== PLUTOO PLUS MODAL ==================== -->  <div id="plusModal" class="modal hidden">
+</div>
+    
+    <!-- ==================== PLUTOO PLUS MODAL ==================== -->  <div id="plusModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content plus-modal">
       <button id="closePlus" class="modal-close">✕</button>
@@ -396,8 +402,9 @@
     <button id="cancelPlus" class="btn ghost" data-i18n="cancel">Annulla</button>
   </div>
 </div>
+</div>
 
-  </div>  <!-- ==================== FOLLOWERS OVERLAY ==================== -->  <div id="followersOverlay" class="bottom-sheet hidden">
+    <!-- ==================== FOLLOWERS OVERLAY ==================== -->  <div id="followersOverlay" class="bottom-sheet hidden">
     <div class="sheet-backdrop"></div>
     <div class="sheet-content">
       <div class="sheet-header">
@@ -406,7 +413,9 @@
       </div>
       <div id="followersList" class="sheet-list"></div>
     </div>
-  </div>  <!-- ==================== FOLLOWING OVERLAY ==================== -->  <div id="followingOverlay" class="bottom-sheet hidden">
+  </div>  
+    
+    <!-- ==================== FOLLOWING OVERLAY ==================== -->  <div id="followingOverlay" class="bottom-sheet hidden">
     <div class="sheet-backdrop"></div>
     <div class="sheet-content">
       <div class="sheet-header">
@@ -415,7 +424,9 @@
       </div>
       <div id="followingList" class="sheet-list"></div>
     </div>
-  </div>  <!-- ==================== CHAT PANE (MODALE CENTRATA) ==================== -->  <div id="chatPane" class="chat-pane hidden">
+  </div>
+    
+    <!-- ==================== CHAT PANE (MODALE CENTRATA) ==================== -->  <div id="chatPane" class="chat-pane hidden">
     <div class="chat-pane-inner">
       <div class="chat-header">
         <button id="closeChat" class="btn small ghost">←</button>
@@ -427,7 +438,9 @@
         <button type="submit" class="btn primary" data-i18n="send">Invia</button>
       </form>
     </div>
-  </div>  <!-- ==================== PROFILE PAGE ==================== -->  <div id="profilePage" class="profile-page hidden">
+  </div>  
+    
+    <!-- ==================== PROFILE PAGE ==================== -->  <div id="profilePage" class="profile-page hidden">
     <div class="profile-header">
       <button id="profileBack" class="btn small ghost">←</button>
       <span data-i18n="profile">Profilo</span>
@@ -435,12 +448,16 @@
     </div>
     <div id="profileContent" class="profile-content"></div>
     <button id="profileLikeBtn" class="profile-like-btn">❤️</button>
-  </div>  <!-- ==================== MATCH OVERLAY ==================== -->  <div id="matchOverlay" class="match-overlay hidden">
+  </div>  
+    
+  <!-- ==================== MATCH OVERLAY ==================== -->  <div id="matchOverlay" class="match-overlay hidden">
     <div class="match-content">
       <div class="match-title">It's a Match! 💜</div>
       <div class="match-hearts">💛</div>
     </div>
-  </div>  <!-- ==================== STORY VIEWER ==================== -->  <div id="storyViewer" class="story-viewer hidden">
+  </div>  
+    
+    <!-- ==================== STORY VIEWER ==================== -->  <div id="storyViewer" class="story-viewer hidden">
     <div class="story-header">
       <div class="story-user">
         <img id="storyUserAvatar" src="" alt="" class="story-user-avatar">
@@ -459,7 +476,9 @@
 <button id="storyNavPrev" class="story-nav story-nav-prev" aria-label="Previous">‹</button>
 <button id="storyNavNext" class="story-nav story-nav-next" aria-label="Next">›</button>
 
-  </div>  <!-- ==================== UPLOAD STORY MODAL ==================== -->  <div id="uploadStoryModal" class="modal hidden">
+  </div> 
+    
+    <!-- ==================== UPLOAD STORY MODAL ==================== -->  <div id="uploadStoryModal" class="modal hidden">
     <div class="modal-backdrop"></div>
     <div class="modal-content upload-story-modal">
       <button id="closeUploadStory" class="modal-close">✕</button><div id="uploadStoryStep1" class="upload-step active">
