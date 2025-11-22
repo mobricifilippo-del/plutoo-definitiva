@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ============ Helpers ============
   const $  = (id) => document.getElementById(id);
   const qs = (s, r=document) => r.querySelector(s);
-  const qa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const qa = (s, r=document) => r ? Array.from(r.querySelectorAll(s)) : [];
   const $all = qa;
 
   function autodetectLang(){
