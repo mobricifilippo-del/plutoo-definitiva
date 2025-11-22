@@ -305,6 +305,29 @@ a{color:inherit;text-decoration:none}
   padding:.5rem .9rem;border-radius:20px;font-size:.85rem;color:#fff;
   border:1px solid rgba(138,123,255,.4);
 }
+.story-like-btn{
+  position:absolute;
+  bottom:1.4rem;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.8);
+  backdrop-filter:blur(10px);
+  border-radius:999px;
+  border:0;
+  padding:.45rem .95rem;
+  color:#fff;
+  font-size:1.1rem;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 10px 30px rgba(0,0,0,.45);
+  cursor:pointer;
+}
+
+.story-like-btn.liked{
+  background:rgba(255,64,129,.95);
+}
 
 /* ✅ FIX: NASCONDE TOPBAR QUANDO STORY APERTA */
 body.story-open #mainTopbar,
@@ -1542,64 +1565,27 @@ line-height: 1.6;
 }
 
 /* ================= LIKE FOTO PROFILO ================= */
-.profile-like-btn{
+.photo-like-btn{
   position:absolute;
-  right:1.2rem;
-  top:5.4rem;
-  width:46px;
-  height:46px;
+  bottom:1.4rem;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.8);
+  backdrop-filter:blur(10px);
   border-radius:999px;
   border:0;
-  background:rgba(0,0,0,.6);
+  padding:.6rem 1.1rem;
   color:#fff;
+  font-size:1.25rem;
+  font-weight:700;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:1.4rem;
-  box-shadow:0 10px 24px rgba(0,0,0,.7);
+  box-shadow:0 10px 30px rgba(0,0,0,.45);
   cursor:pointer;
-  transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
-  z-index:2200;
-}
-.profile-like-btn:active{
-  transform:scale(.92) translateY(1px);
-  box-shadow:0 4px 14px rgba(0,0,0,.7);
-}
-.profile-like-btn.liked{
-  background:radial-gradient(circle at 30% 0%,#ff9ecb 0%,#ff7aa2 35%,#ff4f7b 100%);
-  box-shadow:0 0 18px rgba(255,140,180,.85);
+  z-index:9999;
 }
 
-/* ================= LIKE STORIE ================= */
-.story-like-btn{
-  position:absolute;
-  right:1.1rem;
-  bottom:1.2rem;
-  width:46px;
-  height:46px;
-  border-radius:999px;
-  border:0;
-  background:rgba(0,0,0,.7);
-  color:#fff;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:1.4rem;
-  box-shadow:0 10px 24px rgba(0,0,0,.7);
-  cursor:pointer;
-  transition:transform .16s ease, box-shadow .16s ease, background .16s ease, opacity .16s ease;
-  z-index:910;
-}
-.story-like-btn:active{
-  transform:scale(.92) translateY(1px);
-  box-shadow:0 4px 14px rgba(0,0,0,.7);
-}
-.story-like-btn.liked{
-  background:radial-gradient(circle at 30% 0%,#ff9ecb 0%,#ff7aa2 35%,#ff4f7b 100%);
-  box-shadow:0 0 18px rgba(255,140,180,.85);
-}
-
-/* Nasconde il cuore fisso nel profilo: like solo quando apro la foto */
-.profile-like-btn{
-  display:none !important;
+.photo-like-btn.liked{
+  background:rgba(255,64,129,.95);
 }
