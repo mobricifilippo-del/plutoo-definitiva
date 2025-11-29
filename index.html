@@ -2,7 +2,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta http-equiv="Cache-Control" content="max-age=31536000, immutable">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <meta name="theme-color" content="#0B0B0F">
   <meta name="description" content="Plutoo – l'app per l'accoppiamento dei DOG">
   <title>Plutoo</title>
@@ -17,8 +17,9 @@
 <body>
   <div id="whiteFlash"></div>
   <audio id="dogBark" preload="auto">
-    <source src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_2d8e73e9f8.mp3" type="audio/mpeg">
-  </audio>  <!-- ==================== HOME SCREEN ==================== -->  <div id="homeScreen" class="home">
+  <source src="dog-bark.mp3" type="audio/mpeg">
+  </audio>  
+  <!-- ==================== HOME SCREEN ==================== -->  <div id="homeScreen" class="home">
     <div class="home-top">
       <div class="container">
         <div class="home-bar">
@@ -52,7 +53,7 @@
 <!-- Sponsor -->
 <div class="home-sponsor">
   <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
-  <a href="https://www.gelatofido.it/" id="sponsorLink" class="sponsor-card" target="_blank" rel="noopener">
+  <a href="https://www.gelatofido.it/" id="homesponsorLink" class="sponsor-card" target="_blank" rel="noopener">
     <img src="sponsor-logo.png"
          alt="Fido Gelato"
          class="sponsor-logo"
@@ -206,23 +207,6 @@
     </div>
   </div>
   <!-- fine MESSAGGI -->
-</div>
-
-  </div>  <!-- Banner Sponsor GLOBALE (per tutte le pagine tranne Home) -->  <div id="globalSponsor" class="sponsor">
-    <div class="sponsor-wrap">
-      <div class="sponsor-title" data-i18n="sponsorTitle">
-        Sponsor ufficiale
-      </div><a href="https://www.gelatofido.it/" id="sponsorLinkBottom"
-     style="display:inline-block" target="_blank" rel="noopener">
-    <img src="sponsor-logo.png"
-         alt="Fido Gelato"
-         class="sponsor-logo"
-         loading="eager">
-  </a>
-
-  <div class="sponsor-copy" data-i18n="sponsorCopy">
-    Fido, il gelato per i nostri amici a quattro zampe
-  </div>
 </div>
 
 <div id="adBanner" class="ad-banner">
@@ -428,12 +412,15 @@
     </div>
     <div id="profileContent" class="profile-content"></div>
     <button id="profileLikeBtn" class="profile-like-btn">❤️</button>
-  </div>  <!-- ==================== MATCH OVERLAY ==================== -->  <div id="matchOverlay" class="match-overlay hidden">
+  </div>  
+  <!-- ==================== MATCH OVERLAY ==================== -->  
+  <div id="matchOverlay" class="match-overlay">
     <div class="match-content">
-      <div class="match-title">It's a Match! 💜</div>
-      <div class="match-hearts">💛</div>
+<div class="match-hearts">❤️‍🔥</div>
+<div class="match-text">MATCH!</div>
     </div>
-  </div>  <!-- ==================== STORY VIEWER ==================== -->  <div id="storyViewer" class="story-viewer hidden">
+  </div>  
+  <!-- ==================== STORY VIEWER ==================== -->  <div id="storyViewer" class="story-viewer hidden">
     <div class="story-header">
       <div class="story-user">
         <img id="storyUserAvatar" src="" alt="" class="story-user-avatar">
@@ -442,7 +429,11 @@
           <span id="storyTimestamp" class="story-timestamp"></span>
         </div>
       </div>
-      <button id="closeStoryViewer" class="story-close">✕</button>
+      <button id="closeStoryViewer"
+        class="story-close-btn story-back-btn"
+        type="button">
+  ← Indietro
+      </button>
     </div>
     <div id="storyProgressBars" class="story-progress-bars"></div>
     <div id="storyContent" class="story-content"></div>
