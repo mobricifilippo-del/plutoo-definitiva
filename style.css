@@ -1139,18 +1139,25 @@ body.story-open #storiesBar {
 }
 
 .msg{
-  background:#222238;
-  padding:.6rem .85rem;
-  border-radius:12px;
-  width:max-content;
-  max-width:85%;
+  background:#1f1f2e;
+  padding:.65rem .9rem;
+  border-radius:16px 16px 16px 6px; /* stile IG */
+  width:fit-content;
+  max-width:82%;
   font-size:.95rem;
+  line-height:1.35;
+  color:#fff;
+  box-shadow:0 4px 12px rgba(0,0,0,.35);
 }
 
 .msg.me{
   align-self:flex-end;
-  background:#2d2540;
-  border:1px solid rgba(138,123,255,.25);
+  background:linear-gradient(135deg,#7C3AED,#8B5CF6);
+  border-radius:16px 16px 6px 16px; /* specchiato */
+  color:#fff;
+  box-shadow:
+    0 4px 14px rgba(139,92,246,.45),
+    inset 0 0 0 1px rgba(255,255,255,.12);
 }
 
 .chat-composer input{
@@ -1271,7 +1278,7 @@ position: sticky;
 top: 0;
 z-index: 999;
 display: flex;
-align-items: center;
+align-items:flex-start;
 gap: 16px;
 padding: 16px 20px;
 min-height: 85px;
@@ -1365,6 +1372,67 @@ color: rgba(255, 255, 255, 0.5);
 padding: 40px 20px;
 font-size: 1rem;
 line-height: 1.6;
+}
+
+/* ===============================
+   INSTAGRAM-LIKE LIST (msg-item)
+   =============================== */
+
+/* riga chat */
+.msg-item{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 12px;
+  border-radius:18px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  margin-bottom:10px;
+  cursor:pointer;
+  transition: transform .15s ease, background .2s ease, border-color .2s ease;
+}
+
+.msg-item:hover{
+  background: rgba(255,255,255,0.085);
+  border-color: rgba(177,154,255,0.28);
+}
+
+.msg-item:active{
+  transform: scale(0.99);
+}
+
+/* blocco testo */
+.msg-main{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+/* titolo (nome + preview) */
+.msg-title{
+  color: rgba(255,255,255,0.92);
+  font-weight:800;
+  font-size: 0.98rem;
+  line-height:1.2;
+  margin-bottom:4px;
+  overflow:hidden;
+  text-overflow: ellipsis;
+}
+
+/* meta (data/ora) */
+.msg-meta{
+  color: rgba(255,255,255,0.55);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow:hidden;
+  text-overflow: ellipsis;
+}
+
+/* separatore super leggero “tipo DM” */
+.messages-list{
+  padding-top: 6px;
 }
 
 /* ================= FOLLOWERS / FOLLOWING BOTTOM SHEET ================= */
@@ -1564,13 +1632,13 @@ line-height: 1.6;
 
   opacity: 0;
   pointer-events: none;
-  transition: opacity 1.5s ease-out;
+  transition: opacity 0.8s ease-out;
 }
 
 .match-overlay.active{
   opacity: 1;
   pointer-events: auto;
-  transition: opacity 1.8s ease-out;
+  transition: opacity 1s ease-out;
 }
 
 .match-content{
@@ -1581,7 +1649,7 @@ line-height: 1.6;
 .match-hearts,
 .match-heart{
   font-size: 220px;           /* leggermente più piccolo di prima */
-  animation: matchHeartPulse 1.8s ease-in-out infinite;
+  animation: matchHeartPulse 1.2s ease-in-out infinite;
   filter: drop-shadow(0 25px 55px rgba(255,140,0,.9));
 }
 
@@ -1605,4 +1673,35 @@ line-height: 1.6;
 /* se esiste ancora un titolo tipo "It's a Match! 💜", lo nascondiamo */
 .match-title{
   display: none;
+}
+
+/* ===== AVATAR MESSAGGI (STILE INSTAGRAM) ===== */
+
+.msg-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.msg-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid rgba(138,123,255,0.4);
+  background: #1a1a2a;
+}
+
+/* FOLLOW BUTTON */
+.pp-follow-btn{
+  background:transparent;
+  color:var(--text);
+  border:1px solid rgba(138,123,255,.5);
+}
+
+.pp-follow-btn.is-following{
+  background:#fff;
+  color:#111;
+  border-color:#fff;
 }
