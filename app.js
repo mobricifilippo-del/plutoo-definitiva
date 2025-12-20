@@ -1,7 +1,59 @@
-// DEBUG TEMPORANEO: mostra qualsiasi errore JS
+/* ================= CRASH DEBUG SYSTEM (OBBLIGATORIO) ================= */
+
+// 1️⃣ Errori JS globali
 window.addEventListener("error", function (e) {
-  alert("JS ERROR: " + e.message);
+  alert(
+    "❌ JS ERROR\n\n" +
+    "Messaggio: " + e.message + "\n" +
+    "File: " + e.filename + "\n" +
+    "Linea: " + e.lineno + ":" + e.colno
+  );
 });
+
+// 2️⃣ Errori Promise / Firebase
+window.addEventListener("unhandledrejection", function (e) {
+  alert(
+    "❌ PROMISE ERROR\n\n" +
+    (e.reason && e.reason.message
+      ? e.reason.message
+      : JSON.stringify(e.reason))
+  );
+});
+
+// 3️⃣ Verifica Firestore sempre disponibile
+function assertFirestore() {
+  if (!window.db) {
+    alert("❌ FIRESTORE NON INIZIALIZZATO (window.db è undefined)");
+    return false;
+  }
+  return true;
+}
+
+// 4️⃣ Verifica UID sempre presente
+function assertUID() {
+  if (!window.PLUTOO_UID) {
+    alert("❌ UTENTE NON AUTENTICATO (PLUTOO_UID mancante)");
+    return false;
+  }
+  return true;
+}
+
+// 5️⃣ Wrapper sicuro per Firestore write
+async function safeFirestoreWrite(label, fn) {
+  if (!assertFirestore() || !assertUID()) {
+    alert("❌ BLOCCO WRITE: " + label);
+    return;
+  }
+  try {
+    await fn();
+  } catch (e) {
+    alert(
+      "❌ FIRESTORE WRITE ERROR\n\n" +
+      label + "\n\n" +
+      (e.message || JSON.stringify(e))
+    );
+  }
+}
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -23,12 +75,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ✅ Stato Auth: NON fare anonimo automatico (login/registrazione reali)
   auth.onAuthStateChanged(async (user) => {
-    if (!user) {
-      // Utente non autenticato: nessun boot app, UID nullo
-      window.PLUTOO_UID = null;
-      window.__booted = false;
-      return;
-    }
+  if (!user) {
+  // ✅ Auto-login anonimo per avere sempre PLUTOO_UID e poter scrivere su Firestore
+  auth.signInAnonymously()
+    .catch((e) => alert("❌ AUTH ANON ERROR: " + (e && e.message ? e.message : e)));
+  return;
+  }
 
     // ✅ Fonte di verità UID (sempre aggiornata)
     const prevUid = window.PLUTOO_UID || null;
@@ -1797,19 +1849,31 @@ if (!selfDogId) {
 
   // ✅ Firestore (source of truth): salva follow
   try {
-    const selfUid = window.PLUTOO_UID;
-    const _db = window.db;
-    if (!selfUid || !_db) return;
+  const selfUid = window.PLUTOO_UID;
+  const _db = (window.db || (typeof db !== "undefined" ? db : null));
 
-    const docId = `${String(selfDogId)}_${String(targetDogId)}`;
+if (!selfUid || !_db) {
+  console.error("FOLLOW Firestore SKIP:", { selfUid, hasDb: !!_db });
+  if (typeof showToast === "function") showToast("FOLLOW: Firestore SKIP (uid/db)");
+  return;
+}
+
+const docId = `${String(selfDogId)}_${String(targetDogId)}`;
+
 _db.collection("followers").doc(docId).set({
   followerUid: String(selfUid),
   followerDogId: String(selfDogId),
-      targetDogId: String(targetDogId),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch((e) => {
-      console.error("followDog Firestore:", e);
-    });
+  targetDogId: String(targetDogId),
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+}, { merge: true })
+.then(() => {
+  console.log("FOLLOW Firestore OK:", docId);
+  if (typeof showToast === "function") showToast("FOLLOW: salvato su Firestore ✅");
+})
+.catch((e) => {
+  console.error("followDog Firestore:", e);
+  if (typeof showToast === "function") showToast("FOLLOW: ERRORE Firestore ❌");
+});
   } catch (e) {
     console.error("followDog Firestore:", e);
   }
@@ -1847,8 +1911,15 @@ if (!selfDogId) {
   // ✅ Firestore (source of truth): rimuove follow
   try {
     const selfUid = window.PLUTOO_UID;
-    const _db = window.db;
-    if (!selfUid || !_db) return;
+    const _db = (window.db || (typeof db !== "undefined" ? db : null));
+    if (!selfUid || !_db) {
+  alert(
+    "FIRESTORE BLOCCATO:\n" +
+    "selfUid=" + selfUid + "\n" +
+    "db=" + _db
+  );
+  return;
+    }
 
     const docId = `${String(selfDogId)}_${String(targetDogId)}`;
     _db.collection("followers").doc(docId).delete().catch((e) => {
