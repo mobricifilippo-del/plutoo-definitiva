@@ -38,8 +38,8 @@
               <button id="langEN" class="btn tiny ghost" aria-label="English">🇬🇧</button>
             </div>
             <div class="auth-links">
-              <a href="#" data-i18n="login">Login</a> ·
-              <a href="#" data-i18n="register">Registrati</a>
+              <a id="linkLogin" href="#" data-i18n="login">Login</a>
+              <a id="linkRegister" href="#" data-i18n="register">Registrati</a>
             </div>
           </div>
         </div>
@@ -416,7 +416,7 @@
   <!-- ==================== MATCH OVERLAY ==================== -->  
   <div id="matchOverlay" class="match-overlay">
     <div class="match-content">
-<div class="match-hearts">❤️‍🔥</div>
+<div class="match-hearts"></div>
 <div class="match-text">MATCH!</div>
     </div>
   </div>  
@@ -483,6 +483,125 @@
 
   <button id="cancelUpload" class="btn ghost">Annulla</button>
 </div>
+
+    <!-- Firebase SDK (CDN, compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage-compat.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAEqA_Cx0NkwGfEGVEPR1R-NrrfKdBT33w",
+    authDomain: "plutoo-prod.firebaseapp.com",
+    projectId: "plutoo-prod",
+    storageBucket: "plutoo-prod.firebasestorage.app",
+    messagingSenderId: "251835121058",
+    appId: "1:251835121058:web:ef75fff4baa3855578c6fb"
+  };
+
+  // Inizializza Firebase
+  firebase.initializeApp(firebaseConfig);
+</script>
+
+    <script>
+(function () {
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function ensureUI() {
+    if (document.getElementById("__crashOverlay")) return;
+
+    var style = document.createElement("style");
+    style.id = "__crashOverlayStyle";
+    style.textContent =
+      "#__crashOverlay{position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.92);color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;display:none}" +
+      "#__crashOverlay .box{max-width:920px;margin:24px auto;padding:16px;border:1px solid rgba(255,255,255,.18);border-radius:14px;background:rgba(20,20,30,.85)}" +
+      "#__crashOverlay h2{margin:0 0 10px 0;font-size:16px}" +
+      "#__crashOverlay pre{white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.06);padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);margin:0}" +
+      "#__crashOverlay .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}" +
+      "#__crashOverlay button{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;padding:10px 12px;border-radius:12px;font-weight:700;cursor:pointer}" +
+      "#__crashOverlay button:active{transform:scale(.99)}";
+    document.head.appendChild(style);
+
+    var overlay = document.createElement("div");
+    overlay.id = "__crashOverlay";
+    overlay.innerHTML =
+      '<div class="box">' +
+      "<h2>Plutoo — Crash Debug</h2>" +
+      "<pre id=\"__crashText\">(in attesa di errori)</pre>" +
+      '<div class="row">' +
+      '<button id="__crashCopy">Copia</button>' +
+      '<button id="__crashClose">Chiudi</button>' +
+      "</div>" +
+      "</div>";
+    document.body.appendChild(overlay);
+
+    document.getElementById("__crashClose").addEventListener("click", function () {
+      overlay.style.display = "none";
+    });
+
+    document.getElementById("__crashCopy").addEventListener("click", function () {
+      try {
+        var txt = document.getElementById("__crashText").textContent || "";
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).catch(function(){});
+        }
+      } catch (_) {}
+    });
+  }
+
+  function show(details) {
+    try { ensureUI(); } catch (_) {}
+    var el = document.getElementById("__crashOverlay");
+    var pre = document.getElementById("__crashText");
+    if (!el || !pre) return;
+
+    var now = new Date();
+    var out = [];
+    out.push("TIME: " + now.toLocaleString());
+    out.push("URL: " + location.href);
+    out.push("");
+    out.push(details);
+
+    pre.textContent = out.join("\n");
+    el.style.display = "block";
+  }
+
+  window.addEventListener("error", function (e) {
+    // Cattura anche SyntaxError/parse error (app.js che non parte)
+    var msg = e && e.message ? e.message : "Unknown error";
+    var src = e && e.filename ? e.filename : "";
+    var line = (e && typeof e.lineno === "number") ? e.lineno : "";
+    var col  = (e && typeof e.colno === "number") ? e.colno : "";
+    var stack = (e && e.error && e.error.stack) ? e.error.stack : "";
+
+    var details =
+      "ERROR: " + esc(msg) + "\n" +
+      "FILE: " + esc(src) + "\n" +
+      "LINE: " + esc(line) + "  COL: " + esc(col) + "\n" +
+      (stack ? ("\nSTACK:\n" + stack) : "");
+
+    show(details);
+  }, true);
+
+  window.addEventListener("unhandledrejection", function (e) {
+    var reason = (e && e.reason) ? e.reason : "Unhandled rejection";
+    var msg = (reason && reason.message) ? reason.message : String(reason);
+    var stack = (reason && reason.stack) ? reason.stack : "";
+
+    var details =
+      "UNHANDLED PROMISE REJECTION:\n" +
+      "REASON: " + esc(msg) + "\n" +
+      (stack ? ("\nSTACK:\n" + stack) : "");
+
+    show(details);
+  });
+})();
+    </script>
 
   </div>  <script src="app.js" defer></script></body>
 </html>
