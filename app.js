@@ -95,10 +95,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const selfUid = user.uid;
       if (!db) return;
 
-      const snap = await db
-        .collection("chats")
-        .where("members", "array-contains", selfUid)
-        .get();
+      // 1) PRIMA prova dal dataset locale (più affidabile e immediato)
+try {
+  const localDogs = (Array.isArray(state?.dogs) && state.dogs.length) ? state.dogs
+    : (Array.isArray(window.DOGS) ? window.DOGS : []);
+
+  const found = localDogs.find(x => String(x.id) === String(dogId));
+  if (found && typeof window.openProfilePage === "function") {
+    window.openProfilePage(found);
+    return;
+  }
+} catch (_) {}
+
+// 2) FALLBACK: se non lo trova localmente, allora prova Firestore
+const snap = await _db.collection("dogs").doc(String(dogId)).get();
 
       const restored = {};
       snap.forEach(doc => {
@@ -853,6 +863,255 @@ const DOGS = [
 
 // ====== MESSAGGI - VISTA E TABS INTERN INTERNI ======
 const btnMessages = $("btnMessages");
+
+// 🔔 Notifiche (Firestore source of truth)
+const notifBtn = $("notifBtn");
+const notifOverlay = $("notifOverlay");
+const notifList = $("notifList");
+const notifDot = $("notifDot");
+
+let __notifUnsub = null;
+let __notifLast = []; // cache render
+let __notifInited = false;
+
+function __fmtTime(ts) {
+  try {
+    if (!ts) return "";
+    const d = (ts && typeof ts.toDate === "function") ? ts.toDate() : (ts instanceof Date ? ts : null);
+    return d ? d.toLocaleString() : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function __renderNotifs(items) {
+  if (!notifList) return;
+
+  notifList.innerHTML = "";
+
+  if (!items || !items.length) {
+    notifList.innerHTML = `<p class="sheet-empty">Nessuna notifica</p>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+
+  items.forEach((n) => {
+    const row = document.createElement("div");
+    row.className = "notif-item" + (n.read ? "" : " unread");
+
+    const main = (n.type === "follow")
+      ? "Nuovo FOLLOW"
+      : (n.type ? String(n.type) : "Notifica");
+
+    const sub = (n.fromDogId ? `Da DOG: ${n.fromDogId}` : "");
+
+    row.innerHTML = `
+      <div class="notif-txt">
+        <div class="notif-main">${main}</div>
+        ${sub ? `<div class="notif-sub">${sub}</div>` : ``}
+      </div>
+      <div class="notif-time">${__fmtTime(n.createdAt)}</div>
+    `;
+
+ // FEEDBACK VISIVO (se non lo vedi, il click NON arriva)
+  row.addEventListener("click", function () {
+  row.style.outline = "2px solid #a855f7";
+row.style.background = "rgba(168,85,247,0.12)";
+if (navigator && navigator.vibrate) { try { navigator.vibrate(20); } catch(_){} }
+    
+  try {
+    var id = (n && n.fromDogId) ? String(n.fromDogId) : "";
+    if (!id) return;
+
+    if (typeof __openDogProfileById === "function") {
+      __openDogProfileById(id);
+    }
+  } catch (_) {}
+});
+
+    frag.appendChild(row);
+  });
+
+  notifList.appendChild(frag);
+}
+
+// === Apri profilo DOG da id (usato dalle notifiche) ===
+// Production-ready: prima prova dataset locale, poi Firestore (docId o campo id/dogId).
+async function __openDogProfileById(dogId) {
+  try {
+    dogId = (dogId != null) ? String(dogId) : "";
+    if (!dogId) return;
+
+    // 1) PRIMA prova locale (no ReferenceError se state non esiste)
+    var localDogs = [];
+    try {
+      if (typeof state !== "undefined" && state && Array.isArray(state.dogs) && state.dogs.length) {
+        localDogs = state.dogs;
+      } else if (Array.isArray(window.DOGS) && window.DOGS.length) {
+        localDogs = window.DOGS;
+      }
+    } catch (_) {}
+
+    var found = localDogs.find(function (x) { return String(x && x.id) === dogId; });
+    if (found && typeof window.openProfilePage === "function") {
+      window.openProfilePage(found);
+      return;
+    }
+
+    // 2) FALLBACK Firestore
+    const _db = (window.db || (typeof db !== "undefined" ? db : null));
+    if (!_db) return;
+
+    // 2a) tenta docId === dogId
+    let snap = await _db.collection("dogs").doc(dogId).get();
+
+    // 2b) fallback: docId auto, ma campo id/dogId nel documento
+    if (!snap.exists) {
+      const q1 = await _db.collection("dogs").where("id", "==", dogId).limit(1).get();
+      if (!q1.empty) snap = q1.docs[0];
+    }
+    if (!snap.exists) {
+      const q2 = await _db.collection("dogs").where("dogId", "==", dogId).limit(1).get();
+      if (!q2.empty) snap = q2.docs[0];
+    }
+
+    if (!snap.exists) return;
+
+    const d = snap.data() || {};
+    if (typeof window.openProfilePage === "function") {
+      window.openProfilePage({
+        id: d.id || d.dogId || dogId,
+        name: d.name || "",
+        img: d.img || d.photo || d.avatar || "",
+        breed: d.breed || "",
+        ...d
+      });
+    }
+  } catch (_) {}
+}
+
+async function __markAllNotifsRead(toDogId) {
+  try {
+    if (typeof db === "undefined" || !db || !window.PLUTOO_UID) return;
+    if (!toDogId) return;
+
+    const snap = await db
+      .collection("notifications")
+      .where("toDogId", "==", String(toDogId))
+      .where("read", "==", false)
+      .limit(40)
+      .get();
+
+    if (snap.empty) return;
+
+    const batch = db.batch();
+    snap.forEach((docSnap) => {
+      batch.set(docSnap.ref, { read: true }, { merge: true });
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error("markAllNotifsRead:", e);
+  }
+}
+
+function initNotificationsFeed() {
+  if (__notifInited) return;
+
+  // dogId “verità” per le notifiche (stessa logica che usi nei follow)
+  const toDogId = (typeof CURRENT_USER_DOG_ID !== "undefined" && CURRENT_USER_DOG_ID)
+    ? String(CURRENT_USER_DOG_ID)
+    : null;
+
+  // se non ho dogId, non “blocco” l’init: esco pulito
+  if (!toDogId) { __notifInited = false; return; }
+
+  // aspetta Firebase db/uid: NON bloccare __notifInited finché non è pronto
+  if (typeof db === "undefined" || !db || !window.PLUTOO_UID) {
+    __notifInited = false;
+    setTimeout(() => { try { initNotificationsFeed(); } catch (_) {} }, 350);
+    return;
+  }
+
+  __notifInited = true;
+
+  // kill eventuale vecchio listener
+  try { if (typeof __notifUnsub === "function") __notifUnsub(); } catch (_) {}
+  __notifUnsub = null;
+
+  __notifUnsub = db
+    .collection("notifications")
+    .where("toDogId", "==", String(toDogId))
+    .limit(40)
+    .onSnapshot((snap) => {
+      const items = [];
+      snap.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        items.push({
+          id: docSnap.id,
+          type: data.type || "",
+          fromUid: data.fromUid || "",
+          fromDogId: data.fromDogId || "",
+          toDogId: data.toDogId || "",
+          createdAt: data.createdAt || null,
+          read: data.read === true
+        });
+      });
+
+      // ordine lato client (robusto anche se qualche doc non ha createdAt)
+      items.sort((a, b) => {
+        const ta = a && a.createdAt && typeof a.createdAt.toDate === "function" ? a.createdAt.toDate().getTime() : 0;
+        const tb = b && b.createdAt && typeof b.createdAt.toDate === "function" ? b.createdAt.toDate().getTime() : 0;
+        return tb - ta;
+      });
+
+      __notifLast = items;
+
+      const unreadCount = items.filter((x) => x && x.read !== true).length;
+      if (notifDot) notifDot.classList.toggle("hidden", unreadCount === 0);
+
+      // se overlay aperto, aggiorna live
+      if (notifOverlay && !notifOverlay.classList.contains("hidden")) {
+        __renderNotifs(items);
+      }
+    }, (e) => {
+      console.error("notifications onSnapshot:", e);
+    });
+}
+
+// Apri overlay
+if (notifBtn && notifOverlay) {
+  notifBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // inizializza feed appena serve (robusto per publish)
+    initNotificationsFeed();
+
+    notifOverlay.classList.remove("hidden");
+    requestAnimationFrame(() => notifOverlay.classList.add("show"));
+
+    // render immediato da cache
+    __renderNotifs(__notifLast);
+
+    // segna lette (source of truth)
+    const toDogId = (typeof CURRENT_USER_DOG_ID !== "undefined" && CURRENT_USER_DOG_ID)
+      ? String(CURRENT_USER_DOG_ID)
+      : null;
+    if (toDogId) __markAllNotifsRead(toDogId);
+  }, { passive: false });
+
+  // chiudi cliccando fuori o su X
+  notifOverlay.addEventListener("click", (e) => {
+    const isBackdrop = (e.target === notifOverlay);
+    const isClose = (e.target && e.target.closest && e.target.closest(".sheet-close"));
+    if (isBackdrop || isClose) {
+      notifOverlay.classList.remove("show");
+      setTimeout(() => notifOverlay.classList.add("hidden"), 200);
+    }
+  });
+}
+
 const msgTopTabs  = qa(".msg-top-tab");
 const msgLists    = qa(".messages-list");
 
@@ -1044,6 +1303,10 @@ async function loadMessagesLists() {
     console.error("Errore loadMessagesLists:", err); 
   } 
 }
+
+// 🔔 Avvia feed notifiche appena possibile (robusto per publish)
+try { initNotificationsFeed(); } catch (e) { console.error("initNotificationsFeed:", e); }
+setTimeout(() => { try { initNotificationsFeed(); } catch (_) {} }, 900);
   
 btnMessages?.addEventListener("click", () => {
   setActiveView("messages");
@@ -1868,6 +2131,18 @@ _db.collection("followers").doc(docId).set({
 }, { merge: true })
 .then(() => {
   console.log("FOLLOW Firestore OK:", docId);
+  // ✅ NOTIFICA (source of truth): follow
+const notifId = `follow_${String(selfDogId)}_${String(targetDogId)}`;
+_db.collection("notifications").doc(notifId).set({
+  type: "follow",
+  fromUid: String(selfUid),
+  fromDogId: String(selfDogId),
+  toDogId: String(targetDogId),
+  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  read: false
+}, { merge: true }).catch((e) => {
+  console.error("followDog notification Firestore:", e);
+});
   if (typeof showToast === "function") showToast("FOLLOW: salvato su Firestore ✅");
 })
 .catch((e) => {
@@ -1923,6 +2198,11 @@ if (!selfDogId) {
 
     const docId = `${String(selfDogId)}_${String(targetDogId)}`;
     _db.collection("followers").doc(docId).delete().catch((e) => {
+      // ✅ NOTIFICA: rimuovi follow
+const notifId = `follow_${String(selfDogId)}_${String(targetDogId)}`;
+_db.collection("notifications").doc(notifId).delete().catch((e) => {
+  console.error("unfollowDog notification delete:", e);
+});
       console.error("unfollowDog Firestore:", e);
     });
   } catch (e) {
