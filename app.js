@@ -10,14 +10,26 @@ window.addEventListener("error", function (e) {
   );
 });
 
-// 2️⃣ Errori Promise / Firebase
+// 2️⃣ Errori Promise / Firebase (robusto: niente JSON.stringify che può crashare)
 window.addEventListener("unhandledrejection", function (e) {
-  alert(
-    "❌ PROMISE ERROR\n\n" +
-    (e.reason && e.reason.message
-      ? e.reason.message
-      : JSON.stringify(e.reason))
-  );
+  try {
+    const r = e && e.reason;
+
+    let msg = "";
+    if (r && typeof r === "object") {
+      if (r.message) msg += "Messaggio: " + r.message + "\n";
+      if (r.code) msg += "Code: " + r.code + "\n";
+      if (r.name) msg += "Name: " + r.name + "\n";
+      if (r.stack) msg += "\nSTACK:\n" + r.stack + "\n";
+      if (!msg) msg = "Reason object (non serializzabile)";
+    } else {
+      msg = String(r);
+    }
+
+    alert("❌ PROMISE ERROR\n\n" + msg);
+  } catch (_) {
+    alert("❌ PROMISE ERROR\n\n(Impossibile leggere e.reason)");
+  }
 });
 
 // 3️⃣ Verifica Firestore sempre disponibile
@@ -198,6 +210,12 @@ const snap = await _db.collection("dogs").doc(String(dogId)).get();
     currentView: localStorage.getItem("currentView") || "nearby",
     viewHistory: [],
     processingSwipe: false,
+
+    // ===== Profile / Docs / Selfie (required for profile open) =====
+ownerDocsUploaded: {},
+dogDocsUploaded: {},
+selfieUntilByDog: {},
+ownerSocialByDog: {},
 
     // lingua
     lang: localStorage.getItem("lang") || autodetectLang(),
@@ -904,7 +922,8 @@ function __renderNotifs(items) {
       ? "Nuovo FOLLOW"
       : (n.type ? String(n.type) : "Notifica");
 
-    const sub = (n.fromDogId ? `Da DOG: ${n.fromDogId}` : "");
+    const fromId = String(n.fromDogId || n.fromdogId || n.followerDogId || n.actorDogId || n.dogId || "").trim();
+    const sub = (fromId ? `Da DOG: ${fromId}` : "");
 
     row.innerHTML = `
       <div class="notif-txt">
@@ -915,80 +934,115 @@ function __renderNotifs(items) {
     `;
 
  // FEEDBACK VISIVO (se non lo vedi, il click NON arriva)
-  row.addEventListener("click", function () {
+row.addEventListener("click", function (e) {
+  e.stopPropagation();
+
   row.style.outline = "2px solid #a855f7";
-row.style.background = "rgba(168,85,247,0.12)";
-if (navigator && navigator.vibrate) { try { navigator.vibrate(20); } catch(_){} }
-    
+  row.style.background = "rgba(168,85,247,0.12)";
+  if (navigator && navigator.vibrate) { try { navigator.vibrate(20); } catch (_) {} }
+
   try {
-    var id = (n && n.fromDogId) ? String(n.fromDogId) : "";
+    var id = String(n.fromDogId || "");
     if (!id) return;
 
     if (typeof __openDogProfileById === "function") {
-      __openDogProfileById(id);
+      Promise.resolve(__openDogProfileById(id))
+        .then(function (opened) {
+          if (opened) {
+            var no = document.getElementById("notifOverlay");
+            if (no) {
+              no.classList.remove("show");
+              no.setAttribute("aria-hidden", "true");
+              setTimeout(function () { no.classList.add("hidden"); }, 200);
+            }
+          }
+        })
+        .catch(function () {});
     }
   } catch (_) {}
 });
-
-    frag.appendChild(row);
+  
+  frag.appendChild(row);
   });
 
   notifList.appendChild(frag);
 }
 
 // === Apri profilo DOG da id (usato dalle notifiche) ===
-// Production-ready: prima prova dataset locale, poi Firestore (docId o campo id/dogId).
+// Definitivo: 1) risolvi SEMPRE da DOGS (mock reale) 2) se esiste, arricchisci da Firestore dogs/{id}
 async function __openDogProfileById(dogId) {
   try {
     dogId = (dogId != null) ? String(dogId) : "";
-    if (!dogId) return;
+    dogId = dogId.trim();
+    if (!dogId) return false;
 
-    // 1) PRIMA prova locale (no ReferenceError se state non esiste)
-    var localDogs = [];
+    // openProfilePage (non la tocchiamo)
+    var _openProfile =
+      (typeof window.openProfilePage === "function") ? window.openProfilePage :
+      ((typeof openProfilePage === "function") ? openProfilePage : null);
+    if (!_openProfile) return false;
+
+    // 1) SOURCE OF TRUTH PER ORA: DOGS del file (mock)
+    // (Tu hai const DOGS = [...], quindi esiste qui nello scope)
+    var base = null;
     try {
-      if (typeof state !== "undefined" && state && Array.isArray(state.dogs) && state.dogs.length) {
-        localDogs = state.dogs;
-      } else if (Array.isArray(window.DOGS) && window.DOGS.length) {
-        localDogs = window.DOGS;
+      if (typeof DOGS !== "undefined" && Array.isArray(DOGS)) {
+        base = DOGS.find(d => d && String(d.id) === dogId) || null;
       }
     } catch (_) {}
 
-    var found = localDogs.find(function (x) { return String(x && x.id) === dogId; });
-    if (found && typeof window.openProfilePage === "function") {
-      window.openProfilePage(found);
-      return;
+    // fallback secondario: state.dogs o window.DOGS (se li usi altrove)
+    if (!base) {
+      try {
+        if (typeof state !== "undefined" && state && Array.isArray(state.dogs)) {
+          base = state.dogs.find(d => d && String(d.id) === dogId) || null;
+        }
+      } catch (_) {}
+    }
+    if (!base) {
+      try {
+        if (Array.isArray(window.DOGS)) {
+          base = window.DOGS.find(d => d && String(d.id) === dogId) || null;
+        }
+      } catch (_) {}
     }
 
-    // 2) FALLBACK Firestore
-    const _db = (window.db || (typeof db !== "undefined" ? db : null));
-    if (!_db) return;
+    // Se non esiste nemmeno nei mock, NON aprire profilo vuoto (evita nero)
+    if (!base) return false;
 
-    // 2a) tenta docId === dogId
-    let snap = await _db.collection("dogs").doc(dogId).get();
+    // Oggetto coerente con il TUO modello
+    var dog = Object.assign({}, base);
+    dog.id = String(dog.id || dogId);
+    dog.name = (dog.name != null) ? String(dog.name) : "";
+    dog.img = (dog.img != null) ? String(dog.img) : "";
+    dog.breed = (dog.breed != null) ? String(dog.breed) : "";
+    dog.bio = (dog.bio != null) ? String(dog.bio) : "";
 
-    // 2b) fallback: docId auto, ma campo id/dogId nel documento
-    if (!snap.exists) {
-      const q1 = await _db.collection("dogs").where("id", "==", dogId).limit(1).get();
-      if (!q1.empty) snap = q1.docs[0];
+    // 2) Firestore (source of truth quando ci saranno i profili reali)
+    // Se esiste dogs/{dogId}, sovrascrive SOLO i campi presenti nel doc
+    var _db = (window.db || (typeof db !== "undefined" ? db : null));
+    if (_db && typeof _db.collection === "function") {
+      try {
+        var snap = await _db.collection("dogs").doc(dogId).get();
+        if (snap && snap.exists) {
+          var fd = snap.data() || {};
+          // sovrascrivi SOLO campi noti del tuo modello (niente invenzioni)
+          if (fd.id != null) dog.id = String(fd.id);
+          if (fd.name != null) dog.name = String(fd.name);
+          if (fd.img != null) dog.img = String(fd.img);
+          if (fd.breed != null) dog.breed = String(fd.breed);
+          if (fd.bio != null) dog.bio = String(fd.bio);
+        }
+      } catch (_) {}
     }
-    if (!snap.exists) {
-      const q2 = await _db.collection("dogs").where("dogId", "==", dogId).limit(1).get();
-      if (!q2.empty) snap = q2.docs[0];
-    }
 
-    if (!snap.exists) return;
+    _openProfile(dog);
+    return true;
 
-    const d = snap.data() || {};
-    if (typeof window.openProfilePage === "function") {
-      window.openProfilePage({
-        id: d.id || d.dogId || dogId,
-        name: d.name || "",
-        img: d.img || d.photo || d.avatar || "",
-        breed: d.breed || "",
-        ...d
-      });
-    }
-  } catch (_) {}
+  } catch (e) {
+    console.error("__openDogProfileById:", e);
+    return false;
+  }
 }
 
 async function __markAllNotifsRead(toDogId) {
@@ -1040,10 +1094,12 @@ function initNotificationsFeed() {
   __notifUnsub = null;
 
   __notifUnsub = db
-    .collection("notifications")
-    .where("toDogId", "==", String(toDogId))
-    .limit(40)
-    .onSnapshot((snap) => {
+  .collection("notifications")
+  .where("toDogId", "==", String(toDogId))
+  .orderBy("createdAt", "desc")
+  .limit(40)
+  .onSnapshot((snap) => {
+    
       const items = [];
       snap.forEach((docSnap) => {
         const data = docSnap.data() || {};
@@ -1075,7 +1131,7 @@ function initNotificationsFeed() {
         __renderNotifs(items);
       }
     }, (e) => {
-      console.error("notifications onSnapshot:", e);
+      alert("❌ NOTIFS onSnapshot\n" + (e && e.code ? ("code: " + e.code + "\n") : "") + (e && e.message ? ("msg: " + e.message) : String(e)));
     });
 }
 
@@ -1100,16 +1156,18 @@ if (notifBtn && notifOverlay) {
       : null;
     if (toDogId) __markAllNotifsRead(toDogId);
   }, { passive: false });
-
-  // chiudi cliccando fuori o su X
-  notifOverlay.addEventListener("click", (e) => {
-    const isBackdrop = (e.target === notifOverlay);
-    const isClose = (e.target && e.target.closest && e.target.closest(".sheet-close"));
-    if (isBackdrop || isClose) {
+  
+  // Chiudi overlay (tasto X)
+  const notifCloseBtn = notifOverlay.querySelector(".sheet-close");
+  if (notifCloseBtn) {
+    notifCloseBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
       notifOverlay.classList.remove("show");
-      setTimeout(() => notifOverlay.classList.add("hidden"), 200);
-    }
-  });
+      notifOverlay.setAttribute("aria-hidden", "true");
+      setTimeout(() => { notifOverlay.classList.add("hidden"); }, 200);
+    }, { passive: false });
+  }
 }
 
 const msgTopTabs  = qa(".msg-top-tab");
@@ -2456,6 +2514,30 @@ storyLikeBtn.classList.add("heart-anim");
 
   // ============ Profilo DOG (con Stories + Social + Follow + Like foto) ============
   window.openProfilePage = (d)=>{
+
+    // ✅ GUARD-RAIL (anti crash da notifiche/fallback)
+    try {
+      if (!d || typeof d !== "object") d = {};
+      if (d.id == null && d.dogId != null) d.id = d.dogId;
+      d.id = (d.id != null) ? String(d.id) : "";
+      if (!d.id) return;
+
+      // state maps sempre presenti (evita TypeError su state.ownerDocsUploaded[d.id])
+      if (!state.ownerDocsUploaded || typeof state.ownerDocsUploaded !== "object") state.ownerDocsUploaded = {};
+      if (!state.dogDocsUploaded   || typeof state.dogDocsUploaded   !== "object") state.dogDocsUploaded   = {};
+      if (!state.ownerDocsUploaded[d.id] || typeof state.ownerDocsUploaded[d.id] !== "object") state.ownerDocsUploaded[d.id] = {};
+      if (!state.dogDocsUploaded[d.id]   || typeof state.dogDocsUploaded[d.id]   !== "object") state.dogDocsUploaded[d.id]   = {};
+
+      // campi minimi safe (evita undefined in template)
+      d.name  = (d.name  != null) ? String(d.name)  : "";
+      d.img   = (d.img   != null) ? String(d.img)   : "";
+      d.breed = (d.breed != null) ? String(d.breed) : "";
+      d.bio   = (d.bio   != null) ? String(d.bio)   : "";
+    } catch (e) {
+      console.error("openProfilePage guard-rail:", e);
+      return;
+    }
+    
     state.currentDogProfile = d;
     localStorage.setItem("currentProfileDogId", d.id);
     setActiveView("profile");
