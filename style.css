@@ -31,7 +31,121 @@ body{
 
 img{display:block;max-width:100%}
 a{color:inherit;text-decoration:none}
-.hidden{display:none!important}
+
+/* ================= SHEET OVERLAY (Notifiche / pannelli) ================= */
+.sheet-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:14px;
+  background:rgba(0,0,0,.58);
+  z-index:9998;
+
+  /* look + feel */
+  opacity:0;
+  pointer-events:none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:opacity .18s ease;
+}
+
+.sheet-overlay.show{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.sheet-overlay.hidden{
+  display:none !important;
+}
+
+/* ====== Utility globale ====== */
+.hidden{
+  display:none !important;
+}
+
+.sheet{
+  width:min(560px, 100%);
+  max-height:78vh;
+  overflow:hidden;
+
+  border-radius:22px;
+  border:1px solid rgba(138,123,255,.28);
+  background:linear-gradient(180deg, rgba(22,16,44,.98) 0%, rgba(14,12,26,.98) 100%);
+  box-shadow:
+    0 24px 80px rgba(0,0,0,.65),
+    0 0 0 1px rgba(255,255,255,.05) inset,
+    0 0 34px rgba(138,123,255,.20);
+
+  transform:translateY(18px);
+  transition:transform .18s ease;
+}
+
+.sheet-overlay.show .sheet{
+  transform:translateY(0);
+}
+
+.sheet-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+
+  padding:14px 16px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+
+  /* sticky header inside sheet */
+  position:sticky;
+  top:0;
+  background:linear-gradient(180deg, rgba(22,16,44,.98) 0%, rgba(22,16,44,.65) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index:2;
+}
+
+.sheet-title{
+  font-weight:900;
+  letter-spacing:.2px;
+  color:var(--text);
+  text-shadow:0 0 14px rgba(138,123,255,.25);
+}
+
+.sheet-close{
+  width:40px;
+  height:40px;
+  border-radius:14px;
+  border:1px solid rgba(138,123,255,.28);
+  background:rgba(138,123,255,.08);
+  color:var(--text);
+  font-size:22px;
+  line-height:1;
+  cursor:pointer;
+  transition:transform .12s ease, filter .15s ease, background .15s ease;
+}
+.sheet-close:hover{
+  filter:brightness(1.12);
+  transform:scale(1.04);
+  background:rgba(138,123,255,.14);
+}
+
+/* contenuto scrollabile dentro la sheet */
+.notif-list{
+  padding:12px 16px 16px;
+  max-height:calc(78vh - 62px);
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* empty state più elegante */
+.notif-list .sheet-empty{
+  margin:0;
+  padding:26px 10px;
+  text-align:center;
+  color:rgba(255,255,255,.75);
+  font-weight:800;
+}
+
 .visually-hidden{position:absolute;clip:rect(0 0 0 0);width:1px;height:1px;overflow:hidden}
 .noscroll{overflow:hidden}
 .container{max-width:980px;margin:0 auto;width:100%}
@@ -45,7 +159,52 @@ a{color:inherit;text-decoration:none}
 }
 .btn.tiny{padding:.35rem .5rem;border-radius:10px;font-weight:700;font-size:.88rem}
 .btn.small{padding:.45rem .7rem;border-radius:12px;font-size:.9rem}
+
+/* ===== TOPBAR ICON BUTTONS (Messaggi / Notifiche) ===== */
+#btnMessages,
+#notifBtn{
+  min-width:40px;
+  height:40px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+}
+
+/* ===== BADGE NUMERICO MESSAGGI ===== */
+#btnMessages{
+  position:relative;
+  overflow:visible !important;
+}
+
+#msgBadge.msg-badge{
+  position:absolute;
+  top:-4px;
+  right:-4px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#ff3b30;
+  color:#fff;
+  font-size:12px;
+  line-height:18px;
+  font-weight:900;
+  text-align:center;
+  box-shadow:0 0 8px rgba(255,59,48,.75);
+  z-index:99999;
+  pointer-events:none;
+}
+
+/* ===== MESSAGGI TOPBAR: icona gialla come campanella ===== */
+#btnMessages .msg-svg{
+  display:block;
+  fill: var(--gold) !important;
+}
+
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+
 .btn.primary{
   background:linear-gradient(180deg,#E8CE7A 0%, #CDA434 50%, #B8892A 100%);
   color:#141414;border:1px solid rgba(0,0,0,.12);
@@ -102,18 +261,53 @@ a{color:inherit;text-decoration:none}
   margin-bottom: 80px;
   padding:1.2rem;
 }
+
 .home-top{display:flex;justify-content:center}
 .home-bar{display:flex;align-items:center;gap:.8rem;width:100%}
 .home-left{flex:0 0 auto}
-.home-center{flex:1 1 auto}
+.home-center{flex:.25 1 auto}
 .home-right{flex:0 0 auto;display:flex;align-items:center;gap:.6rem}
 .lang-flags{display:flex;gap:.35rem}
 .logo-row{display:flex;gap:.65rem;align-items:center}
 .logo-small{width:42px;height:42px;border-radius:10px}
 .brand{font-size:2rem;color:var(--gold);text-shadow:0 0 12px rgba(205,164,52,.45);margin:0}
-.auth-links{font-size:.93rem;margin-left:.3rem}
-.auth-links a{color:var(--violet)}
-.auth-links a:hover{filter:brightness(1.2)}
+
+.auth-links{
+  font-size:.93rem;
+  margin-left:.3rem;
+  display:flex;
+  gap:.35rem;
+  align-items:center;
+}
+
+.auth-links a{
+  color:var(--violet);
+  text-decoration:none;
+  font-weight:800;
+  padding:.18rem .45rem;
+  border-radius:999px;
+  border:1px solid rgba(140,100,255,.28);
+  background:rgba(140,100,255,.08);
+  transition:filter .15s ease, background .15s ease, box-shadow .15s ease;
+}
+
+.auth-links a:hover{
+  filter:brightness(1.15);
+  border-color:rgba(140,100,255,.45);
+  background:rgba(140,100,255,.12);
+}
+
+.auth-links a:active{
+  background:rgba(140,100,255,.35);
+  box-shadow:0 0 16px rgba(140,106,255,.85);
+  filter:brightness(1.3);
+}
+
+.auth-links a:focus-visible{
+  outline:2px solid rgba(140,106,255,.55);
+  outline-offset:3px;
+  border-radius:10px;
+}
 
 .home-hero{flex:1;display:flex;flex-direction:column;align-items:center;gap:1rem;justify-content:flex-start;padding-top:5rem}
 .hero-logo{width:300px;height:300px;object-fit:contain;filter:drop-shadow(0 12px 24px rgba(0,0,0,.5))}
@@ -1127,6 +1321,7 @@ body.story-open #storiesBar {
   display:flex;
   flex-direction:column;
   gap:.55rem;
+  align-items: flex-start;
 }
 
 .chat-composer{
@@ -1533,6 +1728,140 @@ line-height: 1.6;
   padding:1.5rem .5rem;
 }
 
+/* ================= NOTIFICHE (COMPACT) ================= */
+.notif-btn{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.35rem;
+
+  /* pill bianca (come Messaggi) */
+  background:#fff;
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 6px 16px rgba(0,0,0,.22);
+  color:#111;
+
+  /* IMPORTANTI per far vedere il pallino */
+  overflow:visible;
+}
+
+/* FIX pallino rosso (non tagliare + sempre sopra) */
+#notifBtn{
+  position:relative;
+  overflow:visible !important;
+}
+
+#notifBtn .notif-dot{
+  display:block;
+  opacity:1;
+  visibility:visible;
+  top:-4px;
+  right:-4px;
+  background:#ff3b30 !important;
+  z-index:99999 !important;
+}
+
+/* SVG campanella: contorno oro + interno bianco (forzato) */
+.notif-svg{ display:block; }
+.notif-fill{ fill:#ffffff !important; }
+.notif-stroke{
+  fill:none !important;
+  stroke:var(--gold) !important;
+  stroke-width:1.9 !important;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+/* evita che vecchie regole testo/emoji interferiscano */
+.notif-icon{
+  color:inherit !important;
+  -webkit-text-fill-color:inherit !important;
+  filter:none !important;
+}
+
+.notif-icon{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  filter:none !important;
+}
+
+.notif-btn .notif-icon{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  filter:none !important;
+}
+
+.notif-dot{
+  position:absolute;
+  top:-2px;
+  right:-2px;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#ff3b30;               /* ROSSO iOS */
+  box-shadow:0 0 8px rgba(255,59,48,.75);
+  z-index: 10001;
+  pointer-events:none;
+}
+
+.notif-dot.hidden{ display:none !important; }
+
+.notif-content{ padding:.9rem 1.1rem 1rem; }
+
+.notif-list .notif-item{
+  display:flex;
+  align-items:center;
+  gap:.65rem;
+  padding:.55rem 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+
+.notif-list .notif-item:last-child{ border-bottom:none; }
+
+.notif-list .notif-ava{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  object-fit:cover;
+  border:2px solid rgba(138,123,255,.6);
+}
+
+.notif-list .notif-txt{
+  display:flex;
+  flex-direction:column;
+  gap:.1rem;
+  min-width:0;
+}
+
+.notif-list .notif-main{
+  font-size:.92rem;
+  font-weight:700;
+  color:var(--text);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.notif-list .notif-sub{
+  font-size:.82rem;
+  color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.notif-list .notif-time{
+  margin-left:auto;
+  font-size:.78rem;
+  color:var(--muted);
+  opacity:.85;
+}
+
+.notif-list .notif-item.unread .notif-main{
+  color:var(--gold);
+}
+
 /* ================= FOLLOW STATS (PROFILO) ================= */
 .pp-follow-stats{
   display:flex;
@@ -1704,4 +2033,138 @@ line-height: 1.6;
   background:#fff;
   color:#111;
   border-color:#fff;
+}
+
+/* ===== NOTIFICHE TOPBAR – DEFINITIVO ===== */
+
+/* bottone bianco come Messaggi */
+#notifBtn {
+  background: #fff !important;
+  border-radius: 14px;
+}
+
+/* campanella tutta GIALLA */
+#notifBtn svg {
+  fill: var(--gold) !important;
+}
+
+/* pallino ROSSO */
+#notifDot {
+  background: #ff3b30 !important;
+  box-shadow: 0 0 6px rgba(255,59,48,.7);
+}
+
+/* FORCE SVG COLORS (bell) */
+.notif-svg{ display:block; }
+
+.notif-fill{
+  fill:#fff !important;              /* interno bianco */
+  stroke:none !important;
+}
+
+.notif-stroke{
+  fill:none !important;
+  stroke: var(--gold) !important;    /* campanella gialla */
+  stroke-width: 1.8 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+/* ===== FIX: AUTH SHEET sopra TUTTO (overlay + centratura) ===== */
+#authSheet.plutoo-auth{
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+
+  padding-top: 18vh;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* ===== AUTH: apertura più lenta (1s) senza rompere il layout ===== */
+#authSheet.plutoo-auth:not(.hidden) .plutoo-auth__backdrop{
+  animation: plutooAuthBackdropIn 1s ease both;
+}
+
+#authSheet.plutoo-auth:not(.hidden) .plutoo-auth__panel{
+  animation: plutooAuthPanelIn 1s ease both;
+}
+
+@keyframes plutooAuthBackdropIn{
+  from{ opacity: 0; }
+  to{ opacity: 1; }
+}
+
+@keyframes plutooAuthPanelIn{
+  from{ opacity: 0; }
+  to{ opacity: 1; }
+}
+
+#authSheet .plutoo-auth__backdrop{
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+#authSheet .plutoo-auth__panel{
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+  max-width: 520px;
+  width: 100%;
+  margin-top: -18vh;
+}
+
+/* ===== FIX: evita che il logo “buca” i modali ===== */
+#heroLogo,
+.hero-logo{
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== FEEDBACK LOGIN: ENTRA GOLD WOW (più evidente) ===== */
+#btnEnter.enter-glow{
+  position: relative;
+  border-color: #CDA434;
+  box-shadow:
+    0 0 18px rgba(205,164,52,.9),
+    0 0 45px rgba(205,164,52,.65),
+    0 0 90px rgba(205,164,52,.35);
+  animation: plutooGoldPulseStrong 1.4s ease-in-out infinite;
+}
+
+/* alone glow layer (effetto lingotto) */
+#btnEnter.enter-glow::after{
+  content:"";
+  position:absolute;
+  inset:-6px;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(205,164,52,.55),
+    rgba(205,164,52,.25),
+    transparent 70%
+  );
+  filter: blur(8px);
+  z-index:-1;
+}
+
+/* animazione forte ma elegante */
+@keyframes plutooGoldPulseStrong{
+  0%{
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50%{
+    transform: scale(1.04);
+    filter: brightness(1.35);
+  }
+  100%{
+    transform: scale(1);
+    filter: brightness(1);
+  }
 }
