@@ -1,14 +1,34 @@
 /* ================= CRASH DEBUG SYSTEM (OBBLIGATORIO) ================= */
 
-// 1️⃣ Errori JS globali
+// 1️⃣ Errori JS globali (con STACK reale quando disponibile)
 window.addEventListener("error", function (e) {
-  alert(
-    "❌ JS ERROR\n\n" +
-    "Messaggio: " + e.message + "\n" +
-    "File: " + e.filename + "\n" +
-    "Linea: " + e.lineno + ":" + e.colno
-  );
-});
+  try {
+    const errObj = e && e.error ? e.error : null;
+
+    // errori di risorse (script/img/css) spesso NON hanno filename/line
+    const target = e && e.target ? e.target : null;
+    const resUrl =
+      target && (target.src || target.href)
+        ? (target.src || target.href)
+        : "";
+
+    const msg = (e && e.message) ? e.message : "(no message)";
+    const file = (e && e.filename) ? e.filename : (resUrl || "(no file)");
+    const line = (e && typeof e.lineno === "number") ? e.lineno : "-";
+    const col  = (e && typeof e.colno === "number") ? e.colno : "-";
+    const stack = (errObj && errObj.stack) ? ("\n\nSTACK:\n" + errObj.stack) : "";
+
+    alert(
+      "❌ JS ERROR\n\n" +
+      "Messaggio: " + msg + "\n" +
+      "File: " + file + "\n" +
+      "Linea: " + line + ":" + col +
+      stack
+    );
+  } catch (_) {
+    alert("❌ JS ERROR\n\n(Impossibile leggere dettagli errore)");
+  }
+}, true);
 
 // 2️⃣ Errori Promise / Firebase (robusto: niente JSON.stringify che può crashare)
 window.addEventListener("unhandledrejection", function (e) {
@@ -21,7 +41,7 @@ window.addEventListener("unhandledrejection", function (e) {
       if (r.code) msg += "Code: " + r.code + "\n";
       if (r.name) msg += "Name: " + r.name + "\n";
       if (r.stack) msg += "\nSTACK:\n" + r.stack + "\n";
-      if (!msg) msg = "Reason object (non serializzabile)";
+      if (!msg) msg = "Reason object (non leggibile)";
     } else {
       msg = String(r);
     }
@@ -59,137 +79,356 @@ async function safeFirestoreWrite(label, fn) {
   try {
     await fn();
   } catch (e) {
+    const emsg = (e && e.message) ? e.message : String(e);
+    const estack = (e && e.stack) ? ("\n\nSTACK:\n" + e.stack) : "";
     alert(
       "❌ FIRESTORE WRITE ERROR\n\n" +
       label + "\n\n" +
-      (e.message || JSON.stringify(e))
+      emsg +
+      estack
     );
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  const authSheet = document.getElementById("authSheet");
+  const linkLogin = document.getElementById("linkLogin");
+  const linkRegister = document.getElementById("linkRegister");
+  const authClose = document.getElementById("authClose");
+  const authGoLogin = document.getElementById("authGoLogin");
+  const authGoRegister = document.getElementById("authGoRegister");
+  const loginForm = document.getElementById("authLoginForm");
+  const registerForm = document.getElementById("authRegisterForm");
+  const authAlready = document.getElementById("authAlready");
 
-  // Firebase handles
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-  const storage = firebase.storage();
-  window.db = db;
+  // ✅ NASCONDI DEFINITIVAMENTE "Vai a Login" / "Vai a Registrazione" + contenitore (sparisce anche il puntino)
+  try {
+    if (authGoLogin) authGoLogin.style.display = "none";
+    if (authGoRegister) authGoRegister.style.display = "none";
+    const navRow = (authGoLogin && authGoLogin.parentElement) ? authGoLogin.parentElement
+                 : (authGoRegister && authGoRegister.parentElement) ? authGoRegister.parentElement
+                 : null;
+    if (navRow) navRow.style.display = "none";
+  } catch (_) {}
 
-  // ✅ Espongo handle Firebase in globale (serve a funzioni fuori scope: follow/like ecc.)
-  window.auth = auth;
-  window.db = db;
-  window.storage = storage;
+  function openAuth(mode) {
+    authSheet.classList.remove("hidden");
+    loginForm.classList.add("hidden");
+    registerForm.classList.add("hidden");
+    authAlready.classList.add("hidden");
 
-  // ✅ Persistenza Auth su device (no reset dopo refresh)
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(err => {
-    console.error("Auth persistence error:", err);
-  });
-
-  // ✅ Stato Auth: NON fare anonimo automatico (login/registrazione reali)
-  auth.onAuthStateChanged(async (user) => {
-  if (!user) {
-  // ✅ Auto-login anonimo per avere sempre PLUTOO_UID e poter scrivere su Firestore
-  auth.signInAnonymously()
-    .catch((e) => alert("❌ AUTH ANON ERROR: " + (e && e.message ? e.message : e)));
-  return;
+    if (mode === "login") loginForm.classList.remove("hidden");
+    if (mode === "register") registerForm.classList.remove("hidden");
   }
 
-    // ✅ Fonte di verità UID (sempre aggiornata)
-    const prevUid = window.PLUTOO_UID || null;
-    window.PLUTOO_UID = user.uid;
+  function closeAuth() {
+    authSheet.classList.add("hidden");
+  }
 
-    // 🔒 Evita boot multipli SOLO se è lo stesso UID
-    if (window.__booted && prevUid === user.uid) return;
-    window.__booted = true;
+  linkLogin.addEventListener("click", (e) => {
+    e.preventDefault();
+    openAuth("login");
+  });
 
-    // ✅ RIPRISTINO MATCH DA FIRESTORE (MERGE, MAI RESET)
-    try {
-      const selfUid = user.uid;
-      if (!db) return;
+  linkRegister.addEventListener("click", (e) => {
+    e.preventDefault();
+    openAuth("register");
+  });
 
-      // 1) PRIMA prova dal dataset locale (più affidabile e immediato)
-try {
-  const localDogs = (Array.isArray(state?.dogs) && state.dogs.length) ? state.dogs
-    : (Array.isArray(window.DOGS) ? window.DOGS : []);
+  authGoLogin?.addEventListener("click", () => openAuth("login"));
+  authGoRegister?.addEventListener("click", () => openAuth("register"));
+  authClose.addEventListener("click", closeAuth);
 
-  const found = localDogs.find(x => String(x.id) === String(dogId));
-  if (found && typeof window.openProfilePage === "function") {
-    window.openProfilePage(found);
+  // chiudi cliccando fuori (backdrop)
+  authSheet.querySelector('[data-auth-close="1"]')?.addEventListener("click", closeAuth);
+
+  // helper error box (rosso SOLO per errori, GOLD per successi ✅)
+  function setAuthError(which, msg) {
+    const box = document.getElementById(which === "login" ? "loginError" : "registerError");
+    if (!box) return;
+
+    if (!msg) {
+      box.textContent = "";
+      box.classList.add("hidden");
+      box.removeAttribute("role");
+      box.style.background = "";
+      box.style.border = "";
+      box.style.color = "";
+      return;
+    }
+
+    const text = String(msg);
+    const isSuccess = text.trim().startsWith("✅");
+
+    box.textContent = text;
+    box.classList.remove("hidden");
+    box.setAttribute("role", "status");
+
+    if (isSuccess) {
+      // ✅ SUCCESSO: GOLD
+      box.style.background = "rgba(205, 164, 52, 0.14)";
+      box.style.border = "1px solid rgba(205, 164, 52, 0.35)";
+      box.style.color = "#CDA434";
+    } else {
+      // ❌ ERRORE: rosso
+      box.style.background = "rgba(180, 30, 30, 0.18)";
+      box.style.border = "1px solid rgba(255, 90, 90, 0.35)";
+      box.style.color = "#ffd1d1";
+    }
+  }
+
+  // mostra stato già loggato (se serve)
+  function showAlready() {
+    const u = window.auth && window.auth.currentUser ? window.auth.currentUser : null;
+    if (!u) return false;
+    const emailEl = document.getElementById("authAlreadyEmail");
+    if (emailEl) emailEl.textContent = u.email || "";
+    loginForm.classList.add("hidden");
+    registerForm.classList.add("hidden");
+    authAlready.classList.remove("hidden");
+    return true;
+  }
+
+  // override openAuth: se già loggato, mostra "già loggato"
+  const _openAuth = openAuth;
+  openAuth = function (mode) {
+    authSheet.classList.remove("hidden");
+    setAuthError("login", "");
+    setAuthError("register", "");
+
+    // se già loggato, mostro stato già loggato
+    if (showAlready()) return;
+
+    _openAuth(mode);
+  };
+
+  // ✅ ESPONGO IN GLOBALE (serve fuori da DOMContentLoaded: onAuthStateChanged / onclick)
+  window.openAuth = openAuth;
+  window.closeAuth = closeAuth;
+
+  // SUBMIT LOGIN
+loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  setAuthError("login", "");
+
+  const email = (document.getElementById("loginEmail")?.value || "").trim();
+  const pass = (document.getElementById("loginPass")?.value || "");
+
+  if (!email || !pass) {
+    setAuthError("login", "Email e password obbligatorie");
     return;
   }
-} catch (_) {}
 
-// 2) FALLBACK: se non lo trova localmente, allora prova Firestore
-const snap = await _db.collection("dogs").doc(String(dogId)).get();
+  try {
+    await window.auth.signInWithEmailAndPassword(email, pass);
 
-      const restored = {};
-      snap.forEach(doc => {
-        const data = doc.data() || {};
-        if (data.match === true && data.dogId) {
-          restored[data.dogId] = true;
-        }
-      });
+    // ✅ feedback GOLD + chiusura
+    setAuthError("login", "✅ Login effettuato");
+    setTimeout(() => {
+      closeAuth();
+    }, 700);
 
-      const current = state.matches && typeof state.matches === "object"
-        ? state.matches
-        : {};
+  } catch (err) {
+    const code = err && err.code ? String(err.code) : "";
 
-      const merged = { ...current, ...restored };
+    setAuthError("login", err?.message || "Errore login");
+  }
+});
 
-      state.matches = merged;
-      localStorage.setItem("matches", JSON.stringify(merged));
+// PASSWORD DIMENTICATA? -> invia email reset (Firebase)
+document.getElementById("btnForgotPass")?.addEventListener("click", async () => {
+  setAuthError("login", "");
 
-    } catch (e) {
-      console.error("restore matches failed:", e);
+  const email = (document.getElementById("loginEmail")?.value || "").trim();
+  if (!email) {
+    setAuthError("login", "❌ Inserisci prima l’email");
+    return;
+  }
+
+  try {
+    await window.auth.sendPasswordResetEmail(email);
+    setAuthError("login", "✅ Email di recupero inviata");
+  } catch (err) {
+    setAuthError("login", err?.message || "Errore recupero password");
+  }
+});
+
+  // SUBMIT REGISTRAZIONE
+  registerForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setAuthError("register", "");
+
+    const email = (document.getElementById("regEmail")?.value || "").trim();
+    const p1 = (document.getElementById("regPass")?.value || "");
+    const p2 = (document.getElementById("regPass2")?.value || "");
+
+    if (!email || !p1 || !p2) {
+      setAuthError("register", "Compila tutti i campi");
+      return;
+    }
+    if (p1 !== p2) {
+      setAuthError("register", "Le password non coincidono");
+      return;
     }
 
-    // ✅ Salva / aggiorna utente: createdAt solo alla prima creazione
     try {
-      const userRef = db.collection("users").doc(user.uid);
-      const docSnap = await userRef.get();
+      await window.auth.createUserWithEmailAndPassword(email, p1);
 
-      const payload = {
-        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
-        userAgent: navigator.userAgent || null
-      };
-
-      if (!docSnap.exists) {
-        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      }
-
-      await userRef.set(payload, { merge: true });
-
+      // ✅ feedback GOLD + chiusura
+      setAuthError("register", "✅ Registrazione completata");
+      setTimeout(() => {
+        closeAuth();
+      }, 900);
     } catch (err) {
-      console.error("Firestore user save error:", err);
-    }
-
-    // ✅ Se al refresh ero in "messages", ricarico la lista UNA volta
-    if (state.currentView === "messages" && typeof loadMessagesLists === "function") {
-      loadMessagesLists();
+      setAuthError("register", err?.message || "Errore registrazione");
     }
   });
 
-  // Disabilita PWA/Service Worker dentro l'app Android (WebView)
-  const isAndroidWebView =
-    navigator.userAgent.includes("Android") &&
-    navigator.userAgent.includes("wv");
+  // LOGOUT (dentro pannello "già loggato")
+  document.getElementById("btnLogout")?.addEventListener("click", async () => {
+    try {
+      await window.auth.signOut();
+      closeAuth();
+    } catch (_) {}
+  });
 
-  if (isAndroidWebView) {
-    // Stoppa eventuali service worker (evita doppia icona PWA)
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .getRegistrations()
-        .then(regs => regs.forEach(reg => reg.unregister()))
-        .catch(() => {});
-    }
+  document.getElementById("btnAlreadyClose")?.addEventListener("click", closeAuth);
 
-    // Blocca il prompt di installazione PWA
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-    });
+  // ENTRA: gate finale stile Facebook
+const btnEnter = document.getElementById("btnEnter");
+
+function updateEnterState() {
+  if (!btnEnter) return;
+
+  const logged = !!(window.auth && window.auth.currentUser);
+
+  if (logged) {
+    btnEnter.disabled = false;
+    btnEnter.classList.remove("disabled");
+
+    // ✨ FEEDBACK LOGIN: accendi ENTRA (oro) se non ancora cliccato
+    btnEnter.classList.add("enter-glow");
+  } else {
+    btnEnter.disabled = true;
+    btnEnter.classList.add("disabled");
+
+    // reset glow se logout
+    btnEnter.classList.remove("enter-glow");
+  }
+}
+
+btnEnter?.addEventListener("click", (e) => {
+  e.preventDefault();
+
+  // sicurezza extra
+  if (!window.auth || !window.auth.currentUser) {
+    openAuth("login");
+    return;
   }
 
+  // ✨ rimuove il glow SOLO quando clicco ENTRA
+  btnEnter.classList.remove("enter-glow");
+
+  if (typeof window.handleEnter === "function") {
+    window.handleEnter();
+  }
 });
+
+// iniziale + ogni cambio auth
+updateEnterState();
+firebase.auth().onAuthStateChanged(() => {
+  updateEnterState();
+});
+}); // <-- CHIUDE document.addEventListener("DOMContentLoaded", ...)
+
+  // Firebase handles
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+// ✅ Espongo handle Firebase in globale (serve a funzioni fuori scope: follow/like ecc.)
+window.auth = auth;
+window.db = db;
+window.storage = storage;
+
+// ✅ Persistenza Auth su device (no reset dopo refresh)
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
+  console.error("Auth persistence error:", err);
+});
+
+auth.onAuthStateChanged(async (user) => {
+  try {
+    const linkLogin = document.getElementById("linkLogin");
+    const linkRegister = document.getElementById("linkRegister");
+
+    if (!user) {
+      // ===== NON LOGGATO =====
+      window.PLUTOO_UID = null;
+      window.__booted = false;
+
+      if (linkLogin) {
+        linkLogin.setAttribute("data-i18n", "login");
+        linkLogin.textContent = "Login";
+        linkLogin.onclick = (e) => {
+          e.preventDefault();
+          window.openAuth("login");
+        };
+      }
+
+      if (linkRegister) {
+        linkRegister.style.display = "";
+      }
+
+      return;
+    }
+
+    // ===== LOGGATO =====
+    window.PLUTOO_UID = user.uid;
+
+    if (linkLogin) {
+      linkLogin.removeAttribute("data-i18n");
+      linkLogin.textContent = "Logout";
+      // ✅ NON fare logout qui: deve solo aprire la tendina account
+      linkLogin.onclick = (e) => {
+        e.preventDefault();
+        window.openAuth("login"); // mostrerà "già loggato" grazie al tuo override
+      };
+    }
+
+    if (linkRegister) {
+      linkRegister.style.display = "none";
+    }
+
+    // 🔒 evita boot multipli sullo stesso UID
+    if (window.__booted) return;
+    window.__booted = true;
+
+    // 🚀 avvio app
+    if (typeof init === "function") init();
+
+  } catch (e) {
+    console.error("onAuthStateChanged error:", e);
+  }
+});
+
+// Disabilita PWA/Service Worker dentro l'app Android (WebView)
+const isAndroidWebView =
+  navigator.userAgent.includes("Android") && navigator.userAgent.includes("wv");
+
+if (isAndroidWebView) {
+  // Stoppa eventuali service worker (evita doppia icona PWA)
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => regs.forEach((reg) => reg.unregister()))
+      .catch(() => {});
+  }
+
+  // Blocca il prompt di installazione PWA
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+  });
+}
 
   // ============ Helpers ============
   const $  = (id) => document.getElementById(id);
@@ -201,7 +440,7 @@ const snap = await _db.collection("dogs").doc(String(dogId)).get();
     return (navigator.language||"it").toLowerCase().startsWith("en")?"en":"it";
   }
 
-  const CURRENT_USER_DOG_ID = "d1";
+  let CURRENT_USER_DOG_ID = String(localStorage.getItem("currentDogId") || localStorage.getItem("dogId") || "d1");
 
   // ============ Stato (caricato da localStorage dove possibile) ============
   const state = {
@@ -882,6 +1121,58 @@ const DOGS = [
 // ====== MESSAGGI - VISTA E TABS INTERN INTERNI ======
 const btnMessages = $("btnMessages");
 
+// 🔴 Badge numerico MESSAGGI (Firestore source of truth)
+const msgBadge = $("msgBadge");
+let __msgBadgeUnsub = null;
+
+function __setMsgBadge(n) {
+  if (!msgBadge) return;
+  const c = Math.max(0, parseInt(n || 0, 10) || 0);
+  msgBadge.textContent = String(c);
+  msgBadge.classList.toggle("hidden", c === 0);
+}
+
+function initMessagesBadge() {
+  // aspetta UID + db
+  if (typeof db === "undefined" || !db || !window.PLUTOO_UID) {
+    setTimeout(() => { try { initMessagesBadge(); } catch (_) {} }, 350);
+    return;
+  }
+
+  // kill vecchio listener
+  try { if (typeof __msgBadgeUnsub === "function") __msgBadgeUnsub(); } catch (_) {}
+  __msgBadgeUnsub = null;
+
+  // chatId prefix = "<UID>_" (come nei tuoi screenshot)
+  const prefix = String(window.PLUTOO_UID) + "_";
+
+  __msgBadgeUnsub = db
+  .collection("messages")
+  .orderBy("chatId")
+  .startAt(prefix)
+  .endAt(prefix + "\uf8ff")
+  .onSnapshot((snap) => {
+      let unread = 0;
+    snap.forEach((d) => {
+  const x = d.data() || {};
+  const myUid = String(window.PLUTOO_UID || "");
+  const sender = String(x.senderUid || "");
+
+  // se manca senderUid, NON lo considero unread (evita badge falso)
+  if (!sender) return;
+
+  // unread = solo messaggi NON miei e NON letti
+  if (sender !== myUid && x.isRead !== true) unread++;
+});
+      __setMsgBadge(unread);
+    }, (e) => {
+      alert("❌ MSG BADGE onSnapshot\n" + (e && e.message ? e.message : String(e)));
+    });
+}
+
+// avvia subito
+setTimeout(() => { try { initMessagesBadge(); } catch (_) {} }, 0);
+
 // 🔔 Notifiche (Firestore source of truth)
 const notifBtn = $("notifBtn");
 const notifOverlay = $("notifOverlay");
@@ -1124,7 +1415,10 @@ function initNotificationsFeed() {
       __notifLast = items;
 
       const unreadCount = items.filter((x) => x && x.read !== true).length;
-      if (notifDot) notifDot.classList.toggle("hidden", unreadCount === 0);
+if (notifDot) {
+  notifDot.textContent = unreadCount > 0 ? String(unreadCount) : "";
+  notifDot.classList.toggle("hidden", unreadCount === 0);
+}
 
       // se overlay aperto, aggiorna live
       if (notifOverlay && !notifOverlay.classList.contains("hidden")) {
@@ -1135,9 +1429,15 @@ function initNotificationsFeed() {
     });
 }
 
+setTimeout(() => { try { initNotificationsFeed(); } catch (_) {} }, 0);
+
 // Apri overlay
 if (notifBtn && notifOverlay) {
   notifBtn.addEventListener("click", async (e) => {
+    
+    // UI immediata: nascondi pallino subito (Firestore aggiorna poi lo stato reale)
+    if (notifDot) notifDot.classList.remove("hidden"); // TEST MANUALE
+if (notifDot) notifDot.classList.add("hidden");
     e.preventDefault();
     e.stopPropagation();
 
@@ -1190,11 +1490,10 @@ async function loadMessagesLists() {
 
     // Contenitori reali definiti in index.html
     const inboxList    = document.getElementById("tabInbox");
-    const sentList     = document.getElementById("tabSent");
     const matchesList  = document.getElementById("tabMatches");
     const requestsList = document.getElementById("tabRequests");
     const spamList     = document.getElementById("tabSpam");
-    if (!inboxList || !sentList || !matchesList || !requestsList || !spamList) return;
+    if (!inboxList || !matchesList || !requestsList || !spamList) return;
 
     // Pulisco tutte le liste e nascondo gli empty state
     msgLists.forEach((list) => {
@@ -1203,11 +1502,23 @@ async function loadMessagesLists() {
       if (emptyEl) emptyEl.classList.add("hidden-empty");
     });
 
-    // Legge le chat dove compare il mio UID
-    const snap = await db
-      .collection("chats")
-      .where("members", "array-contains", selfUid)
-      .get();
+    // Legge le chat dove compare il mio UID (fallback su chatId se members non è affidabile)
+const prefix = String(selfUid) + "_";
+
+let snap = await db
+  .collection("chats")
+  .where("members", "array-contains", selfUid)
+  .get();
+
+// Fallback: se members non è presente/corretto, uso chatId (che nei tuoi doc esiste)
+if (!snap || snap.empty) {
+  snap = await db
+    .collection("chats")
+    .orderBy("chatId")
+    .startAt(prefix)
+    .endAt(prefix + "\uf8ff")
+    .get();
+}
 
     const chats = [];
     snap.forEach((docSnap) => {
@@ -1298,9 +1609,6 @@ async function loadMessagesLists() {
 
       const hasText = text !== "";
 
-      // ✅ Inviati: ultimo messaggio è mio
-      const isSent = chat.lastSenderUid === selfUid && hasText;
-
       // ✅ Spam: priorità assoluta (se c'è flag spam)
       const isSpam = chat.spam === true || chat.folder === "spam";
 
@@ -1309,27 +1617,18 @@ async function loadMessagesLists() {
 
       // ✅ Ricevuti: se NON è mio, ha testo, NON è spam, e ho match
       const isInbox =
-        chat.lastSenderUid &&
-        chat.lastSenderUid !== selfUid &&
-        hasText &&
-        !isSpam &&
-        hasMatch;
+      hasText &&
+      !isSpam &&
+      hasMatch;
 
       // ✅ Richieste: se NON è mio, ha testo, NON è spam, e NON ho match
       const isRequest =
-        chat.lastSenderUid &&
-        chat.lastSenderUid !== selfUid &&
         hasText &&
         !isSpam &&
         !hasMatch;
 
       if (isInbox) {
         inboxList.appendChild(makeRow(`${dogName} - ${text}`, dateText, chat.id, dogId, otherUid, "inbox", chat.dogAvatar)
-        );
-      }
-
-      if (isSent) {
-      sentList.appendChild(makeRow(`${dogName} - ${text}`, dateText, chat.id, dogId, otherUid, "sent", chat.dogAvatar)
         );
       }
 
@@ -1361,10 +1660,6 @@ async function loadMessagesLists() {
     console.error("Errore loadMessagesLists:", err); 
   } 
 }
-
-// 🔔 Avvia feed notifiche appena possibile (robusto per publish)
-try { initNotificationsFeed(); } catch (e) { console.error("initNotificationsFeed:", e); }
-setTimeout(() => { try { initNotificationsFeed(); } catch (_) {} }, 900);
   
 btnMessages?.addEventListener("click", () => {
   setActiveView("messages");
@@ -1392,9 +1687,6 @@ msgLists.forEach((list) => {
     switch (targetId) {
       case "tabInbox":
         state._openChatFromTab = "inbox";
-        break;
-      case "tabSent":
-        state._openChatFromTab = "sent";
         break;
       case "tabMatches":
         state._openChatFromTab = "matches";
@@ -1541,14 +1833,12 @@ msgLists.forEach((list) => {
     }
 
     if (state.currentView === "nearby"){
-      if (confirm(state.lang==="it" ? "Tornare alla Home?" : "Return to Home?")){
         localStorage.removeItem("entered");
         state.entered=false;
         appScreen.classList.add("hidden");
         homeScreen.classList.remove("hidden");
       }
     }
-  }
 
   window.addEventListener("popstate", (e)=>{
     e.preventDefault();
@@ -3255,24 +3545,29 @@ function openChat(chatIdOrDog, maybeDogId, maybeOtherUid) {
   state.currentDogId = dogId;
   state.currentChatId = chatId;
 
+  chatList.innerHTML = "";
+
   // Carica history completa
   loadChatHistory(chatId, dogName);
 
-  // ✅ LETTO SOLO SE APRO DA "RICEVUTI"
+  // ✅ LETTO quando apro la chat (serve per far scalare il badge)
   const openedFrom = state._openChatFromTab || "";
-  state._openChatFromTab = ""; // reset (evita effetti strani al prossimo click)
+  state._openChatFromTab = ""; // reset
 
-  const shouldMarkRead = (openedFrom === "inbox");
+  // segna letto se apro la chat da QUALSIASI tab (inbox/requests/matches)
+  // (così il numeretto scende appena entro davvero nella chat)
+  const shouldMarkRead = true;
 
   if (shouldMarkRead && window.db && chatId) {
     // segna "letto" SOLO i messaggi ricevuti (non i miei), solo quelli non letti
     window.db.collection("messages")
       .where("chatId", "==", chatId)
+      .where("isRead", "==", false)
       .get()
       .then((snap) => {
         snap.forEach((docSnap) => {
           const m = docSnap.data() || {};
-          if (m.senderUid && m.senderUid !== selfUid && m.isRead !== true) {
+          if (m.senderUid && m.senderUid !== selfUid) {
             docSnap.ref.update({
               isRead: true,
               readAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -3580,7 +3875,6 @@ async function init(){
     // initStories parte dopo ENTRA per effetto WOW
   }
 }
-init();
 
   function getVisibleMediaList(story) {
     const hasMatch = !!state.matches[story.userId];
@@ -4084,5 +4378,3 @@ init();
   // Nessuna storia aperta → Android può gestire il back normalmente
   return "NOT_HANDLED";
 };
-
-  init();
