@@ -294,7 +294,7 @@ document.getElementById("btnForgotPass")?.addEventListener("click", async () => 
 
   document.getElementById("btnAlreadyClose")?.addEventListener("click", closeAuth);
 
-  // ENTRA: gate finale stile Facebook
+ // ENTRA: gate finale stile Facebook
 const btnEnter = document.getElementById("btnEnter");
 
 function updateEnterState() {
@@ -317,8 +317,9 @@ function updateEnterState() {
   }
 }
 
-btnEnter?.addEventListener("click", (e) => {
+btnEnter?.addEventListener("click", async (e) => {
   e.preventDefault();
+  e.stopPropagation();
 
   // sicurezza extra
   if (!window.auth || !window.auth.currentUser) {
@@ -329,9 +330,189 @@ btnEnter?.addEventListener("click", (e) => {
   // ✨ rimuove il glow SOLO quando clicco ENTRA
   btnEnter.classList.remove("enter-glow");
 
-  if (typeof window.handleEnter === "function") {
-    window.handleEnter();
+  // ✅ DOG presence check (Firestore source of truth)
+  try {
+    const uid = window.auth.currentUser.uid; // = PLUTOO_UID
+    if (!uid || !window.db) throw new Error("Missing PLUTOO_UID or Firestore (window.db)");
+
+    const snap = await window.db
+      .collection("dogs")
+      .where("ownerUid", "==", uid)
+      .limit(1)
+      .get();
+
+    const hasDog = !snap.empty && String(snap.docs[0]?.data()?.name || "").trim().length > 0;
+    const dogId = (!snap.empty && String(snap.docs[0]?.data()?.name || "").trim().length > 0) ? (snap.docs[0]?.id || null) : null;
+
+    // Stato globale (runtime)
+    window.PLUTOO_HAS_DOG = hasDog;
+    window.PLUTOO_DOG_ID = dogId;
+
+    // ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)
+    window.PLUTOO_READONLY = !hasDog;
+
+    // === Toggle Crea profilo DOG in "Vicino a te"
+const btnCreateDogInline = document.getElementById("btnCreateDogInline");
+if (btnCreateDogInline) {
+  if (window.PLUTOO_HAS_DOG === true) {
+    btnCreateDogInline.style.display = "none";
+  } else {
+    btnCreateDogInline.style.display = "inline-flex";
   }
+}
+
+    // Cache (non source of truth)
+    try {
+      localStorage.setItem("plutoo_has_dog", hasDog ? "1" : "0");
+      if (dogId) localStorage.setItem("plutoo_dog_id", dogId);
+      else localStorage.removeItem("plutoo_dog_id");
+      localStorage.setItem("plutoo_readonly", window.PLUTOO_READONLY ? "1" : "0");
+    } catch (_) {}
+    
+  } catch (err) {
+    // fallback safe: segnala "DOG assente" e prosegue
+    window.PLUTOO_HAS_DOG = false;
+    window.PLUTOO_DOG_ID = null;
+    window.PLUTOO_READONLY = true;
+    try {
+      localStorage.setItem("plutoo_has_dog", "0");
+      localStorage.removeItem("plutoo_dog_id");
+      localStorage.setItem("plutoo_readonly", "1");
+    } catch (_) {}
+  }
+
+  // ✅ ENTRA definitivo (WOW)
+  try { localStorage.setItem("entered", "1"); } catch (err) {}
+  state.entered = true;
+
+  const bark = document.getElementById("dogBark");
+  if (bark) {
+    bark.currentTime = 0;
+    bark.volume = 0.5;
+    const playPromise = bark.play();
+    if (playPromise && typeof playPromise.then === "function") {
+      playPromise.catch(() => {
+        // in produzione niente alert
+      });
+    }
+  }
+
+  if (heroLogo) {
+    heroLogo.classList.remove("heartbeat-violet", "heartbeat-violet-wow");
+    void heroLogo.offsetWidth;
+    heroLogo.classList.add("heartbeat-violet-wow");
+  }
+
+  const flash = document.getElementById("whiteFlash");
+  if (flash) {
+    flash.classList.add("active");
+  }
+
+  const targetView = state.currentView || "nearby";
+
+  setTimeout(() => {
+
+    appScreen?.classList.remove("hidden");
+    document.body.classList.remove("story-open");
+
+    if (typeof initStories === "function") {
+      initStories();
+    }
+
+    // vista normale
+    try { state.currentView = targetView; } catch (_) {}
+    setActiveView(targetView);
+
+// =========================
+// ✅ VETRINA: blocco interazioni (definitivo) — SOLO BLOCCO UPLOAD
+// =========================
+try {
+  if (window.PLUTOO_READONLY) {
+    document.body.classList.add("plutoo-readonly");
+
+    const msg = state.lang === "it"
+      ? "🔒 Crea il tuo profilo DOG per caricare foto o documenti"
+      : "🔒 Create your DOG profile to upload photos or documents";
+    if (typeof showToast === "function") showToast(msg);
+
+    // ✅ disabilita SOLO azioni di UPLOAD (non chat/like/follow/tabs)
+    const idsToDisable = [
+      "uploadSelfie",
+      "publishStory"
+    ];
+    idsToDisable.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+
+    // ✅ intercetta SOLO click su upload foto/documenti
+    if (!window.__plutooReadonlyBound) {
+      window.__plutooReadonlyBound = true;
+
+      document.addEventListener("click", (ev) => {
+        try {
+          if (!window.PLUTOO_READONLY) return;
+
+          const t = ev.target;
+          if (!t) return;
+
+          const node = (t.closest ? t.closest("button,a,label,input,div,span") : null) || t;
+          const id = node && node.id ? String(node.id) : "";
+
+          // blocca anche classi note (UI)
+          const isAddPhoto = !!(node && node.classList && node.classList.contains("add-photo"));
+          const isDocItem  = !!(node && node.classList && node.classList.contains("doc-item"));
+
+          // blocca anche click su input file (se presente)
+          const isFileInput = !!(node && node.tagName === "INPUT" && String(node.type).toLowerCase() === "file");
+
+          const isBlocked =
+            isAddPhoto ||
+            isDocItem ||
+            isFileInput ||
+            id === "uploadSelfie" ||
+            id === "publishStory";
+
+          if (!isBlocked) return; // ✅ tutto il resto resta cliccabile
+
+          ev.preventDefault();
+          ev.stopPropagation();
+          ev.stopImmediatePropagation();
+
+          const msg2 = state.lang === "it"
+            ? "🔒 Per caricare foto o documenti devi creare il profilo DOG"
+            : "🔒 To upload photos or documents you must create your DOG profile";
+          if (typeof showToast === "function") showToast(msg2);
+          return false;
+        } catch (_) {}
+      }, true);
+    }
+  } else {
+    document.body.classList.remove("plutoo-readonly");
+  }
+} catch (_) {}
+  }, 500);
+
+  setTimeout(() => {
+    homeScreen?.classList.add("hidden");
+    const flash2 = document.getElementById("whiteFlash");
+    if (flash2) {
+      flash2.classList.remove("active");
+    }
+    if (heroLogo) {
+      heroLogo.style.transition = "opacity 1.5s ease-out";
+      heroLogo.style.opacity = "0";
+      showAdBanner();
+    }
+  }, 2000);
+
+  setTimeout(() => {
+    if (heroLogo) {
+      heroLogo.classList.remove("heartbeat-violet-wow");
+      heroLogo.style.opacity = "";
+      heroLogo.style.transition = "";
+    }
+  }, 3500);
 });
 
 // iniziale + ogni cambio auth
@@ -339,7 +520,7 @@ updateEnterState();
 firebase.auth().onAuthStateChanged(() => {
   updateEnterState();
 });
-}); // <-- CHIUDE document.addEventListener("DOMContentLoaded", ...)
+}); // <-- CHIUDE
 
   // Firebase handles
 const auth = firebase.auth();
@@ -658,13 +839,22 @@ ownerSocialByDog: {},
     },
     saveStories() { localStorage.setItem("plutoo_stories", JSON.stringify(this.stories)); },
     cleanExpiredStories() {
-      const now = Date.now();
-      this.stories = this.stories.filter(story => {
-        story.media = story.media.filter(m => (now - m.timestamp) < STORIES_CONFIG.STORY_LIFETIME);
-        return story.media.length > 0;
-      });
-      this.saveStories();
-    },
+  const now = Date.now();
+
+  this.stories = this.stories.filter(story => {
+    // ✅ LE DEMO RESTANO SEMPRE
+    if (story.isDemo === true) return true;
+
+    // ⏱️ pulizia media > 24h
+    story.media = story.media.filter(m => {
+      return (now - m.timestamp) < STORIES_CONFIG.STORY_LIFETIME;
+    });
+
+    return story.media.length > 0;
+  });
+
+  this.saveStories();
+},
     getTodayStoriesCount() {
       const today = new Date().toDateString();
       const userStory = this.stories.find(s => s.userId === "currentUser");
@@ -674,13 +864,15 @@ ownerSocialByDog: {},
     canUploadStory() { return state.plus || this.getTodayStoriesCount() < STORIES_CONFIG.FREE_DAILY_LIMIT; },
     generateMockStories() {
       return [
-        { userId:"d1", userName:"Luna", avatar:"dog1.jpg", verified:true,
-          media:[{id:"m1",type:"image",url:"dog1.jpg",timestamp:Date.now()-3600000,filter:"none",music:"",viewed:false,privacy:"public"}] },
+       { userId:"d1", userName:"Luna", avatar:"dog1.jpg", verified:true, isDemo:true,
+         media:[{id:"m1",type:"image",url:"dog1.jpg",timestamp:Date.now()-3600000,filter:"none",music:"",viewed:false,privacy:"public"}] },
+        
         { userId:"d2", userName:"Rex", avatar:"dog2.jpg", verified:true,
           media:[
             {id:"m2",type:"image",url:"dog2.jpg",timestamp:Date.now()-7200000,filter:"warm",music:"happy",viewed:false,privacy:"public"},
             {id:"m3",type:"image",url:"dog3.jpg",timestamp:Date.now()-5400000,filter:"sepia",music:"",viewed:false,privacy:"private"}
           ]},
+        
         { userId:"d3", userName:"Maya", avatar:"dog3.jpg", verified:false,
           media:[{id:"m4",type:"image",url:"dog4.jpg",timestamp:Date.now()-10800000,filter:"grayscale",music:"",viewed:false,privacy:"public"}] }
       ];
@@ -1729,11 +1921,11 @@ msgLists.forEach((list) => {
     StoriesState.loadStories();
   } catch (e) {}
 
-    [viewNearby, viewLove, viewPlay, viewMessages].forEach(v => {
-      if (!v) return;
-      v.classList.remove("active");
-      v.classList.add("hidden");
-    });
+  [viewNearby, viewLove, viewPlay, viewMessages, profilePage].forEach(v => {
+  if (!v) return;
+  v.classList.remove("active");
+  v.classList.add("hidden");
+  });
 
     if (name === "profile" || name === "messages") {
       mainTopbar?.classList.add("hidden");
@@ -1768,6 +1960,13 @@ msgLists.forEach((list) => {
       }
       tabLove.classList.add("active");
       renderSwipe("love");
+    }
+
+    if (name === "profile") {
+  if (profilePage) {
+    profilePage.classList.remove("hidden");
+    profilePage.classList.add("active");
+  }
     }
 
     if (name === "messages") {
@@ -2265,11 +2464,17 @@ breedsList.innerHTML = matches.map(b => {
 
   breedsList.style.display = "block";
 
-  qa(".item",breedsList).forEach(it=>it.addEventListener("click",()=>{
-    breedInput.value = it.getAttribute("data-label") || it.textContent;
-    breedInput.dataset.canonical = it.getAttribute("data-canonical") || it.textContent;
-    breedsList.style.display="none";
-  }));
+qa(".item",breedsList).forEach(it=>it.addEventListener("click",(e)=>{
+  e.preventDefault();
+  e.stopPropagation();
+
+  breedInput.value = it.getAttribute("data-label") || it.textContent;
+  breedInput.dataset.canonical = it.getAttribute("data-canonical") || it.textContent;
+
+  // chiudi lista e togli focus così NON si riapre subito
+  breedsList.style.display = "none";
+  breedInput.blur();
+}));
 });
   
   document.addEventListener("click",(e)=>{
@@ -2803,461 +3008,401 @@ storyLikeBtn.classList.add("heart-anim");
   }
 
   // ============ Profilo DOG (con Stories + Social + Follow + Like foto) ============
-  window.openProfilePage = (d)=>{
+window.openProfilePage = (d)=>{
 
-    // ✅ GUARD-RAIL (anti crash da notifiche/fallback)
-    try {
-      if (!d || typeof d !== "object") d = {};
-      if (d.id == null && d.dogId != null) d.id = d.dogId;
-      d.id = (d.id != null) ? String(d.id) : "";
-      if (!d.id) return;
+// ✅ GUARD-RAIL (anti crash da notifiche/fallback)  
+try {  
+  if (!d || typeof d !== "object") d = {};  
+  if (d.id == null && d.dogId != null) d.id = d.dogId;  
+  d.id = (d.id != null) ? String(d.id) : "";  
+  if (!d.id) return;  
 
-      // state maps sempre presenti (evita TypeError su state.ownerDocsUploaded[d.id])
-      if (!state.ownerDocsUploaded || typeof state.ownerDocsUploaded !== "object") state.ownerDocsUploaded = {};
-      if (!state.dogDocsUploaded   || typeof state.dogDocsUploaded   !== "object") state.dogDocsUploaded   = {};
-      if (!state.ownerDocsUploaded[d.id] || typeof state.ownerDocsUploaded[d.id] !== "object") state.ownerDocsUploaded[d.id] = {};
-      if (!state.dogDocsUploaded[d.id]   || typeof state.dogDocsUploaded[d.id]   !== "object") state.dogDocsUploaded[d.id]   = {};
+  // state maps sempre presenti (evita TypeError su state.ownerDocsUploaded[d.id])  
+  if (!state.ownerDocsUploaded || typeof state.ownerDocsUploaded !== "object") state.ownerDocsUploaded = {};  
+  if (!state.dogDocsUploaded   || typeof state.dogDocsUploaded   !== "object") state.dogDocsUploaded   = {};  
+  if (!state.ownerDocsUploaded[d.id] || typeof state.ownerDocsUploaded[d.id] !== "object") state.ownerDocsUploaded[d.id] = {};  
+  if (!state.dogDocsUploaded[d.id]   || typeof state.dogDocsUploaded[d.id]   !== "object") state.dogDocsUploaded[d.id]   = {};  
 
-      // campi minimi safe (evita undefined in template)
-      d.name  = (d.name  != null) ? String(d.name)  : "";
-      d.img   = (d.img   != null) ? String(d.img)   : "";
-      d.breed = (d.breed != null) ? String(d.breed) : "";
-      d.bio   = (d.bio   != null) ? String(d.bio)   : "";
-    } catch (e) {
-      console.error("openProfilePage guard-rail:", e);
-      return;
-    }
-    
-    state.currentDogProfile = d;
-    localStorage.setItem("currentProfileDogId", d.id);
-    setActiveView("profile");
+  // campi minimi safe (evita undefined in template)  
+  d.name  = (d.name  != null) ? String(d.name)  : "";  
+  d.img   = (d.img   != null) ? String(d.img)   : "";  
+  d.breed = (d.breed != null) ? String(d.breed) : "";  
+  d.bio   = (d.bio   != null) ? String(d.bio)   : "";  
+} catch (e) {  
+  console.error("openProfilePage guard-rail:", e);  
+  return;  
+}  
+  
+state.currentDogProfile = d;  
+localStorage.setItem("currentProfileDogId", d.id);  
+setActiveView("profile");  
 
-    history.pushState({view: "profile", dogId: d.id}, "", "");
+history.pushState({view: "profile", dogId: d.id}, "", "");  
 
-    profilePage.classList.remove("hidden");
+profilePage.classList.remove("hidden");  
 
-    const selfieUnlocked = isSelfieUnlocked(d.id);
-    const ownerDocs = state.ownerDocsUploaded[d.id] || {};
-    const dogDocs = state.dogDocsUploaded[d.id] || {};
-    const selfieKey   = `selfieImage_${d.id}`;
-    const selfieStored = localStorage.getItem(selfieKey);
-    const selfieSrc    = selfieStored || d.img;
+const selfieUnlocked = isSelfieUnlocked(d.id);  
+const ownerDocs = state.ownerDocsUploaded[d.id] || {};  
+const dogDocs = state.dogDocsUploaded[d.id] || {};  
+const selfieKey   = `selfieImage_${d.id}`;  
+const selfieStored = localStorage.getItem(selfieKey);  
+const selfieSrc    = selfieStored || d.img;  
 
-    const dogStories =
-    window.StoriesState && Array.isArray(window.StoriesState.stories)
-    ? window.StoriesState.stories.find(s => s.userId === d.id)
-    : null;
-    const storiesHTML = dogStories ? `
-      <div class="pp-stories-section">
-        <div class="pp-stories-header">
-          <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
-          <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
-        </div>
-        <div class="pp-stories-grid" id="dogStoriesGrid">
-          ${dogStories.media.map((m, idx) => `
-            <div class="pp-story-item" data-story-index="${idx}">
-              <img src="${m.url}" alt="Story" />
-              <span class="pp-story-time">${getTimeAgo(m.timestamp)}</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    ` : `
-      <div class="pp-stories-section">
-        <div class="pp-stories-header">
-          <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
-          <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
-        </div>
-        <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:1rem 0">${state.lang==="it"?"Nessuna story disponibile":"No stories available"}</p>
-      </div>
-    `;
+const dogStories =  
+window.StoriesState && Array.isArray(window.StoriesState.stories)  
+? window.StoriesState.stories.find(s => s.userId === d.id)  
+: null;  
+const storiesHTML = dogStories ? `  
+  <div class="pp-stories-section">  
+    <div class="pp-stories-header">  
+      <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>  
+      <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>  
+    </div>  
+    <div class="pp-stories-grid" id="dogStoriesGrid">  
+      ${dogStories.media.map((m, idx) => `  
+        <div class="pp-story-item" data-story-index="${idx}">  
+          <img src="${m.url}" alt="Story" />  
+          <span class="pp-story-time">${getTimeAgo(m.timestamp)}</span>  
+        </div>  
+      `).join('')}  
+    </div>  
+  </div>  
+` : `  
+  <div class="pp-stories-section">  
+    <div class="pp-stories-header">  
+      <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>  
+      <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>  
+    </div>  
+    <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:1rem 0">${state.lang==="it"?"Nessuna story disponibile":"No stories available"}</p>  
+  </div>  
+`;  
 
-    profileContent.innerHTML = `
-      <div class="pp-hero">
-        <img src="${d.img}" alt="${d.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
-      </div>
-      <div class="pp-head">
-        <h2 class="pp-name">
-          <span class="pp-name-main">${d.name} ${d.verified?"✅":""}</span>
-          <button type="button" id="followBtn" class="btn small pp-follow-btn">Segui 🐕🐾</button>
-          <span class="pp-follow-stats">
-            <button type="button" id="followersCount" class="pp-follow-count">0 follower</button>
-            <span class="pp-follow-dot">·</span>
-            <button type="button" id="followingCount" class="pp-follow-count">0 seguiti</button>
-          </span>
-        </h2>
-        <div class="pp-badges">
-          <span class="badge">${d.breed}</span>
-          <span class="badge">${d.age} ${t("years")}</span>
-          <span class="badge">${fmtKm(d.km)}</span>
-          <span class="badge">${d.sex==="M"?(state.lang==="it"?"Maschio":"Male"):(state.lang==="it"?"Femmina":"Female")}</span>
-        </div>
-      </div>
-      <div class="pp-meta soft">${d.bio||""}</div>
+profileContent.innerHTML = `  
+  <div class="pp-hero">  
+    <img src="${d.img}" alt="${d.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">  
+  </div>  
+  <div class="pp-head">  
+    <h2 class="pp-name">  
+      <span class="pp-name-main">${d.name} ${d.verified?"✅":""}</span>  
+      <button type="button" id="followBtn" class="btn small pp-follow-btn">Segui 🐕🐾</button>  
+      <span class="pp-follow-stats">  
+        <button type="button" id="followersCount" class="pp-follow-count">0 follower</button>  
+        <span class="pp-follow-dot">·</span>  
+        <button type="button" id="followingCount" class="pp-follow-count">0 seguiti</button>  
+      </span>  
+    </h2>  
+    <div class="pp-badges">  
+      <span class="badge">${d.breed}</span>  
+      <span class="badge">${d.age} ${t("years")}</span>  
+      <span class="badge">${fmtKm(d.km)}</span>  
+      <span class="badge">${d.sex==="M"?(state.lang==="it"?"Maschio":"Male"):(state.lang==="it"?"Femmina":"Female")}</span>  
+    </div>  
+  </div>  
+  <div class="pp-meta soft">${d.bio||""}</div>  
 
-      ${storiesHTML}
+  ${storiesHTML}  
 
-      <h3 class="section-title">${state.lang==="it"?"Galleria":"Gallery"}</h3>
-      <div class="gallery">
-        <div class="ph"><img src="${d.img}" alt=""></div>
-        <div class="ph"><img src="${d.img}" alt=""></div>
-        <div class="ph"><img src="${d.img}" alt=""></div>
-        <div class="ph"><button class="add-photo">+ ${state.lang==="it"?"Aggiungi":"Add"}</button></div>
-      </div>
+  <h3 class="section-title">${state.lang==="it"?"Galleria":"Gallery"}</h3>  
+  <div class="gallery">  
+    <div class="ph"><img src="${d.img}" alt=""></div>  
+    <div class="ph"><img src="${d.img}" alt=""></div>  
+    <div class="ph"><img src="${d.img}" alt=""></div>  
+    <div class="ph"><button class="add-photo">+ ${state.lang==="it"?"Aggiungi":"Add"}</button></div>  
+  </div>  
 
-      <h3 class="section-title">Selfie</h3>
-<div class="selfie ${selfieUnlocked?'unlocked':''}">
-  <img class="img" src="${selfieSrc}" alt="Selfie">
-  <input type="file" id="selfieFileInput" accept="image/*" style="display:none" />
-  <div class="over">
-    <button id="unlockSelfie" class="btn pill">${state.lang==="it"?"Sblocca selfie":"Unlock selfie"}</button>
-    <button id="uploadSelfie" class="btn pill ghost">${state.lang==="it"?"Carica selfie":"Upload selfie"}</button>
-  </div>
+  <h3 class="section-title">Selfie</h3>
+
+<div class="selfie ${selfieUnlocked?'unlocked':''}">  
+  <img class="img" src="${selfieSrc}" alt="Selfie">  
+  <input type="file" id="selfieFileInput" accept="image/*" style="display:none" />  
+  <div class="over">  
+    <button id="unlockSelfie" class="btn pill">${state.lang==="it"?"Sblocca selfie":"Unlock selfie"}</button>  
+    <button id="uploadSelfie" class="btn pill ghost">${state.lang==="it"?"Carica selfie":"Upload selfie"}</button>  
+  </div>  
+</div>  <h3 class="section-title">${state.lang==="it"?"Documenti":"Documents"}</h3>  
+
+  <div class="pp-docs-section">  
+    <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti Proprietario DOG":"DOG Owner Documents"}</h4>  
+    <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Obbligatorio per ottenere il badge verificato ✅":"Required to get verified badge ✅"}</p>  
+    <div class="pp-docs-grid">  
+      <div class="doc-item" data-doc="owner-identity" data-type="owner">  
+        <div class="doc-icon">🪪</div>  
+        <div class="doc-label">${state.lang==="it"?"Carta d'identità":"Identity Card"}</div>  
+        <div class="doc-status ${ownerDocs.identity?'uploaded':'pending'}">${ownerDocs.identity?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
+      </div>  
+    </div>  
+  </div>  
+
+  <div class="pp-docs-section" style="margin-top:1.2rem">  
+    <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti DOG":"DOG Documents"}</h4>  
+    <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Facoltativi (vaccini, pedigree, microchip)":"Optional (vaccines, pedigree, microchip)"}</p>  
+    <div class="pp-docs-grid">  
+      <div class="doc-item" data-doc="dog-vaccines" data-type="dog">  
+        <div class="doc-icon">💉</div>  
+        <div class="doc-label">${state.lang==="it"?"Vaccini":"Vaccines"}</div>  
+        <div class="doc-status ${dogDocs.vaccines?'uploaded':'pending'}">${dogDocs.vaccines?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
+      </div>  
+      <div class="doc-item" data-doc="dog-pedigree" data-type="dog">  
+        <div class="doc-icon">📜</div>  
+        <div class="doc-label">${state.lang==="it"?"Pedigree":"Pedigree"}</div>  
+        <div class="doc-status ${dogDocs.pedigree?'uploaded':'pending'}">${dogDocs.pedigree?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
+      </div>  
+      <div class="doc-item" data-doc="dog-microchip" data-type="dog">  
+        <div class="doc-icon">🔬</div>  
+        <div class="doc-label">${state.lang==="it"?"Microchip":"Microchip"}</div>  
+        <div class="doc-status ${dogDocs.microchip?'uploaded':'pending'}">${dogDocs.microchip?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
+      </div>  
+    </div>  
+  </div>  
+
+  ${generateSocialSection(d)}
+
+  <div class="pp-actions">
+  ${
+    (!window.PLUTOO_HAS_DOG)
+      ? `
+        <button id="btnCreateDogFromProfile" class="btn primary">
+          ${state.lang==="it" ? "Crea profilo DOG" : "Create DOG profile"}
+        </button>
+      `
+      : (
+          (typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID && d.id === CURRENT_USER_DOG_ID)
+            ? `
+              <button id="btnProfileSettings" class="btn accent">${state.lang==="it"?"Impostazioni profilo":"Profile settings"}</button>
+              <button id="btnEditSocial" class="btn outline">${state.lang==="it"?"Modifica social":"Edit socials"}</button>
+            `
+            : `
+              <button id="btnLikeDog" class="btn accent">💛 Like</button>
+              <button id="btnOpenChat" class="btn primary">${state.lang==="it"?"Invia messaggio":"Send message"}</button>
+            `
+        )
+  }
 </div>
+`;
 
-      <h3 class="section-title">${state.lang==="it"?"Documenti":"Documents"}</h3>
-
-      <div class="pp-docs-section">
-        <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti Proprietario DOG":"DOG Owner Documents"}</h4>
-        <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Obbligatorio per ottenere il badge verificato ✅":"Required to get verified badge ✅"}</p>
-        <div class="pp-docs-grid">
-          <div class="doc-item" data-doc="owner-identity" data-type="owner">
-            <div class="doc-icon">🪪</div>
-            <div class="doc-label">${state.lang==="it"?"Carta d'identità":"Identity Card"}</div>
-            <div class="doc-status ${ownerDocs.identity?'uploaded':'pending'}">${ownerDocs.identity?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="pp-docs-section" style="margin-top:1.2rem">
-        <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti DOG":"DOG Documents"}</h4>
-        <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Facoltativi (vaccini, pedigree, microchip)":"Optional (vaccines, pedigree, microchip)"}</p>
-        <div class="pp-docs-grid">
-          <div class="doc-item" data-doc="dog-vaccines" data-type="dog">
-            <div class="doc-icon">💉</div>
-            <div class="doc-label">${state.lang==="it"?"Vaccini":"Vaccines"}</div>
-            <div class="doc-status ${dogDocs.vaccines?'uploaded':'pending'}">${dogDocs.vaccines?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
-          </div>
-          <div class="doc-item" data-doc="dog-pedigree" data-type="dog">
-            <div class="doc-icon">📜</div>
-            <div class="doc-label">${state.lang==="it"?"Pedigree":"Pedigree"}</div>
-            <div class="doc-status ${dogDocs.pedigree?'uploaded':'pending'}">${dogDocs.pedigree?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
-          </div>
-          <div class="doc-item" data-doc="dog-microchip" data-type="dog">
-            <div class="doc-icon">🔬</div>
-            <div class="doc-label">${state.lang==="it"?"Microchip":"Microchip"}</div>
-            <div class="doc-status ${dogDocs.microchip?'uploaded':'pending'}">${dogDocs.microchip?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
-          </div>
-        </div>
-      </div>
-
-      ${generateSocialSection(d)}
-
-      <div class="pp-actions">
-        <button id="btnLikeDog" class="btn accent">💛 Like</button>
-        <button id="btnOpenChat" class="btn primary">${state.lang==="it"?"Apri chat":"Open chat"}</button>
-      </div>
-    `;
-
-  // === PULSANTE "MODIFICA SOCIAL" SOLO PER IL TUO DOG ===
-if (d.id === CURRENT_USER_DOG_ID) {
-  const btn = document.createElement("button");
-  btn.id = "editSocialBtn";
-  btn.className = "btn outline";
-  btn.style.marginTop = "1rem";
-  btn.textContent = "Modifica social";
-
-  btn.addEventListener("click", () => {
-
-    const dogId = d.id;
-    const existing =
-      (state.ownerSocialByDog && state.ownerSocialByDog[dogId]) || {};
-
-    // Facebook
-    let fb = prompt(
-      state.lang === "it"
-        ? "Inserisci il link Facebook del proprietario (lascia vuoto per nessun link):"
-        : "Enter owner Facebook link (leave empty for none):",
-      existing.facebook || ""
-    );
-    if (fb === null) fb = existing.facebook || "";
-    fb = fb.trim();
-
-    // Instagram
-    let ig = prompt(
-      state.lang === "it"
-        ? "Inserisci il link Instagram del proprietario:"
-        : "Enter owner Instagram link:",
-      existing.instagram || ""
-    );
-    if (ig === null) ig = existing.instagram || "";
-    ig = ig.trim();
-
-    // TikTok
-    let tt = prompt(
-      state.lang === "it"
-        ? "Inserisci il link TikTok del proprietario:"
-        : "Enter owner TikTok link:",
-      existing.tiktok || ""
-    );
-    if (tt === null) tt = existing.tiktok || "";
-    tt = tt.trim();
-
-    // 🔥 Se tutto vuoto → rimuovo social salvati
-    if (!fb && !ig && !tt) {
-      if (state.ownerSocialByDog && state.ownerSocialByDog[dogId]) {
-        delete state.ownerSocialByDog[dogId];
-      }
-    } else {
-      if (!state.ownerSocialByDog) state.ownerSocialByDog = {};
-      state.ownerSocialByDog[dogId] = {
-        facebook: fb || "",
-        instagram: ig || "",
-        tiktok: tt || ""
-      };
-    }
-
-    // 🔄 Salvo su localStorage
-    try {
-      localStorage.setItem(
-        "ownerSocialByDog",
-        JSON.stringify(state.ownerSocialByDog || {})
-      );
-    } catch (e) {}
-
-    // Messaggio
-    const msg =
-      state.lang === "it" ? "Social aggiornati!" : "Social updated!";
-
-    if (typeof showToast === "function") {
-      showToast(msg);
-    } else {
-      alert(msg);
-    }
-
-    // 🔄 Ricarica SOLO la sezione social nel profilo
-    const updatedHTML = generateSocialSection(d);
-    const socialSection = document.querySelector(".pp-social-section");
-    if (socialSection && updatedHTML) {
-      socialSection.outerHTML = updatedHTML;
-    }
-
-  });
-
-  const contentEl = document.getElementById("profileContent");
-  if (contentEl) {
-    contentEl.appendChild(btn);
-  }
-}
-
-// ==== GALLERIA PROFILO (max 5 foto, salvate in localStorage)
-(function () {
-  // Se per qualche motivo d non c'è, esco
-  if (!d || !profileContent) return;
-
-  const maxPhotos = 5;
-  const dogId = d.id;
-  const storageKey = `gallery_${dogId}`;
-
-  // Prendo il contenitore .gallery e il bottone "+ Aggiungi"
-  const galleryBlock = qs(".gallery", profileContent);
-  if (!galleryBlock) return;
-
-  const addGalleryPhotoBtn = galleryBlock.querySelector(".add-photo");
-  if (!addGalleryPhotoBtn) return;
-
-  // Lo slot che contiene il bottone "+ Aggiungi"
-  const addSlot = addGalleryPhotoBtn.closest(".ph") || galleryBlock.lastElementChild;
-
-  // Carico eventuali immagini salvate
-  let images = [];
+  // ✅ PROFILO DOG REALE — PUBLISH MODE (Firestore source of truth)
+// Questo blocco NON deve MAI bloccare chat/like/follow quando l'utente è loggato senza DOG.
+// In modalità "solo mail" restano cliccabili i profili demo: si blocca SOLO upload (gestito altrove).
+(function attachRealDogProfileControls() {
   try {
-    const raw = localStorage.getItem(storageKey);
-    images = raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    images = [];
-  }
-  if (!Array.isArray(images)) images = [];
+    // Se non sono loggato, non faccio nulla
+    if (!window.auth || !window.auth.currentUser) return;
 
-  // Input file nascosto
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = "image/*";
-  input.multiple = true;
-  input.style.display = "none";
-  document.body.appendChild(input);
+    // Se non ho un DOG reale, NON inietto note e NON disabilito bottoni.
+    // (Upload già bloccato dal blocco READONLY SOLO UPLOAD che hai messo vicino a ENTRA.)
+    if (!window.PLUTOO_HAS_DOG) return;
 
-  // Render delle foto caricate (prima dello slot "+ Aggiungi")
-  const renderGallery = () => {
-    // Rimuovo solo le foto caricate in precedenza (marcate con data-upload="1")
-    Array.from(galleryBlock.querySelectorAll('.ph[data-upload="1"]')).forEach(ph => ph.remove());
+    // Se qui sotto in futuro vuoi controlli "solo per DOG reale",
+    // devi farli
 
-    const limit = Math.min(images.length, maxPhotos);
-    for (let i = 0; i < limit; i++) {
-      const src = images[i];
-      const ph = document.createElement("div");
-      ph.className = "ph";
-      ph.dataset.upload = "1";
+    // ==== GALLERIA PROFILO (max 5 foto, salvate in localStorage)
+    (function () {
+      // Se per qualche motivo d non c'è, esco
+      if (!d || !profileContent) return;
 
-      const img = document.createElement("img");
-      img.src = src;
-      img.className = "pp-gallery-img";
-      img.onerror = () => {
-        img.src = "./plutoo-icon-192.png";
-      };
+      const maxPhotos = 5;
+      const dogId = d.id;
+      const storageKey = `gallery_${dogId}`;
 
-      ph.appendChild(img);
-      galleryBlock.insertBefore(ph, addSlot);
-    }
+      // Prendo il contenitore .gallery e il bottone "+ Aggiungi"
+      const galleryBlock = qs(".gallery", profileContent);
+      if (!galleryBlock) return;
 
-    // Se ho raggiunto il massimo, disabilito il bottone
-    addGalleryPhotoBtn.disabled = images.length >= maxPhotos;
-  };
+      const addGalleryPhotoBtn = galleryBlock.querySelector(".add-photo");
+      if (!addGalleryPhotoBtn) return;
 
-  // Click su "+ Aggiungi" → apro il picker
-  addGalleryPhotoBtn.addEventListener("click", () => {
-    if (images.length >= maxPhotos) return;
-    input.value = "";
-    input.click();
-  });
+      // Lo slot che contiene il bottone "+ Aggiungi"
+      const addSlot = addGalleryPhotoBtn.closest(".ph") || galleryBlock.lastElementChild;
 
-  // Quando scelgo i file, li salvo e aggiorno la griglia
-  input.addEventListener("change", () => {
-    const files = Array.from(input.files || []);
-    if (!files.length) return;
+      // Carico eventuali immagini salvate
+      let images = [];
+      try {
+        const raw = localStorage.getItem(storageKey);
+        images = raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        images = [];
+      }
+      if (!Array.isArray(images)) images = [];
 
-    const remaining = maxPhotos - images.length;
-    const toAdd = files.slice(0, remaining);
-    if (!toAdd.length) return;
+      // Input file nascosto
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.multiple = true;
+      input.style.display = "none";
+      document.body.appendChild(input);
 
-    let pending = toAdd.length;
+      // Render delle foto caricate (prima dello slot "+ Aggiungi")
+      const renderGallery = () => {
+        // Rimuovo solo le foto caricate in precedenza (marcate con data-upload="1")
+        Array.from(galleryBlock.querySelectorAll('.ph[data-upload="1"]')).forEach(ph => ph.remove());
 
-    toAdd.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = e => {
-        images.push(e.target.result);
-        pending--;
-        if (pending === 0) {
-          try {
-            localStorage.setItem(storageKey, JSON.stringify(images));
-          } catch (err) {
-            // se localStorage è pieno, semplicemente non salvo
-          }
-          renderGallery();
+        const limit = Math.min(images.length, maxPhotos);
+        for (let i = 0; i < limit; i++) {
+          const src = images[i];
+          const ph = document.createElement("div");
+          ph.className = "ph";
+          ph.dataset.upload = "1";
+
+          const img = document.createElement("img");
+          img.src = src;
+          img.className = "pp-gallery-img";
+          img.onerror = () => {
+            img.src = "./plutoo-icon-192.png";
+          };
+
+          ph.appendChild(img);
+          galleryBlock.insertBefore(ph, addSlot);
         }
+
+        // Se ho raggiunto il massimo, disabilito il bottone
+        addGalleryPhotoBtn.disabled = images.length >= maxPhotos;
       };
-      reader.readAsDataURL(file);
-    });
-  });
 
-  // Primo render (mostra eventuali foto già salvate)
-  renderGallery();
-})();
+      // Click su "+ Aggiungi" → apro il picker
+      addGalleryPhotoBtn.addEventListener("click", () => {
+        if (images.length >= maxPhotos) return;
+        input.value = "";
+        input.click();
+      });
 
-  updateFollowerUI(d);
+      // Quando scelgo i file, li salvo e aggiorno la griglia
+      input.addEventListener("change", () => {
+        const files = Array.from(input.files || []);
+        if (!files.length) return;
 
-const followBtn = $("followBtn");
-if (followBtn) {
-  const refreshFollowBtn = () => {
-    // ✅ usa SEMPRE il mio dogId reale
-    const myFollowing = (typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)
-      ? getFollowing(CURRENT_USER_DOG_ID)
-      : [];
-    const isFollowing = myFollowing.includes(d.id);
+        const remaining = maxPhotos - images.length;
+        const toAdd = files.slice(0, remaining);
+        if (!toAdd.length) return;
 
-    if (state.lang === "it") {
-      followBtn.textContent = isFollowing ? "Seguito 🐕🐾" : "Segui 🐕🐾";
-    } else {
-      followBtn.textContent = isFollowing ? "Following 🐕🐾" : "Follow 🐕🐾";
-    }
-    followBtn.classList.toggle("is-following", isFollowing);
+        let pending = toAdd.length;
 
-    // ✅ se non ho un dogId mio, il follow non può essere salvato
-    followBtn.disabled = !(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID);
-  };
+        toAdd.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            images.push(e.target.result);
+            pending--;
+            if (pending === 0) {
+              try {
+                localStorage.setItem(storageKey, JSON.stringify(images));
+              } catch (err) {
+                // se localStorage è pieno, semplicemente non salvo
+              }
+              renderGallery();
+            }
+          };
+          reader.readAsDataURL(file);
+        });
+      });
 
-  followBtn.onclick = () => {
-    // ✅ blocca subito se manca il mio dogId (evita “sembra morto”)
-    if (!(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)) {
-      console.error("FOLLOW blocked: CURRENT_USER_DOG_ID mancante");
+      // Primo render (mostra eventuali foto già salvate)
+      renderGallery();
+    })();
+
+    updateFollowerUI(d);
+
+    const followBtn = $("followBtn");
+    if (followBtn) {
+      const refreshFollowBtn = () => {
+        // ✅ usa SEMPRE il mio dogId reale
+        const myFollowing = (typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)
+          ? getFollowing(CURRENT_USER_DOG_ID)
+          : [];
+        const isFollowing = myFollowing.includes(d.id);
+
+        if (state.lang === "it") {
+          followBtn.textContent = isFollowing ? "Seguito 🐕🐾" : "Segui 🐕🐾";
+        } else {
+          followBtn.textContent = isFollowing ? "Following 🐕🐾" : "Follow 🐕🐾";
+        }
+        followBtn.classList.toggle("is-following", isFollowing);
+
+        // ✅ se non ho un dogId mio, il follow non può essere salvato
+        followBtn.disabled = !(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID);
+      };
+
+      followBtn.onclick = () => {
+        // ✅ blocca subito se manca il mio dogId (evita “sembra morto”)
+        if (!(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)) {
+          console.error("FOLLOW blocked: CURRENT_USER_DOG_ID mancante");
+          refreshFollowBtn();
+          return;
+        }
+
+        const myFollowing = getFollowing(CURRENT_USER_DOG_ID);
+        const isFollowing = myFollowing.includes(d.id);
+
+        if (isFollowing) {
+          unfollowDog(d.id);
+        } else {
+          followDog(d.id);
+        }
+        refreshFollowBtn();
+      };
+
       refreshFollowBtn();
-      return;
     }
 
-    const myFollowing = getFollowing(CURRENT_USER_DOG_ID);
-    const isFollowing = myFollowing.includes(d.id);
+    const followersCountEl = $("followersCount");
+    const followingCountEl = $("followingCount");
 
-    if (isFollowing) {
-      unfollowDog(d.id);
-    } else {
-      followDog(d.id);
+    // ✅ evita accumulo listeners ogni volta che apri il profilo
+    if (followersCountEl) followersCountEl.onclick = () => openFollowersList(d.id);
+    if (followingCountEl) followingCountEl.onclick = () => openFollowingList(d.id);
+
+    if (profileLikeBtn) {
+      profileLikeBtn.onclick = () => togglePhotoLike(d.id);
+      updatePhotoLikeUI(d.id);
     }
-    refreshFollowBtn();
-  };
 
-  refreshFollowBtn();
-}
-
-const followersCountEl = $("followersCount");
-const followingCountEl = $("followingCount");
-
-// ✅ evita accumulo listeners ogni volta che apri il profilo
-if (followersCountEl) followersCountEl.onclick = () => openFollowersList(d.id);
-if (followingCountEl) followingCountEl.onclick = () => openFollowingList(d.id);
-
-if (profileLikeBtn) {
-  profileLikeBtn.onclick = () => togglePhotoLike(d.id);
-  updatePhotoLikeUI(d.id);
-}
-
-if (dogStories) {
-  qa(".pp-story-item", profileContent).forEach(item => {
-    item.addEventListener("click", () => {
-      const idx = parseInt(item.getAttribute("data-story-index"));
-      openDogStoryViewer(d.id, idx);
-    });
-  });
-}
+    if (dogStories) {
+      qa(".pp-story-item", profileContent).forEach(item => {
+        item.addEventListener("click", () => {
+          const idx = parseInt(item.getAttribute("data-story-index"));
+          openDogStoryViewer(d.id, idx);
+        });
+      });
+    }
 
     $("uploadDogStory")?.addEventListener("click", ()=> { openUploadModal(); });
 
     qa(".gallery img", profileContent).forEach(img=>{
-  img.addEventListener("click", ()=>{
-    const lb = document.createElement("div");
-    lb.className = "lightbox";
-    lb.innerHTML = `
-      <button class="close" aria-label="Chiudi">✕</button>
-      <div class="lightbox-inner">
-        <img src="${img.src}" alt="">
-        <button class="story-like-btn lightbox-like-btn" type="button">❤️ 0</button>
-      </div>`;
-    document.body.appendChild(lb);
+      img.addEventListener("click", ()=>{
+        const lb = document.createElement("div");
+        lb.className = "lightbox";
+        lb.innerHTML = `
+          <button class="close" aria-label="Chiudi">✕</button>
+          <div class="lightbox-inner">
+            <img src="${img.src}" alt="">
+            <button class="story-like-btn lightbox-like-btn" type="button">❤️ 0</button>
+          </div>`;
+        document.body.appendChild(lb);
 
-    const closeBtn = qs(".close", lb);
-    if (closeBtn) closeBtn.onclick = ()=> lb.remove();
-    lb.addEventListener("click", (e)=>{ if(e.target===lb) lb.remove(); });
+        const closeBtn = qs(".close", lb);
+        if (closeBtn) closeBtn.onclick = ()=> lb.remove();
+        lb.addEventListener("click", (e)=>{ if(e.target===lb) lb.remove(); });
 
-    const likeBtn = qs(".lightbox-like-btn", lb);
-    if (likeBtn) {
-      const refresh = () => {
-        const liked = isDogPhotoLiked(d.id);
-        const count = liked ? 1 : 0;
-        likeBtn.textContent = "❤️ " + count;
-      };
+        const likeBtn = qs(".lightbox-like-btn", lb);
+        if (likeBtn) {
+          const refresh = () => {
+            const liked = isDogPhotoLiked(d.id);
+            const count = liked ? 1 : 0;
+            likeBtn.textContent = "❤️ " + count;
+          };
 
-      likeBtn.addEventListener("click", (ev)=>{
-        ev.stopPropagation();
-        togglePhotoLike(d.id);
-        refresh();
-        updatePhotoLikeUI(d.id);
+          likeBtn.addEventListener("click", (ev)=>{
+            ev.stopPropagation();
+            togglePhotoLike(d.id);
+            refresh();
+            updatePhotoLikeUI(d.id);
+          });
+
+          refresh();
+        }
       });
+    });
 
-      refresh();
-    }
-  });
-});
-
-  // --- DOCS: apertura file picker + salvataggio stato ---
+    // --- DOCS: apertura file picker + salvataggio stato ---
     const docFileInput = document.createElement("input");
     docFileInput.type = "file";
     docFileInput.accept = "image/*,application/pdf";
@@ -3265,7 +3410,19 @@ if (dogStories) {
     profileContent.appendChild(docFileInput);
 
     qa(".doc-item", profileContent).forEach(item=>{
-      item.addEventListener("click", ()=>{
+      item.addEventListener("click", (e)=>{
+        // 🔒 VETRINA: blocco totale documenti
+        if (window.PLUTOO_READONLY) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          const msg = state.lang === "it"
+            ? "🔒 Crea il profilo DOG per caricare i documenti"
+            : "🔒 Create your DOG profile to upload documents";
+          if (typeof showToast === "function") showToast(msg);
+          return;
+        }
+
         const docType = item.getAttribute("data-doc");
         const docCategory = item.getAttribute("data-type");
 
@@ -3299,45 +3456,50 @@ if (dogStories) {
       });
     });
 
-  qa(".social-btn", profileContent).forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    const baseUrl   = btn.getAttribute("data-url");
-    const dogId     = btn.getAttribute("data-dog-id");
-    const socialKey = btn.getAttribute("data-social"); // "social-fb" / "social-ig" / "social-tt"
+    qa(".social-btn", profileContent).forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const baseUrl   = btn.getAttribute("data-url");
+        const dogId     = btn.getAttribute("data-dog-id");
+        const socialKey = btn.getAttribute("data-social"); // "social-fb" / "social-ig" / "social-tt"
 
-    let finalUrl = baseUrl;
+        let finalUrl = baseUrl;
 
-    // Se esistono URL personalizzati salvati per quel DOG, li usiamo al posto di quelli mock
-    if (dogId && state.ownerSocialByDog && state.ownerSocialByDog[dogId]) {
-      const ownerSocial = state.ownerSocialByDog[dogId];
-      if (socialKey === "social-fb" && ownerSocial.facebook) {
-        finalUrl = ownerSocial.facebook;
-      } else if (socialKey === "social-ig" && ownerSocial.instagram) {
-        finalUrl = ownerSocial.instagram;
-      } else if (socialKey === "social-tt" && ownerSocial.tiktok) {
-        finalUrl = ownerSocial.tiktok;
-      }
-    }
+        // Se esistono URL personalizzati salvati per quel DOG, li usiamo al posto di quelli mock
+        if (dogId && state.ownerSocialByDog && state.ownerSocialByDog[dogId]) {
+          const ownerSocial = state.ownerSocialByDog[dogId];
+          if (socialKey === "social-fb" && ownerSocial.facebook) {
+            finalUrl = ownerSocial.facebook;
+          } else if (socialKey === "social-ig" && ownerSocial.instagram) {
+            finalUrl = ownerSocial.instagram;
+          } else if (socialKey === "social-tt" && ownerSocial.tiktok) {
+            finalUrl = ownerSocial.tiktok;
+          }
+        }
 
-    if (!finalUrl) return;
+        if (!finalUrl) return;
 
-    const rewardKey = `${dogId}_${socialKey}`;
+        const rewardKey = `${dogId}_${socialKey}`;
 
-    if (state.plus || state.socialRewardViewed[rewardKey]) {
-      window.open(finalUrl, "_blank", "noopener");
-      return;
-    }
-    if (state.rewardOpen) return;
-    state.rewardOpen = true;
+        if (state.plus || state.socialRewardViewed[rewardKey]) {
+          window.open(finalUrl, "_blank", "noopener");
+          return;
+        }
+        if (state.rewardOpen) return;
+        state.rewardOpen = true;
 
-    showRewardVideoMock("social", ()=>{
-      state.rewardOpen = false;
-      state.socialRewardViewed[rewardKey] = true;
-      localStorage.setItem("socialRewardViewed", JSON.stringify(state.socialRewardViewed));
-      window.open(finalUrl, "_blank", "noopener");
+        showRewardVideoMock("social", ()=>{
+          state.rewardOpen = false;
+          state.socialRewardViewed[rewardKey] = true;
+          localStorage.setItem("socialRewardViewed", JSON.stringify(state.socialRewardViewed));
+          window.open(finalUrl, "_blank", "noopener");
+        });
+      });
     });
-  });
-});
+
+  } catch (e) {
+    console.error("attachRealDogProfileControls error:", e);
+  }
+})();
 
     // Azioni nel profilo DOG (chat + like/match)
 const openChatBtn = $("btnOpenChat");
@@ -3877,9 +4039,27 @@ async function init(){
 }
 
   function getVisibleMediaList(story) {
-    const hasMatch = !!state.matches[story.userId];
-    const hasFriendship = !!state.friendships[story.userId];
-    return story.media.filter(m => m.privacy !== "private" || hasMatch || hasFriendship);
+  const hasMatch = !!state.matches[story.userId];
+  const hasFriendship = !!state.friendships[story.userId];
+
+  const NOW = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+
+  return story.media.filter(m => {
+    // 🔒 privacy (regola esistente)
+    const privacyOk =
+      m.privacy !== "private" || hasMatch || hasFriendship;
+
+    if (!privacyOk) return false;
+
+    // 🟣 DEMO: non scadono mai
+    if (story.isDemo === true) return true;
+
+    // ⏱️ REALI: scadono dopo 24h
+    if (!m.timestamp) return false;
+
+    return (NOW - m.timestamp) <= DAY;
+  });
   }
 
   function initStories() {
@@ -4310,6 +4490,16 @@ async function init(){
   }
 
   function publishStory() {
+  // 🔒 VETRINA: blocca pubblicazione story
+  if (window.PLUTOO_READONLY) {
+    const msg = state.lang === "it"
+      ? "🔒 Crea il profilo DOG per pubblicare una story"
+      : "🔒 Create your DOG profile to publish a story";
+    if (typeof showToast === "function") showToast(msg);
+    else alert(msg);
+    return;
+  }
+    
     const preview = $("storyPreview");
     if (!preview || preview.dataset.hasMedia !== "true" || !StoriesState.uploadedFile) {
       alert(state.lang==="it" ? "Seleziona prima una foto o un video" : "Select a photo or video first");
@@ -4353,28 +4543,34 @@ async function init(){
     showToast(state.lang==="it" ? "Story pubblicata!" : "Story published!");
   }
 
-  function showToast(msg) {
-    let el = $("toast");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "toast";
-      el.className = "toast";
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
+  function showToast(msg, type = "success") {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.className = "toast";
+    document.body.appendChild(el);
+  }
+
+  // reset stato
+  el.className = "toast";
+  el.textContent = msg;
+
+  // tipo feedback
+  if (type === "error") {
+    el.classList.add("toast-error");
+  } else {
+    el.classList.add("toast-success");
+  }
+
+  // mostra
+  requestAnimationFrame(() => {
     el.classList.add("show");
-    setTimeout(()=>el.classList.remove("show"), 2000);
+  });
+
+  // auto hide
+  clearTimeout(el._t);
+  el._t = setTimeout(() => {
+    el.classList.remove("show");
+  }, 2200);
   }
-
-  window.handleAndroidBack = function() {
-  const viewer = document.getElementById("storyViewer");
-
-  // Se la storia è aperta, chiudila e segnala ad Android che è gestito
-  if (viewer && !viewer.classList.contains("hidden")) {
-    viewer.classList.add("hidden");
-    return "HANDLED";
-  }
-
-  // Nessuna storia aperta → Android può gestire il back normalmente
-  return "NOT_HANDLED";
-};
