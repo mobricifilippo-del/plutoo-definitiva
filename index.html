@@ -18,8 +18,10 @@
   <div id="whiteFlash"></div>
   <audio id="dogBark" preload="auto">
   <source src="dog-bark.mp3" type="audio/mpeg">
-  </audio>  
-  <!-- ==================== HOME SCREEN ==================== -->  <div id="homeScreen" class="home">
+  </audio>
+  
+  <!-- ==================== HOME SCREEN ==================== -->
+  <div id="homeScreen" class="home">
     <div class="home-top">
       <div class="container">
         <div class="home-bar">
@@ -44,7 +46,9 @@
           </div>
         </div>
       </div>
-    </div><!-- Hero -->
+    </div>
+  
+    <!-- Hero -->
 <div class="home-hero">
   <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo">
   <button id="btnEnter" class="btn primary xl" data-i18n="enter">Entra</button>
@@ -76,7 +80,11 @@
   </div>
 </div>
 
-  </div>  <!-- ==================== APP SCREEN ==================== -->  <div id="appScreen" class="app hidden">
+  </div>
+  
+  <!-- ==================== APP SCREEN ==================== -->
+  <div id="appScreen" class="app hidden">
+    
     <!-- Top Bar -->
     <div id="mainTopbar" class="topbar">
       <div class="left">
@@ -144,17 +152,24 @@
 
 <!-- Content -->
 <div class="content">
+
   <!-- VICINO A TE -->
-  <div id="viewNearby" class="view active">
-    <div class="view-header">
-      <div class="search-plus-wrapper">
-        <button id="btnSearchPanel" class="btn plus-btn">
-          <span data-i18n="searchAdvanced">Ricerca personalizzata</span>
-        </button>
-      </div>
+<div id="viewNearby" class="view active">
+  <div class="view-header">
+    <div class="search-actions">
+      <button id="btnSearchPanel" class="btn plus-btn" type="button">
+        Ricerca personalizzata
+      </button>
+
+      <!-- Crea profilo DOG: visibile SOLO se NON ho già un DOG -->
+      <button id="btnCreateDogInline" class="btn plus-btn" type="button" style="display:none">
+        Crea profilo DOG
+      </button>
     </div>
-    <div id="nearGrid" class="grid-2"></div>
   </div>
+
+  <div id="nearGrid" class="grid-2"></div>
+</div> <!-- FINE viewNearby -->
 
   <!-- AMORE -->
   <div id="viewLove" class="view">
