@@ -346,20 +346,74 @@ btnEnter?.addEventListener("click", async (e) => {
 
     // Stato globale (runtime)
     window.PLUTOO_HAS_DOG = hasDog;
+    // UI: "Crea profilo DOG" vicino a Ricerca personalizzata
+const inlineBtn = document.getElementById("btnCreateDogInline");
+if (inlineBtn) {
+  inlineBtn.style.display = (hasDog === true) ? "none" : "inline-flex";
+}
     window.PLUTOO_DOG_ID = dogId;
 
     // ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)
     window.PLUTOO_READONLY = !hasDog;
 
-    // === Toggle Crea profilo DOG in "Vicino a te"
-const btnCreateDogInline = document.getElementById("btnCreateDogInline");
-if (btnCreateDogInline) {
-  if (window.PLUTOO_HAS_DOG === true) {
-    btnCreateDogInline.style.display = "none";
-  } else {
-    btnCreateDogInline.style.display = "inline-flex";
-  }
+// =========================
+// ✅ CREATE DOG: handler unico (Vicino a te + dentro profilo)
+// =========================
+(function bindCreateDogButtonsOnce() {
+  try {
+    if (window.__createDogBindDone) return;
+    window.__createDogBindDone = true;
+
+    // show/hide bottone "Crea profilo DOG" accanto a Ricerca personalizzata
+const inlineBtn = document.getElementById("btnCreateDogInline");
+if (inlineBtn) {
+  inlineBtn.style.display = (window.PLUTOO_HAS_DOG === true) ? "none" : "inline-flex";
 }
+
+    const clickHandler = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      // se non loggato -> login
+      if (!window.auth || !window.auth.currentUser) {
+        if (typeof openAuth === "function") openAuth("login");
+        return;
+      }
+
+      // se già ho DOG -> non deve succedere (bottone dovrebbe essere nascosto)
+      if (window.PLUTOO_HAS_DOG === true) return;
+
+      if (typeof window.openProfilePage === "function") {
+        window.openProfilePage({
+          id: "__create__",
+          isCreate: true,
+          name: "",
+          img: "",
+          breed: "",
+          bio: "",
+          age: "",
+          km: 0,
+          sex: ""
+        });
+      }
+      return;
+    }
+
+    // Delegation: funziona anche quando i bottoni vengono creati via innerHTML
+    document.addEventListener("click", (ev) => {
+      const t = ev.target;
+      if (!t) return;
+
+      const btn = t.closest && t.closest("#btnCreateDogInline, #btnCreateDogFromProfile");
+      if (!btn) return;
+
+      clickHandler(ev);
+    }, true);
+
+  } catch (e) {
+    console.error("bindCreateDogButtonsOnce error:", e);
+  }
+})();
 
     // Cache (non source of truth)
     try {
@@ -451,7 +505,7 @@ try {
 
       document.addEventListener("click", (ev) => {
         try {
-          if (!window.PLUTOO_READONLY) return;
+          if (!window.PLUTOO_READONLY || state.currentDogProfile?.id === "__create__") return;
 
           const t = ev.target;
           if (!t) return;
@@ -2095,7 +2149,9 @@ msgLists.forEach((list) => {
   }
 
   function fmtKm(n){
-    return `${n.toFixed(1)} km`;
+  const num = (typeof n === "number") ? n : Number(String(n ?? "").replace(",", "."));
+  if (!Number.isFinite(num)) return "— km";
+  return `${num.toFixed(1)} km`;
   }
 
   function filteredDogs(){
@@ -3015,7 +3071,7 @@ try {
   if (!d || typeof d !== "object") d = {};  
   if (d.id == null && d.dogId != null) d.id = d.dogId;  
   d.id = (d.id != null) ? String(d.id) : "";  
-  if (!d.id) return;  
+   if (!d.id && d.id !== "__create__") return;
 
   // state maps sempre presenti (evita TypeError su state.ownerDocsUploaded[d.id])  
   if (!state.ownerDocsUploaded || typeof state.ownerDocsUploaded !== "object") state.ownerDocsUploaded = {};  
@@ -3039,146 +3095,351 @@ setActiveView("profile");
 
 history.pushState({view: "profile", dogId: d.id}, "", "");  
 
-profilePage.classList.remove("hidden");  
+profilePage.classList.remove("hidden");
 
-const selfieUnlocked = isSelfieUnlocked(d.id);  
-const ownerDocs = state.ownerDocsUploaded[d.id] || {};  
-const dogDocs = state.dogDocsUploaded[d.id] || {};  
-const selfieKey   = `selfieImage_${d.id}`;  
-const selfieStored = localStorage.getItem(selfieKey);  
-const selfieSrc    = selfieStored || d.img;  
+const selfieUnlocked = isSelfieUnlocked(d.id);
+const ownerDocs = state.ownerDocsUploaded[d.id] || {};
+const dogDocs = state.dogDocsUploaded[d.id] || {};
+const selfieKey   = `selfieImage_${d.id}`;
+const selfieStored = localStorage.getItem(selfieKey);
+const selfieSrc    = selfieStored || d.img;
 
-const dogStories =  
-window.StoriesState && Array.isArray(window.StoriesState.stories)  
-? window.StoriesState.stories.find(s => s.userId === d.id)  
-: null;  
-const storiesHTML = dogStories ? `  
-  <div class="pp-stories-section">  
-    <div class="pp-stories-header">  
-      <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>  
-      <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>  
-    </div>  
-    <div class="pp-stories-grid" id="dogStoriesGrid">  
-      ${dogStories.media.map((m, idx) => `  
-        <div class="pp-story-item" data-story-index="${idx}">  
-          <img src="${m.url}" alt="Story" />  
-          <span class="pp-story-time">${getTimeAgo(m.timestamp)}</span>  
-        </div>  
-      `).join('')}  
-    </div>  
-  </div>  
-` : `  
-  <div class="pp-stories-section">  
-    <div class="pp-stories-header">  
-      <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>  
-      <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>  
-    </div>  
-    <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:1rem 0">${state.lang==="it"?"Nessuna story disponibile":"No stories available"}</p>  
-  </div>  
-`;  
+const dogStories =
+window.StoriesState && Array.isArray(window.StoriesState.stories)
+? window.StoriesState.stories.find(s => s.userId === d.id)
+: null;
+const storiesHTML = dogStories ? `
+  <div class="pp-stories-section">
+    <div class="pp-stories-header">
+      <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
+      <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
+    </div>
+    <div class="pp-stories-grid" id="dogStoriesGrid">
+      ${dogStories.media.map((m, idx) => `
+        <div class="pp-story-item" data-story-index="${idx}">
+          <img src="${m.url}" alt="Story" />
+          <span class="pp-story-time">${getTimeAgo(m.timestamp)}</span>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+` : `
+  <div class="pp-stories-section">
+    <div class="pp-stories-header">
+      <h4 class="section-title" style="margin:0">${state.lang==="it"?"Stories":"Stories"}</h4>
+      <button id="uploadDogStory" class="btn accent small">📸 ${state.lang==="it"?"Carica Story":"Upload Story"}</button>
+    </div>
+    <p style="color:var(--muted);font-size:.9rem;text-align:center;padding:1rem 0">${state.lang==="it"?"Nessuna story disponibile":"No stories available"}</p>
+  </div>
+`;
 
-profileContent.innerHTML = `  
-  <div class="pp-hero">  
-    <img src="${d.img}" alt="${d.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">  
-  </div>  
-  <div class="pp-head">  
-    <h2 class="pp-name">  
-      <span class="pp-name-main">${d.name} ${d.verified?"✅":""}</span>  
-      <button type="button" id="followBtn" class="btn small pp-follow-btn">Segui 🐕🐾</button>  
-      <span class="pp-follow-stats">  
-        <button type="button" id="followersCount" class="pp-follow-count">0 follower</button>  
-        <span class="pp-follow-dot">·</span>  
-        <button type="button" id="followingCount" class="pp-follow-count">0 seguiti</button>  
-      </span>  
-    </h2>  
-    <div class="pp-badges">  
-      <span class="badge">${d.breed}</span>  
-      <span class="badge">${d.age} ${t("years")}</span>  
-      <span class="badge">${fmtKm(d.km)}</span>  
-      <span class="badge">${d.sex==="M"?(state.lang==="it"?"Maschio":"Male"):(state.lang==="it"?"Femmina":"Female")}</span>  
-    </div>  
-  </div>  
-  <div class="pp-meta soft">${d.bio||""}</div>  
+const isCreate = (d && d.isCreate === true) || (d && d.id === "__create__");
+const heroImg = isCreate ? "" : (d.img || "./plutoo-icon-192.png");
 
-  ${storiesHTML}  
+profileContent.innerHTML = `
+  <div class="pp-hero">
+    ${
+      isCreate
+        ? `
+            <div class="pp-create-hero" style="min-height:180px;"></div>
+              </div>
+            </div>
+          </div>
+        `
+        : `
+          <img src="${heroImg}" alt="${d.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+        `
+    }
+  </div>
 
-  <h3 class="section-title">${state.lang==="it"?"Galleria":"Gallery"}</h3>  
-  <div class="gallery">  
-    <div class="ph"><img src="${d.img}" alt=""></div>  
-    <div class="ph"><img src="${d.img}" alt=""></div>  
-    <div class="ph"><img src="${d.img}" alt=""></div>  
-    <div class="ph"><button class="add-photo">+ ${state.lang==="it"?"Aggiungi":"Add"}</button></div>  
-  </div>  
+  <div class="pp-head">
+    <h2 class="pp-name">
+      <span class="pp-name-main">
+        ${isCreate ? (state.lang==="it"?"Nuovo profilo":"New profile") : `${d.name} ${d.verified?"✅":""}`}
+      </span>
+
+      ${isCreate ? `` : `<button type="button" id="followBtn" class="btn small pp-follow-btn">Segui 🐕🐾</button>`}
+
+      ${isCreate ? `` : `
+        <span class="pp-follow-stats">
+          <button type="button" id="followersCount" class="pp-follow-count">0 follower</button>
+          <span class="pp-follow-dot">·</span>
+          <button type="button" id="followingCount" class="pp-follow-count">0 seguiti</button>
+        </span>
+      `}
+    </h2>
+
+  ${isCreate ? `
+  <div class="pp-badges pp-create-inline">
+    <span class="badge create-req" data-req="1" data-label="${state.lang==="it"?"Nome DOG":"DOG name"}" style="padding:.35rem .5rem">
+      <input id="createDogName" type="text" value="" placeholder="${state.lang==="it"?"Nome DOG *":"DOG name *"}" style="background:transparent;border:0;outline:none;color:inherit;width:10rem;max-width:45vw">
+    </span>
+
+    <span class="badge create-req" data-req="1" data-label="${state.lang==="it"?"Razza":"Breed"}" style="padding:.35rem .5rem">
+      <input id="createDogBreed" type="text" value="" placeholder="${state.lang==="it"?"Razza *":"Breed *"}" style="background:transparent;border:0;outline:none;color:inherit;width:10rem;max-width:45vw">
+    </span>
+
+    <span class="badge create-req" data-req="1" data-label="${state.lang==="it"?"Età":"Age"}" style="padding:.35rem .5rem">
+      <input id="createDogAge" type="number" min="0" step="1" value="" placeholder="${state.lang==="it"?"Età *":"Age *"}" style="background:transparent;border:0;outline:none;color:inherit;width:5.5rem">
+    </span>
+
+    <span class="badge create-req" data-req="1" data-label="${state.lang==="it"?"Sesso":"Sex"}" style="padding:.35rem .5rem">
+      <select id="createDogSex" style="background:transparent;border:0;outline:none;color:inherit">
+        <option value="">${state.lang==="it"?"Sesso *":"Sex *"}</option>
+        <option value="M">${state.lang==="it"?"Maschio":"Male"}</option>
+        <option value="F">${state.lang==="it"?"Femmina":"Female"}</option>
+      </select>
+    </span>
+  </div>
+
+  <div id="createDogErrors"
+       class="soft"
+       style="display:none;margin-top:.6rem;padding:.6rem .8rem;border:1px solid rgba(255,80,80,.45);border-radius:14px;color:#ffb3b3;background:rgba(255,0,0,.06)">
+  </div>
+` : ` 
+
+        <div class="pp-badges">
+        <span class="badge">${d.breed}</span>
+        <span class="badge">${d.age} ${t("years")}</span>
+        <span class="badge">${fmtKm(d.km)}</span>
+        <span class="badge">${d.sex==="M"?(state.lang==="it"?"Maschio":"Male"):(state.lang==="it"?"Femmina":"Female")}</span>
+      </div>
+    `}
+  </div>
+
+  <div class="pp-meta soft">
+  ${isCreate ? `
+    <textarea
+      id="createDogBio"
+      rows="3"
+      placeholder="${state.lang==="it"?"Bio (opzionale)":"Bio (optional)"}"
+      style="width:100%;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:.6rem;color:inherit"
+    ></textarea>
+
+    <div style="margin-top:.6rem;text-align:center">
+      <button id="btnSaveDogDraft" class="btn primary">
+        ${state.lang==="it"?"Salva profilo":"Save profile"}
+      </button>
+    </div>
+  ` : (d.bio||"")}
+</div>
+
+  ${isCreate ? `` : storiesHTML}
+
+  <h3 class="section-title">${state.lang==="it"?"Galleria":"Gallery"}</h3>
+  <div class="gallery">
+    ${isCreate ? `
+      <div class="ph"><button class="add-photo">+ ${state.lang==="it"?"Aggiungi foto":"Add photo"}</button></div>
+    ` : `
+      <div class="ph"><img src="${d.img}" alt=""></div>
+      <div class="ph"><img src="${d.img}" alt=""></div>
+      <div class="ph"><img src="${d.img}" alt=""></div>
+      <div class="ph"><button class="add-photo">+ ${state.lang==="it"?"Aggiungi":"Add"}</button></div>
+    `}
+  </div>
 
   <h3 class="section-title">Selfie</h3>
 
-<div class="selfie ${selfieUnlocked?'unlocked':''}">  
-  <img class="img" src="${selfieSrc}" alt="Selfie">  
-  <input type="file" id="selfieFileInput" accept="image/*" style="display:none" />  
-  <div class="over">  
-    <button id="unlockSelfie" class="btn pill">${state.lang==="it"?"Sblocca selfie":"Unlock selfie"}</button>  
-    <button id="uploadSelfie" class="btn pill ghost">${state.lang==="it"?"Carica selfie":"Upload selfie"}</button>  
-  </div>  
-</div>  <h3 class="section-title">${state.lang==="it"?"Documenti":"Documents"}</h3>  
+  <div class="selfie ${selfieUnlocked?'unlocked':''}">
+    <img class="img" src="${isCreate ? "./plutoo-icon-192.png" : (selfieSrc || "./plutoo-icon-192.png")}" alt="Selfie">
+    <input type="file" id="selfieFileInput" accept="image/*" style="display:none" />
+    <div class="over">
+      <button id="unlockSelfie" class="btn pill">${state.lang==="it"?"Sblocca selfie":"Unlock selfie"}</button>
+      <button id="uploadSelfie" class="btn pill ghost">${state.lang==="it"?"Carica selfie":"Upload selfie"}</button>
+    </div>
+  </div>
 
-  <div class="pp-docs-section">  
-    <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti Proprietario DOG":"DOG Owner Documents"}</h4>  
-    <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Obbligatorio per ottenere il badge verificato ✅":"Required to get verified badge ✅"}</p>  
-    <div class="pp-docs-grid">  
-      <div class="doc-item" data-doc="owner-identity" data-type="owner">  
-        <div class="doc-icon">🪪</div>  
-        <div class="doc-label">${state.lang==="it"?"Carta d'identità":"Identity Card"}</div>  
-        <div class="doc-status ${ownerDocs.identity?'uploaded':'pending'}">${ownerDocs.identity?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
-      </div>  
-    </div>  
-  </div>  
+  <h3 class="section-title">${state.lang==="it"?"Documenti":"Documents"}</h3>
 
-  <div class="pp-docs-section" style="margin-top:1.2rem">  
-    <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti DOG":"DOG Documents"}</h4>  
-    <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Facoltativi (vaccini, pedigree, microchip)":"Optional (vaccines, pedigree, microchip)"}</p>  
-    <div class="pp-docs-grid">  
-      <div class="doc-item" data-doc="dog-vaccines" data-type="dog">  
-        <div class="doc-icon">💉</div>  
-        <div class="doc-label">${state.lang==="it"?"Vaccini":"Vaccines"}</div>  
-        <div class="doc-status ${dogDocs.vaccines?'uploaded':'pending'}">${dogDocs.vaccines?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
-      </div>  
-      <div class="doc-item" data-doc="dog-pedigree" data-type="dog">  
-        <div class="doc-icon">📜</div>  
-        <div class="doc-label">${state.lang==="it"?"Pedigree":"Pedigree"}</div>  
-        <div class="doc-status ${dogDocs.pedigree?'uploaded':'pending'}">${dogDocs.pedigree?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
-      </div>  
-      <div class="doc-item" data-doc="dog-microchip" data-type="dog">  
-        <div class="doc-icon">🔬</div>  
-        <div class="doc-label">${state.lang==="it"?"Microchip":"Microchip"}</div>  
-        <div class="doc-status ${dogDocs.microchip?'uploaded':'pending'}">${dogDocs.microchip?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>  
-      </div>  
-    </div>  
-  </div>  
+  <div class="pp-docs-section">
+    <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti Proprietario DOG":"DOG Owner Documents"}</h4>
+    <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Obbligatorio per ottenere il badge verificato ✅":"Required to get verified badge ✅"}</p>
+    <div class="pp-docs-grid">
+      <div class="doc-item" data-doc="owner-identity" data-type="owner">
+        <div class="doc-icon">🪪</div>
+        <div class="doc-label">${state.lang==="it"?"Carta d'identità":"Identity Card"}</div>
+        <div class="doc-status ${ownerDocs.identity?'uploaded':'pending'}">${ownerDocs.identity?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pp-docs-section" style="margin-top:1.2rem">
+    <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang==="it"?"Documenti DOG":"DOG Documents"}</h4>
+    <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang==="it"?"Facoltativi (vaccini, pedigree, microchip)":"Optional (vaccines, pedigree, microchip)"}</p>
+    <div class="pp-docs-grid">
+      <div class="doc-item" data-doc="dog-vaccines" data-type="dog">
+        <div class="doc-icon">💉</div>
+        <div class="doc-label">${state.lang==="it"?"Vaccini":"Vaccines"}</div>
+        <div class="doc-status ${dogDocs.vaccines?'uploaded':'pending'}">${dogDocs.vaccines?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+      </div>
+      <div class="doc-item" data-doc="dog-pedigree" data-type="dog">
+        <div class="doc-icon">📜</div>
+        <div class="doc-label">${state.lang==="it"?"Pedigree":"Pedigree"}</div>
+        <div class="doc-status ${dogDocs.pedigree?'uploaded':'pending'}">${dogDocs.pedigree?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+      </div>
+      <div class="doc-item" data-doc="dog-microchip" data-type="dog">
+        <div class="doc-icon">🔬</div>
+        <div class="doc-label">${state.lang==="it"?"Microchip":"Microchip"}</div>
+        <div class="doc-status ${dogDocs.microchip?'uploaded':'pending'}">${dogDocs.microchip?(state.lang==="it"?"✓ Caricato":"✓ Uploaded"):(state.lang==="it"?"Da caricare":"Upload")}</div>
+      </div>
+    </div>
+  </div>
 
   ${generateSocialSection(d)}
 
-  <div class="pp-actions">
-  ${
-    (!window.PLUTOO_HAS_DOG)
-      ? `
-        <button id="btnCreateDogFromProfile" class="btn primary">
-          ${state.lang==="it" ? "Crea profilo DOG" : "Create DOG profile"}
-        </button>
-      `
-      : (
-          (typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID && d.id === CURRENT_USER_DOG_ID)
-            ? `
-              <button id="btnProfileSettings" class="btn accent">${state.lang==="it"?"Impostazioni profilo":"Profile settings"}</button>
-              <button id="btnEditSocial" class="btn outline">${state.lang==="it"?"Modifica social":"Edit socials"}</button>
-            `
-            : `
-              <button id="btnLikeDog" class="btn accent">💛 Like</button>
-              <button id="btnOpenChat" class="btn primary">${state.lang==="it"?"Invia messaggio":"Send message"}</button>
-            `
-        )
-  }
+  ${isCreate ? `` : `
+    <div class="pp-actions">
+      ${
+        (typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID && d.id === CURRENT_USER_DOG_ID)
+          ? `
+            <button id="btnProfileSettings" class="btn accent">
+              ${state.lang==="it" ? "Impostazioni profilo" : "Profile settings"}
+            </button>
+            <button id="btnEditSocial" class="btn outline">
+              ${state.lang==="it" ? "Modifica social" : "Edit socials"}
+            </button>
+          `
+          : `
+            <button id="btnLikeDog" class="btn accent">💛 Like</button>
+            <button id="btnOpenChat" class="btn primary">
+              ${state.lang==="it" ? "Invia messaggio" : "Send message"}
+            </button>
+          `
+      }
+    </div>
+  `}
 </div>
 `;
+
+  // =========================
+// ✅ CREATE DOG: wiring (foto + validazione + feedback)
+// =========================
+try {
+  if (isCreate) {
+    const $ = (sel) => profileContent.querySelector(sel);
+
+    const photoBtn = $("#btnPickCreateDogPhoto");
+    const photoInput = $("#createDogPhotoInput");
+    const photoPreview = $("#createDogPhotoPreview");
+    const photoEmpty = $("#createDogPhotoEmpty");
+
+    const nameEl = $("#createDogName");
+    const breedEl = $("#createDogBreed");
+    const ageEl = $("#createDogAge");
+    const sexEl = $("#createDogSex");
+    const bioEl = $("#createDogBio");
+    const saveBtn = $("#btnSaveDogDraft");
+    const errBox = $("#createDogErrors");
+
+    const markBadge = (fieldId, isBad) => {
+      const field = $("#" + fieldId);
+      if (!field) return;
+      const badge = field.closest && field.closest(".badge");
+      if (!badge) return;
+      badge.style.border = isBad ? "1px solid rgba(255,80,80,.75)" : "";
+      badge.style.boxShadow = isBad ? "0 0 0 2px rgba(255,80,80,.15)" : "";
+    };
+
+    const clearErrors = () => {
+      ["createDogName","createDogBreed","createDogAge","createDogSex"].forEach(id => markBadge(id, false));
+      if (errBox) { errBox.style.display = "none"; errBox.textContent = ""; }
+    };
+
+    const validateCreate = () => {
+      const missing = [];
+      const name = (nameEl?.value || "").trim();
+      const breed = (breedEl?.value || "").trim();
+      const age = (ageEl?.value || "").trim();
+      const sex = (sexEl?.value || "").trim();
+
+      if (!name) missing.push(state.lang==="it" ? "Nome DOG" : "DOG name");
+      if (!breed) missing.push(state.lang==="it" ? "Razza" : "Breed");
+      if (!age) missing.push(state.lang==="it" ? "Età" : "Age");
+      if (!sex) missing.push(state.lang==="it" ? "Sesso" : "Sex");
+
+      markBadge("createDogName", !name);
+      markBadge("createDogBreed", !breed);
+      markBadge("createDogAge", !age);
+      markBadge("createDogSex", !sex);
+
+      if (missing.length) {
+        if (errBox) {
+          errBox.style.display = "block";
+          errBox.innerHTML = (state.lang==="it"
+            ? `Compila i campi obbligatori: <b>${missing.join(", ")}</b>.`
+            : `Fill the required fields: <b>${missing.join(", ")}</b>.`
+          );
+        }
+        return false;
+      }
+      if (errBox) { errBox.style.display = "none"; errBox.textContent = ""; }
+      return true;
+    };
+
+    // Foto: apri picker
+    if (photoBtn && photoInput) {
+      photoBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        photoInput.click();
+      });
+    }
+
+    // Foto: preview
+    if (photoInput && photoPreview && photoEmpty) {
+      photoInput.addEventListener("change", () => {
+        const file = photoInput.files && photoInput.files[0];
+        if (!file) return;
+
+        const url = URL.createObjectURL(file);
+        photoPreview.src = url;
+        photoPreview.style.display = "block";
+        photoEmpty.style.display = "none";
+
+        // salviamo TEMP su state per lo step "salvataggio reale"
+        state.__createDogPhotoFile = file;
+        state.__createDogPhotoUrl = url;
+      });
+    }
+
+    // Feedback live: togli errori mentre scrive
+    [nameEl, breedEl, ageEl, sexEl].forEach(el => {
+      if (!el) return;
+      el.addEventListener("input", clearErrors);
+      el.addEventListener("change", clearErrors);
+    });
+
+    // Salva: valida, poi lascia proseguire (qui NON inventiamo salvataggi)
+    if (saveBtn) {
+      saveBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        clearErrors();
+
+        if (!validateCreate()) return;
+
+        // Qui NON salvo io: tu hai già la logica altrove.
+        // Setto solo un payload standard pronto per la tua funzione di save.
+        state.__createDogDraft = {
+          name: (nameEl?.value || "").trim(),
+          breed: (breedEl?.value || "").trim(),
+          age: (ageEl?.value || "").trim(),
+          sex: (sexEl?.value || "").trim(),
+          bio: (bioEl?.value || "").trim(),
+          photoFile: state.__createDogPhotoFile || null,
+          photoUrl: state.__createDogPhotoUrl || ""
+        };
+
+        // Se esiste una tua funzione di salvataggio, la chiamiamo (senza inventarla)
+        if (typeof window.saveCreateDogProfile === "function") {
+          window.saveCreateDogProfile(state.__createDogDraft);
+        }
+      }, true);
+    }
+  }
+} catch (e) {
+  console.error("CREATE DOG wiring error:", e);
+}
 
   // ✅ PROFILO DOG REALE — PUBLISH MODE (Firestore source of truth)
 // Questo blocco NON deve MAI bloccare chat/like/follow quando l'utente è loggato senza DOG.
@@ -3202,7 +3463,7 @@ profileContent.innerHTML = `
 
       const maxPhotos = 5;
       const dogId = d.id;
-      const storageKey = `gallery_${dogId}`;
+      const storageKey = "gallery_" + dogId;
 
       // Prendo il contenitore .gallery e il bottone "+ Aggiungi"
       const galleryBlock = qs(".gallery", profileContent);
@@ -3412,7 +3673,7 @@ profileContent.innerHTML = `
     qa(".doc-item", profileContent).forEach(item=>{
       item.addEventListener("click", (e)=>{
         // 🔒 VETRINA: blocco totale documenti
-        if (window.PLUTOO_READONLY) {
+        if (window.PLUTOO_READONLY && d.id !== "__create__") {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
