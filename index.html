@@ -150,26 +150,26 @@
   </div>
 </div>
 
-<!-- Content -->
+ <!-- Content -->
 <div class="content">
 
   <!-- VICINO A TE -->
-<div id="viewNearby" class="view active">
-  <div class="view-header">
-    <div class="search-actions">
-      <button id="btnSearchPanel" class="btn plus-btn" type="button">
-        Ricerca personalizzata
-      </button>
+  <div id="viewNearby" class="view active">
+    <div class="view-header">
+      <div class="search-actions">
+        <button id="btnSearchPanel" class="btn plus-btn" type="button">
+          Ricerca personalizzata
+        </button>
 
-      <!-- Crea profilo DOG: visibile SOLO se NON ho già un DOG -->
-      <button id="btnCreateDogInline" class="btn plus-btn" type="button" style="display:none">
-        Crea profilo DOG
-      </button>
+        <!-- Crea profilo DOG: visibile SOLO se NON ho già un DOG -->
+        <button id="btnCreateDogInline" class="btn plus-btn" type="button">
+          Crea profilo DOG
+        </button>
+      </div>
     </div>
-  </div>
 
-  <div id="nearGrid" class="grid-2"></div>
-</div> <!-- FINE viewNearby -->
+    <div id="nearGrid" class="grid-2"></div>
+  </div> <!-- FINE viewNearby -->
 
   <!-- AMORE -->
   <div id="viewLove" class="view">
@@ -232,7 +232,8 @@
     </div>
   </div>
   <!-- fine MESSAGGI -->
-</div>
+
+</div><!-- fine .content -->
 
 <div id="adBanner" class="ad-banner">
   Banner Test AdMob · Bannerhome
@@ -244,184 +245,173 @@
   <a href="contatti.html">Contatti</a>
 </div>
 
-  </div>  <!-- ==================== SEARCH PANEL ==================== -->  <div id="searchPanel" class="panel hidden">
-    <div class="panel-inner">
-      <div class="panel-head">
-        <h3 data-i18n="searchAdvanced">Ricerca personalizzata</h3>
-        <button id="closeSearch" class="btn small ghost">✕</button>
-      </div>
-      <form class="filters">
-        <fieldset class="filter-group">
-          <legend data-i18n="freeFilters">Filtri base</legend>
-          <div class="f">
-            <label data-i18n="distance">Distanza</label>
-            <input id="distRange" type="range" min="1" max="100" value="50">
-            <span id="distLabel" style="font-size:.9rem;color:var(--muted)">50 km</span>
-          </div><div class="f">
-        <label data-i18n="breed">Razza</label>
-        <input id="breedInput" type="text" data-i18n-placeholder="breedPh" placeholder="Cerca razza…">
-        <div id="breedsList" class="suggestions"></div>
-      </div>
+</div><!-- ✅ CHIUDE #appScreen (QUESTA CHIUSURA DEVE STARE QUI) -->
 
-      <div class="f">
-        <label data-i18n="sexFilter">Sesso</label>
-        <select id="sexFilter">
-          <option value="" data-i18n="sexAll">Tutti</option>
-          <option value="M" data-i18n="sexMale">Maschio</option>
-          <option value="F" data-i18n="sexFemale">Femmina</option>
-        </select>
-      </div>
-    </fieldset>
-
-    <fieldset class="filter-group gold-filters">
-      <legend>
-        <span data-i18n="goldFilters">Filtri Gold</span>
-        <span class="gold-badge">💎</span>
-      </legend>
-
-      <div class="f switch f-gold">
-        <label data-i18n="onlyVerified">Solo con badge verificato ✅</label>
-        <input id="onlyVerified" type="checkbox" disabled>
-      </div>
-
-      <div class="f f-gold">
-        <label data-i18n="ageMin">Età minima (anni)</label>
-        <input id="ageMin" type="number" min="0" max="20" placeholder="0" disabled>
-      </div>
-
-      <div class="f f-gold">
-        <label data-i18n="ageMax">Età massima (anni)</label>
-        <input id="ageMax" type="number" min="0" max="20" placeholder="20" disabled>
-      </div>
-
-      <div class="f f-gold">
-        <label data-i18n="weight">Peso (kg)</label>
-        <input id="weightInput" type="number" min="0" placeholder="Min peso" disabled>
-      </div>
-
-      <div class="f f-gold">
-        <label data-i18n="height">Altezza (cm)</label>
-        <input id="heightInput" type="number" min="0" placeholder="Min altezza" disabled>
-      </div>
-
-      <div class="f f-gold">
-        <label data-i18n="pedigree">Pedigree</label>
-        <select id="pedigreeFilter" disabled>
-          <option value="" data-i18n="indifferent">Indifferente</option>
-          <option value="yes" data-i18n="yes">Sì</option>
-          <option value="no" data-i18n="no">No</option>
-        </select>
-      </div>
-
-      <div class="f f-gold">
-        <label data-i18n="breeding">Disponibile per accoppiamento</label>
-        <select id="breedingFilter" disabled>
-          <option value="" data-i18n="indifferent">Indifferente</option>
-          <option value="yes" data-i18n="yes">Sì</option>
-          <option value="no" data-i18n="no">No</option>
-        </select>
-      </div>
-
-      <div class="f f-gold">
-        <label data-i18n="size">Taglia</label>
-        <select id="sizeFilter" disabled>
-          <option value="" data-i18n="indifferent">Indifferente</option>
-          <option value="small" data-i18n="sizeSmall">Piccola</option>
-          <option value="medium" data-i18n="sizeMedium">Media</option>
-          <option value="large" data-i18n="sizeLarge">Grande</option>
-        </select>
-      </div>
-
-      <div class="unlock-hint" data-i18n="unlockHint">
-        Vuoi sbloccare i filtri Gold? Attiva <strong>Plutoo Plus 💎</strong>
-      </div>
-    </fieldset>
-
-    <div class="actions">
-      <button id="applyFilters" type="button" class="btn primary" data-i18n="apply">Applica</button>
-      <button id="resetFilters" type="button" class="btn outline" data-i18n="reset">Reset</button>
+<!-- ==================== SEARCH PANEL ==================== -->
+<div id="searchPanel" class="panel hidden">
+  <div class="panel-inner">
+    <div class="panel-head">
+      <h3 data-i18n="searchAdvanced">Ricerca personalizzata</h3>
+      <button id="closeSearch" class="btn small ghost">✕</button>
     </div>
-  </form>
+    <form class="filters">
+      <fieldset class="filter-group">
+        <legend data-i18n="freeFilters">Filtri base</legend>
+        <div class="f">
+          <label data-i18n="distance">Distanza</label>
+          <input id="distRange" type="range" min="1" max="100" value="50">
+          <span id="distLabel" style="font-size:.9rem;color:var(--muted)">50 km</span>
+        </div>
+        <div class="f">
+          <label data-i18n="breed">Razza</label>
+          <input id="breedInput" type="text" data-i18n-placeholder="breedPh" placeholder="Cerca razza…">
+          <div id="breedsList" class="suggestions"></div>
+        </div>
+
+        <div class="f">
+          <label data-i18n="sexFilter">Sesso</label>
+          <select id="sexFilter">
+            <option value="" data-i18n="sexAll">Tutti</option>
+            <option value="M" data-i18n="sexMale">Maschio</option>
+            <option value="F" data-i18n="sexFemale">Femmina</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset class="filter-group gold-filters">
+        <legend>
+          <span data-i18n="goldFilters">Filtri Gold</span>
+          <span class="gold-badge">💎</span>
+        </legend>
+
+        <div class="f switch f-gold">
+          <label data-i18n="onlyVerified">Solo con badge verificato ✅</label>
+          <input id="onlyVerified" type="checkbox" disabled>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="ageMin">Età minima (anni)</label>
+          <input id="ageMin" type="number" min="0" max="20" placeholder="0" disabled>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="ageMax">Età massima (anni)</label>
+          <input id="ageMax" type="number" min="0" max="20" placeholder="20" disabled>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="weight">Peso (kg)</label>
+          <input id="weightInput" type="number" min="0" placeholder="Min peso" disabled>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="height">Altezza (cm)</label>
+          <input id="heightInput" type="number" min="0" placeholder="Min altezza" disabled>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="pedigree">Pedigree</label>
+          <select id="pedigreeFilter" disabled>
+            <option value="" data-i18n="indifferent">Indifferente</option>
+            <option value="yes" data-i18n="yes">Sì</option>
+            <option value="no" data-i18n="no">No</option>
+          </select>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="breeding">Disponibile per accoppiamento</label>
+          <select id="breedingFilter" disabled>
+            <option value="" data-i18n="indifferent">Indifferente</option>
+            <option value="yes" data-i18n="yes">Sì</option>
+            <option value="no" data-i18n="no">No</option>
+          </select>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="size">Taglia</label>
+          <select id="sizeFilter" disabled>
+            <option value="" data-i18n="indifferent">Indifferente</option>
+            <option value="small" data-i18n="sizeSmall">Piccola</option>
+            <option value="medium" data-i18n="sizeMedium">Media</option>
+            <option value="large" data-i18n="sizeLarge">Grande</option>
+          </select>
+        </div>
+
+        <div class="unlock-hint" data-i18n="unlockHint">
+          Vuoi sbloccare i filtri Gold? Attiva <strong>Plutoo Plus 💎</strong>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button id="applyFilters" type="button" class="btn primary" data-i18n="apply">Applica</button>
+        <button id="resetFilters" type="button" class="btn outline" data-i18n="reset">Reset</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-  </div>  <!-- ==================== PLUTOO PLUS MODAL ==================== -->  <div id="plusModal" class="modal hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content plus-modal">
-      <button id="closePlus" class="modal-close">✕</button>
-      <div class="modal-body">
-        <div class="plus-title">
-          <span class="icon">💎</span>
-          <span data-i18n="plusTitle">Plutoo Plus</span>
-        </div>
-        <p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
-        <ul class="plus-features">
-          <li>
-            <span class="check">✓</span>
-            <span class="label" data-i18n="plusFeature1">Nessuna pubblicità</span>
-          </li>
-          <li>
-            <span class="check">✓</span>
-            <span class="label" data-i18n="plusFeature2">Swipe illimitati</span>
-          </li>
-          <li>
-            <span class="check">✓</span>
-            <span class="label" data-i18n="plusFeature3">Messaggi illimitati</span>
-          </li>
-          <li>
-            <span class="check">✓</span>
-            <span class="label" data-i18n="plusFeature4">Tutti i filtri Gold sbloccati</span>
-          </li>
-          <li>
-            <span class="check">✓</span>
-            <span class="label" data-i18n="plusFeature5">Supporto prioritario</span>
-          </li>
-          <li>
-            <span class="check">✓</span>
-            <span class="label" data-i18n="plusFeature6">Vedi tutte le Stories senza video</span>
-          </li>
-          <li>
-            <span class="check">✓</span>
-            <span class="label" data-i18n="plusFeature7">Stories video fino a 90 secondi</span>
-          </li>
-        </ul>
-        <div class="plan-selector">
-          <button id="planMonthly" class="plan-card active">
-            <div class="plan-name" data-i18n="planMonthly">Mensile</div>
-            <div class="plan-price">€4.99<span data-i18n="plusPeriod">/mese</span></div>
-          </button>
-          <button id="planYearly" class="plan-card">
-            <div class="plan-name" data-i18n="planYearly">Annuale</div>
-            <div class="plan-price">€40<span>/anno</span></div>
-            <div class="plan-save" data-i18n="planSave">Risparmia €20!</div>
-          </button>
-        </div>
-        <button id="activatePlus" class="btn primary xl" data-i18n="activatePlus">Attiva Plutoo Plus</button>
-        <button id="cancelPlus" class="btn ghost" data-i18n="cancel">Annulla</button>
+<!-- ==================== PLUTOO PLUS MODAL ==================== -->
+<div id="plusModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content plus-modal">
+    <button id="closePlus" class="modal-close">✕</button>
+    <div class="modal-body">
+      <div class="plus-title">
+        <span class="icon">💎</span>
+        <span data-i18n="plusTitle">Plutoo Plus</span>
       </div>
-    </div>
-  </div> 
-  
-  <!-- ==================== FOLLOWERS OVERLAY ==================== -->  <div id="followersOverlay" class="bottom-sheet hidden">
-    <div class="sheet-backdrop"></div>
-    <div class="sheet-content">
-      <div class="sheet-header">
-        <span data-i18n="followers">Follower</span>
-        <button id="closeFollowers" class="btn small ghost">✕</button>
+      <p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
+      <ul class="plus-features">
+        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature1">Nessuna pubblicità</span></li>
+        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature2">Swipe illimitati</span></li>
+        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature3">Messaggi illimitati</span></li>
+        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature4">Tutti i filtri Gold sbloccati</span></li>
+        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature5">Supporto prioritario</span></li>
+        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature6">Vedi tutte le Stories senza video</span></li>
+        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature7">Stories video fino a 90 secondi</span></li>
+      </ul>
+      <div class="plan-selector">
+        <button id="planMonthly" class="plan-card active">
+          <div class="plan-name" data-i18n="planMonthly">Mensile</div>
+          <div class="plan-price">€4.99<span data-i18n="plusPeriod">/mese</span></div>
+        </button>
+        <button id="planYearly" class="plan-card">
+          <div class="plan-name" data-i18n="planYearly">Annuale</div>
+          <div class="plan-price">€40<span>/anno</span></div>
+          <div class="plan-save" data-i18n="planSave">Risparmia €20!</div>
+        </button>
       </div>
-      <div id="followersList" class="sheet-list"></div>
+      <button id="activatePlus" class="btn primary xl" data-i18n="activatePlus">Attiva Plutoo Plus</button>
+      <button id="cancelPlus" class="btn ghost" data-i18n="cancel">Annulla</button>
     </div>
-  </div>  <!-- ==================== FOLLOWING OVERLAY ==================== -->  <div id="followingOverlay" class="bottom-sheet hidden">
-    <div class="sheet-backdrop"></div>
-    <div class="sheet-content">
-      <div class="sheet-header">
-        <span data-i18n="following">Seguiti</span>
-        <button id="closeFollowing" class="btn small ghost">✕</button>
-      </div>
-      <div id="followingList" class="sheet-list"></div>
-    </div>
-  </div> 
+  </div>
+</div>
 
-  <!-- NOTIFICHE OVERLAY -->
+<!-- ==================== FOLLOWERS OVERLAY ==================== -->
+<div id="followersOverlay" class="bottom-sheet hidden">
+  <div class="sheet-backdrop"></div>
+  <div class="sheet-content">
+    <div class="sheet-header">
+      <span data-i18n="followers">Follower</span>
+      <button id="closeFollowers" class="btn small ghost">✕</button>
+    </div>
+    <div id="followersList" class="sheet-list"></div>
+  </div>
+</div>
+
+<!-- ==================== FOLLOWING OVERLAY ==================== -->
+<div id="followingOverlay" class="bottom-sheet hidden">
+  <div class="sheet-backdrop"></div>
+  <div class="sheet-content">
+    <div class="sheet-header">
+      <span data-i18n="following">Seguiti</span>
+      <button id="closeFollowing" class="btn small ghost">✕</button>
+    </div>
+    <div id="followingList" class="sheet-list"></div>
+  </div>
+</div>
+
+<!-- NOTIFICHE OVERLAY -->
 <div id="notifOverlay" class="sheet-overlay hidden" aria-hidden="true">
   <div class="sheet">
     <div class="sheet-head">
@@ -434,100 +424,110 @@
     </div>
   </div>
 </div>
-  
-  <!-- ==================== CHAT PANE (MODALE CENTRATA) ==================== -->  <div id="chatPane" class="chat-pane hidden">
-    <div class="chat-pane-inner">
-      <div class="chat-header">
-        <button id="closeChat" class="btn small ghost">←</button>
-        <span data-i18n="chat">Chat</span>
-      </div>
-      <div id="chatList" class="chat-list"></div>
-      <form id="chatComposer" class="chat-composer">
-        <input id="chatInput" type="text" data-i18n-placeholder="typeMessage" placeholder="Scrivi un messaggio…">
-        <button type="submit" class="btn primary" data-i18n="send">Invia</button>
-      </form>
-    </div>
-  </div>  <!-- ==================== PROFILE PAGE ==================== -->  <div id="profilePage" class="profile-page hidden">
-    <div class="profile-header">
-      <button id="profileBack" class="btn small ghost">←</button>
-      <span data-i18n="profile">Profilo</span>
-      <button id="profileClose" class="btn small ghost">✕</button>
-    </div>
-    <div id="profileContent" class="profile-content"></div>
-    <button id="profileLikeBtn" class="profile-like-btn">❤️</button>
-  </div>  
-  <!-- ==================== MATCH OVERLAY ==================== -->  
-  <div id="matchOverlay" class="match-overlay">
-    <div class="match-content">
-<div class="match-hearts"></div>
-<div class="match-text">MATCH!</div>
-    </div>
-  </div>  
-  <!-- ==================== STORY VIEWER ==================== -->  <div id="storyViewer" class="story-viewer hidden">
-    <div class="story-header">
-      <div class="story-user">
-        <img id="storyUserAvatar" src="" alt="" class="story-user-avatar">
-        <div class="story-user-info">
-          <span id="storyUserName" class="story-user-name"></span>
-          <span id="storyTimestamp" class="story-timestamp"></span>
-        </div>
-      </div>
-      <button id="closeStoryViewer"
-        class="story-close-btn story-back-btn"
-        type="button">
-  ← Indietro
-      </button>
-    </div>
-    <div id="storyProgressBars" class="story-progress-bars"></div>
-    <div id="storyContent" class="story-content"></div>
-    <button id="storyLikeBtn" class="story-like-btn" type="button">❤️</button>
-    <button id="storyNavPrev" class="story-nav story-nav-prev" aria-label="Previous">‹</button>
-    <button id="storyNavNext" class="story-nav story-nav-next" aria-label="Next">›</button>
-  </div>  <!-- ==================== UPLOAD STORY MODAL ==================== -->  <div id="uploadStoryModal" class="modal hidden">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content upload-story-modal">
-      <button id="closeUploadStory" class="modal-close">✕</button>
-      <div id="uploadStoryStep1" class="upload-step active">
-        <h2>📸 Carica una Story</h2>
-        <div class="upload-zone">
-          <input type="file" id="storyFileInput" accept="image/*,video/*" hidden>
-          <label for="storyFileInput" class="upload-label">
-            <div class="upload-icon">📤</div>
-            <div>Tocca per caricare foto o video</div>
-            <div class="upload-hint">Max 10MB foto, 50MB video</div>
-          </label>
-        </div>
-        <div id="uploadPreview" class="upload-preview hidden"></div>
-        <button id="nextToCustomize" class="btn primary" disabled>Avanti →</button>
-      </div><div id="uploadStoryStep2" class="upload-step">
-    <h2>✨ Personalizza</h2>
-    <div class="upload-preview"></div>
 
-    <div class="customize-section">
-      <h3>Filtri</h3>
-      <div id="filtersGrid" class="filters-grid"></div>
+<!-- ==================== CHAT PANE (MODALE CENTRATA) ==================== -->
+<div id="chatPane" class="chat-pane hidden">
+  <div class="chat-pane-inner">
+    <div class="chat-header">
+      <button id="closeChat" class="btn small ghost">←</button>
+      <span data-i18n="chat">Chat</span>
     </div>
-
-    <div class="customize-section">
-      <h3>Musica</h3>
-      <select id="storyMusicSelect" class="form-control">
-        <option value="">Nessuna musica</option>
-        <option value="happy">🎵 Happy</option>
-        <option value="chill">🎵 Chill</option>
-        <option value="energetic">🎵 Energetic</option>
-      </select>
-    </div>
-
-    <div class="upload-actions">
-      <button id="backToUpload" class="btn outline">← Indietro</button>
-      <button id="publishStory" class="btn primary">Pubblica 🚀</button>
-    </div>
+    <div id="chatList" class="chat-list"></div>
+    <form id="chatComposer" class="chat-composer">
+      <input id="chatInput" type="text" data-i18n-placeholder="typeMessage" placeholder="Scrivi un messaggio…">
+      <button type="submit" class="btn primary" data-i18n="send">Invia</button>
+    </form>
   </div>
-
-  <button id="cancelUpload" class="btn ghost">Annulla</button>
 </div>
 
-    <!-- Firebase SDK (CDN, compat) -->
+<!-- ==================== PROFILE PAGE ==================== -->
+<div id="profilePage" class="profile-page hidden">
+  <div class="profile-header">
+    <button id="profileBack" class="btn small ghost">←</button>
+    <span data-i18n="profile">Profilo</span>
+    <button id="profileClose" class="btn small ghost">✕</button>
+  </div>
+  <div id="profileContent" class="profile-content"></div>
+  <button id="profileLikeBtn" class="profile-like-btn">❤️</button>
+</div>
+
+<!-- ==================== MATCH OVERLAY ==================== -->
+<div id="matchOverlay" class="match-overlay">
+  <div class="match-content">
+    <div class="match-hearts"></div>
+    <div class="match-text">MATCH!</div>
+  </div>
+</div>
+
+<!-- ==================== STORY VIEWER ==================== -->
+<div id="storyViewer" class="story-viewer hidden">
+  <div class="story-header">
+    <div class="story-user">
+      <img id="storyUserAvatar" alt="" class="story-user-avatar">
+      <div class="story-user-info">
+        <span id="storyUserName" class="story-user-name"></span>
+        <span id="storyTimestamp" class="story-timestamp"></span>
+      </div>
+    </div>
+    <button id="closeStoryViewer" class="story-close-btn story-back-btn" type="button">← Indietro</button>
+  </div>
+  <div id="storyProgressBars" class="story-progress-bars"></div>
+  <div id="storyContent" class="story-content"></div>
+  <button id="storyLikeBtn" class="story-like-btn" type="button">❤️</button>
+  <button id="storyNavPrev" class="story-nav story-nav-prev" aria-label="Previous">‹</button>
+  <button id="storyNavNext" class="story-nav story-nav-next" aria-label="Next">›</button>
+</div>
+
+<!-- ==================== UPLOAD STORY MODAL ==================== -->
+<div id="uploadStoryModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content upload-story-modal">
+    <button id="closeUploadStory" class="modal-close">✕</button>
+
+    <div id="uploadStoryStep1" class="upload-step active">
+      <h2>📸 Carica una Story</h2>
+      <div class="upload-zone">
+        <input type="file" id="storyFileInput" accept="image/*,video/*" hidden>
+        <label for="storyFileInput" class="upload-label">
+          <div class="upload-icon">📤</div>
+          <div>Tocca per caricare foto o video</div>
+          <div class="upload-hint">Max 10MB foto, 50MB video</div>
+        </label>
+      </div>
+      <div id="uploadPreview" class="upload-preview hidden"></div>
+      <button id="nextToCustomize" class="btn primary" disabled>Avanti →</button>
+    </div>
+
+    <div id="uploadStoryStep2" class="upload-step">
+      <h2>✨ Personalizza</h2>
+      <div class="upload-preview"></div>
+
+      <div class="customize-section">
+        <h3>Filtri</h3>
+        <div id="filtersGrid" class="filters-grid"></div>
+      </div>
+
+      <div class="customize-section">
+        <h3>Musica</h3>
+        <select id="storyMusicSelect" class="form-control">
+          <option value="">Nessuna musica</option>
+          <option value="happy">🎵 Happy</option>
+          <option value="chill">🎵 Chill</option>
+          <option value="energetic">🎵 Energetic</option>
+        </select>
+      </div>
+
+      <div class="upload-actions">
+        <button id="backToUpload" class="btn outline">← Indietro</button>
+        <button id="publishStory" class="btn primary">Pubblica 🚀</button>
+      </div>
+    </div>
+
+    <button id="cancelUpload" class="btn ghost">Annulla</button>
+  </div><!-- ✅ chiude .modal-content -->
+</div><!-- ✅ chiude #uploadStoryModal -->
+
+<!-- Firebase SDK (CDN, compat) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
@@ -542,12 +542,10 @@
     messagingSenderId: "251835121058",
     appId: "1:251835121058:web:ef75fff4baa3855578c6fb"
   };
-
-  // Inizializza Firebase
   firebase.initializeApp(firebaseConfig);
 </script>
 
-    <script>
+<script>
 (function () {
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, function (c) {
@@ -584,18 +582,17 @@
     document.body.appendChild(overlay);
 
     window.onerror = function (msg, url, line, col, err) {
-  var text =
-    "MESSAGE: " + msg + "\n\n" +
-    "FILE: " + (url || "(unknown)") + "\n" +
-    "LINE: " + (line || "?") + "\n" +
-    "COL: " + (col || "?") + "\n\n" +
-    "STACK:\n" + (err && err.stack ? err.stack : "(no stack)");
+      var text =
+        "MESSAGE: " + msg + "\n\n" +
+        "FILE: " + (url || "(unknown)") + "\n" +
+        "LINE: " + (line || "?") + "\n" +
+        "COL: " + (col || "?") + "\n\n" +
+        "STACK:\n" + (err && err.stack ? err.stack : "(no stack)");
 
-  var pre = document.getElementById("__crashText");
-  if (pre) pre.textContent = text;
-
-  return true;
-};
+      var pre = document.getElementById("__crashText");
+      if (pre) pre.textContent = text;
+      return true;
+    };
 
     document.getElementById("__crashClose").addEventListener("click", function () {
       overlay.style.display = "none";
@@ -629,17 +626,37 @@
   }
 
   window.addEventListener("error", function (e) {
-    // Cattura anche SyntaxError/parse error (app.js che non parte)
-    var msg = e && e.message ? e.message : "Unknown error";
-    var src = e && e.filename ? e.filename : "";
+    var isResourceError = !!(e && e.target && e.target !== window);
+
+    var msg = (e && e.message) ? e.message : (isResourceError ? "Resource load error" : "Unknown error");
+    var src = (e && e.filename) ? e.filename : "";
     var line = (e && typeof e.lineno === "number") ? e.lineno : "";
     var col  = (e && typeof e.colno === "number") ? e.colno : "";
     var stack = (e && e.error && e.error.stack) ? e.error.stack : "";
+
+    var targetInfo = "";
+    if (isResourceError) {
+      try {
+        var t = e.target;
+        var url = (t && (t.src || t.href)) ? (t.src || t.href) : "";
+        var tag = (t && t.tagName) ? t.tagName : "";
+        var id = (t && t.id) ? ("#" + t.id) : "";
+        var cls = (t && t.className) ? ("." + String(t.className).trim().replace(/\s+/g, ".")) : "";
+        targetInfo =
+          "RESOURCE:\n" +
+          "TAG: " + esc(tag + id + cls) + "\n" +
+          "URL: " + esc(url) + "\n";
+        if (!src && url) src = url;
+        line = "";
+        col = "";
+      } catch (_) {}
+    }
 
     var details =
       "ERROR: " + esc(msg) + "\n" +
       "FILE: " + esc(src) + "\n" +
       "LINE: " + esc(line) + "  COL: " + esc(col) + "\n" +
+      (targetInfo ? ("\n" + targetInfo) : "") +
       (stack ? ("\nSTACK:\n" + stack) : "");
 
     show(details);
@@ -658,9 +675,9 @@
     show(details);
   });
 })();
-    </script>
+</script>
 
-  </div>  <script src="app.js" defer></script>
+<script src="app.js" defer></script>
 
   <!-- ==================== AUTH SHEET (LOGIN / REGISTER) ==================== -->
 <div id="authSheet" class="plutoo-auth hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
