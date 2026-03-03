@@ -205,7 +205,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // chiudi cliccando fuori (backdrop)
   authSheet.querySelector('[data-auth-close="1"]')?.addEventListener("click", closeAuth);
 
-  // helper error box (rosso SOLO per errori, GOLD per successi ✅)
+ // helper error box (rosso SOLO per errori, GOLD per successi ✅)
   function setAuthError(which, msg) {
     const box = document.getElementById(which === "login" ? "loginError" : "registerError");
     if (!box) return;
@@ -237,6 +237,44 @@ document.addEventListener("DOMContentLoaded", () => {
       box.style.background = "rgba(180, 30, 30, 0.18)";
       box.style.border = "1px solid rgba(255, 90, 90, 0.35)";
       box.style.color = "#ffd1d1";
+    }
+  }
+
+  // ✅ traduci errori Firebase in IT/EN (niente più inglese a schermo)
+  function translateAuthError(err) {
+    const code = (err && err.code) ? String(err.code) : "";
+    const it = (state && state.lang === "it");
+
+    switch (code) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+        return it ? "Email o password non corretti." : "Email or password incorrect.";
+
+      case "auth/user-not-found":
+        return it ? "Account non trovato." : "Account not found.";
+
+      case "auth/too-many-requests":
+        return it ? "Troppi tentativi. Riprova più tardi." : "Too many attempts. Try again later.";
+
+      case "auth/network-request-failed":
+        return it ? "Problema di connessione." : "Network error.";
+
+      case "auth/email-already-in-use":
+        return it ? "Questa email è già registrata." : "This email is already registered.";
+
+      case "auth/weak-password":
+        return it ? "Password troppo debole (minimo 6 caratteri)." : "Weak password (minimum 6 characters).";
+
+      case "auth/invalid-email":
+        return it ? "Email non valida." : "Invalid email.";
+
+      case "auth/requires-recent-login":
+        return it
+          ? "Per eliminare l’account serve un login recente. Fai login e riprova."
+          : "Deleting the account requires a recent login. Log in again and retry.";
+
+      default:
+        return it ? "Errore di accesso." : "Login error.";
     }
   }
 
@@ -294,7 +332,7 @@ loginForm.addEventListener("submit", async (e) => {
   } catch (err) {
     const code = err && err.code ? String(err.code) : "";
 
-    setAuthError("login", err?.message || "Errore login");
+    setAuthError("login", translateAuthError(err));
   }
 });
 
@@ -348,12 +386,32 @@ document.getElementById("btnForgotPass")?.addEventListener("click", async () => 
   });
 
   // LOGOUT (dentro pannello "già loggato")
-  document.getElementById("btnLogout")?.addEventListener("click", async () => {
-    try {
-      await window.auth.signOut();
-      closeAuth();
-    } catch (_) {}
-  });
+document.getElementById("btnLogout")?.addEventListener("click", async () => {
+  try {
+    await window.auth.signOut();
+  } catch (_) {}
+
+  // ✅ RESET UI + DOG SOLO su logout esplicito
+  try {
+    window.PLUTOO_UID = null;
+    window.__booted = false;
+
+    window.PLUTOO_HAS_DOG = false;
+    window.PLUTOO_READONLY = false;
+    window.PLUTOO_DOG_ID = "";
+    window.PLUTOO_DOG_NAME = "";
+    window.CURRENT_USER_DOG_ID = "";
+    try { CURRENT_USER_DOG_ID = ""; } catch (_) {}
+  } catch (_) {}
+
+  // ✅ torna Home al prossimo avvio
+  try {
+    localStorage.setItem("currentView", "home");
+    localStorage.setItem("entered", "0");
+  } catch (_) {}
+
+  try { closeAuth(); } catch (_) {}
+});
 
   document.getElementById("btnAlreadyClose")?.addEventListener("click", closeAuth);
 
@@ -392,205 +450,6 @@ btnEnter?.addEventListener("click", async (e) => {
 
   // ✨ rimuove il glow SOLO quando clicco ENTRA
   btnEnter.classList.remove("enter-glow");
-
-  // =========================
-// ✅ CREATE DOG: handler unico (Vicino a te + dentro profilo)
-// CTA NON deve mai sparire: cambia solo testo + azione
-// =========================
-(function bindCreateDogButtonsOnce() {
-  try {
-    if (window.__createDogBindDone) return;
-    window.__createDogBindDone = true;
-
-    // ✅ helper unico: aggiorna CTA in base allo stato (mai hide definitivo)
-    window.refreshCreateDogCTA = function () {
-      const inlineBtn = document.getElementById("btnCreateDogInline");
-      if (!inlineBtn) return;
-
-      const hasDog = (window.PLUTOO_HAS_DOG === true);
-      const dogId = window.PLUTOO_DOG_ID ? String(window.PLUTOO_DOG_ID) : "";
-      const dogName = (window.PLUTOO_DOG_NAME ? String(window.PLUTOO_DOG_NAME) : "").trim();
-
-      inlineBtn.style.display = "inline-flex";
-
-      if (hasDog && dogId) {
-        inlineBtn.dataset.mode = "my";
-        if (dogName) {
-          inlineBtn.textContent = `🐶 ${dogName}`;
-        } else {
-          inlineBtn.textContent = (window.state && window.state.lang === "it") ? "Il mio profilo" : "My profile";
-        }
-      } else {
-        inlineBtn.dataset.mode = "create";
-        inlineBtn.textContent = (window.state && window.state.lang === "it") ? "Crea profilo DOG" : "Create DOG profile";
-      }
-    };
-
-    // prima passata (stato corrente)
-    window.refreshCreateDogCTA();
-
-    const clickHandler = async (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      // login richiesto
-      if (!window.auth || !window.auth.currentUser) {
-        if (typeof openAuth === "function") openAuth("login");
-        return;
-      }
-
-      // ✅ se hai già un DOG: apri "Il mio profilo"
-      if (window.PLUTOO_HAS_DOG === true && window.PLUTOO_DOG_ID) {
-        const myId = String(window.PLUTOO_DOG_ID);
-
-        // 1) prova da state/local
-        let dogs = [];
-        try { dogs = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : []; } catch (_) {}
-        if (!dogs.length) {
-          try { dogs = JSON.parse(localStorage.getItem("dogs") || "[]"); } catch (_) { dogs = []; }
-        }
-        let myDog = (Array.isArray(dogs) ? dogs : []).find(x => x && String(x.id) === myId) || null;
-
-        // 2) fallback Firestore se manca
-        if (!myDog && window.db) {
-          try {
-            const doc = await window.db.collection("dogs").doc(myId).get();
-            if (doc && doc.exists) {
-              const data = doc.data() || {};
-              myDog = {
-                id: doc.id,
-                name: (data.name || ""),
-                breed: (data.breed || ""),
-                age: (data.age || ""),
-                sex: (data.sex || ""),
-                bio: (data.bio || ""),
-                km: (data.km || 0),
-                img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),
-                verified: !!data.verified
-              };
-              // memorizza nome per CTA
-              try { window.PLUTOO_DOG_NAME = (myDog.name || "").trim(); } catch (_) {}
-            }
-          } catch (_) {}
-        }
-
-        if (typeof window.openProfilePage === "function") {
-          window.openProfilePage(myDog || { id: myId });
-        }
-
-        // riallineo CTA (sicurezza)
-        if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
-        return;
-      }
-
-      // ✅ se NON hai un DOG: apri create
-      if (typeof window.openProfilePage === "function") {
-        window.openProfilePage({
-          id: "__create__",
-          isCreate: true,
-          name: "",
-          img: "",
-          breed: "",
-          bio: "",
-          age: "",
-          km: 0,
-          sex: ""
-        });
-      }
-
-      // CTA resta visibile
-      if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
-      return;
-    };
-
-    document.addEventListener("click", (ev) => {
-      const t = ev.target;
-      if (!t) return;
-      const btn = t.closest && t.closest("#btnCreateDogInline, #btnCreateDogFromProfile");
-      if (!btn) return;
-      clickHandler(ev);
-    }, true);
-
-    // ✅ quando qualcuno aggiorna lo stato DOG altrove, può forzare refresh chiamando questo evento
-    window.addEventListener("plutoo:dog-changed", () => {
-      if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
-    });
-
-  } catch (e) {
-    console.error("bindCreateDogButtonsOnce error:", e);
-  }
-})();
-
- // ✅ DOG presence check (Firestore source of truth)
-// (wrappato in IIFE async per evitare await fuori contesto)
-(async function plutooDogPresenceCheck() {
-  try {
-
-    // ✅ RESET IMMEDIATO (evita stato “sporco” post-refresh)
-    // Se poi Firestore conferma, verrà sovrascritto sotto.
-    window.PLUTOO_HAS_DOG = false;
-    window.PLUTOO_DOG_ID = null;
-    window.PLUTOO_DOG_NAME = "";
-    window.PLUTOO_READONLY = true;
-    try { localStorage.setItem("plutoo_has_dog", "0"); } catch (_) {}
-    try { localStorage.removeItem("plutoo_dog_id"); } catch (_) {}
-    try { localStorage.removeItem("plutoo_dog_name"); } catch (_) {}
-    try { localStorage.setItem("plutoo_readonly", "1"); } catch (_) {}
-    if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
-
-    if (!window.auth || !window.auth.currentUser) throw new Error("Missing auth/currentUser");
-    const uid = window.auth.currentUser.uid; // = PLUTOO_UID
-    if (!uid || !window.db) throw new Error("Missing PLUTOO_UID or Firestore (window.db)");
-
-    const snap = await window.db
-      .collection("dogs")
-      .where("ownerUid", "==", uid)
-      .limit(1)
-      .get();
-
-    const hasDog = !snap.empty && String(snap.docs[0]?.data()?.name || "").trim().length > 0;
-    const dogId = hasDog ? (snap.docs[0]?.id || null) : null;
-    const dogName = hasDog ? String(snap.docs[0]?.data()?.name || "").trim() : "";
-
-    // Stato globale (runtime)
-    window.PLUTOO_HAS_DOG = hasDog;
-    window.PLUTOO_DOG_ID = dogId;
-    window.PLUTOO_DOG_NAME = dogName;
-
-    // ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)
-    window.PLUTOO_READONLY = !hasDog;
-
-    // UI CTA aggiornata (mai sparire)
-    if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
-
-    // Cache (non source of truth)
-    try {
-      localStorage.setItem("plutoo_has_dog", hasDog ? "1" : "0");
-      if (dogId) localStorage.setItem("plutoo_dog_id", dogId);
-      else localStorage.removeItem("plutoo_dog_id");
-      localStorage.setItem("plutoo_readonly", window.PLUTOO_READONLY ? "1" : "0");
-      if (dogName) localStorage.setItem("plutoo_dog_name", dogName);
-      else localStorage.removeItem("plutoo_dog_name");
-    } catch (_) {}
-
-  } catch (err) {
-    // fallback safe: segnala "DOG assente" e prosegue
-    window.PLUTOO_HAS_DOG = false;
-    window.PLUTOO_DOG_ID = null;
-    window.PLUTOO_DOG_NAME = "";
-    window.PLUTOO_READONLY = true;
-
-    // UI CTA aggiornata (mai sparire)
-    if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
-
-    try {
-      localStorage.setItem("plutoo_has_dog", "0");
-      localStorage.removeItem("plutoo_dog_id");
-      localStorage.removeItem("plutoo_dog_name");
-      localStorage.setItem("plutoo_readonly", "1");
-    } catch (_) {}
-  }
-})();
 
   // ✅ ENTRA definitivo (WOW)
   try { localStorage.setItem("entered", "1"); } catch (err) {}
@@ -631,8 +490,8 @@ btnEnter?.addEventListener("click", async (e) => {
     }
 
     // vista normale
-    try { state.currentView = targetView; } catch (_) {}
     setActiveView(targetView);
+    try { state.currentView = targetView; } catch (_) {}
 
 // =========================
 // ✅ VETRINA: blocco interazioni (definitivo) — SOLO BLOCCO UPLOAD
@@ -731,7 +590,199 @@ firebase.auth().onAuthStateChanged(() => {
 });
 }); // <-- CHIUDE
 
-  // Firebase handles
+// =========================
+// ✅ CREATE DOG: handler unico (Vicino a te + dentro profilo)
+// CTA NON deve mai sparire: cambia solo testo + azione
+// =========================
+(function bindCreateDogButtonsOnce() {
+try {
+if (window.__createDogBindDone) return;
+window.__createDogBindDone = true;
+
+// ✅ helper unico: aggiorna CTA in base allo stato (mai hide definitivo)  
+window.refreshCreateDogCTA = function () {  
+  const inlineBtn = document.getElementById("btnCreateDogInline");  
+  if (!inlineBtn) return;  
+
+  const hasDog = (window.PLUTOO_HAS_DOG === true);  
+  const dogId = window.PLUTOO_DOG_ID ? String(window.PLUTOO_DOG_ID) : "";  
+  const dogName = (window.PLUTOO_DOG_NAME ? String(window.PLUTOO_DOG_NAME) : "").trim();  
+
+  inlineBtn.style.display = "inline-flex";  
+
+  if (hasDog && dogId) {  
+    inlineBtn.dataset.mode = "my";  
+    if (dogName) {  
+      inlineBtn.textContent = `🐶 ${dogName}`;  
+    } else {  
+      inlineBtn.textContent = (window.state && window.state.lang === "it") ? "Il mio profilo" : "My profile";  
+    }  
+  } else {  
+    inlineBtn.dataset.mode = "create";  
+    inlineBtn.textContent = (window.state && window.state.lang === "it") ? "Crea profilo DOG" : "Create DOG profile";  
+  }  
+};  
+
+// prima passata (stato corrente)  
+window.refreshCreateDogCTA();  
+
+const clickHandler = async (ev) => {  
+  ev.preventDefault();  
+  ev.stopPropagation();  
+
+  // login richiesto  
+  if (!window.auth || !window.auth.currentUser) {  
+    if (typeof openAuth === "function") openAuth("login");  
+    return;  
+  }  
+
+  // ✅ se hai già un DOG: apri "Il mio profilo"  
+  if (window.PLUTOO_HAS_DOG === true && window.PLUTOO_DOG_ID) {  
+    const myId = String(window.PLUTOO_DOG_ID);  
+
+    // 1) prova da state/local  
+    let dogs = [];  
+    try { dogs = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : []; } catch (_) {}  
+    if (!dogs.length) {  
+      try { dogs = JSON.parse(localStorage.getItem("dogs") || "[]"); } catch (_) { dogs = []; }  
+    }  
+    let myDog = (Array.isArray(dogs) ? dogs : []).find(x => x && String(x.id) === myId) || null;  
+
+    // 2) fallback Firestore se manca  
+    if (!myDog && window.db) {  
+      try {  
+        const doc = await window.db.collection("dogs").doc(myId).get();  
+        if (doc && doc.exists) {  
+          const data = doc.data() || {};  
+          myDog = {  
+            id: doc.id,  
+            name: (data.name || ""),  
+            breed: (data.breed || ""),  
+            age: (data.age || ""),  
+            sex: (data.sex || ""),  
+            bio: (data.bio || ""),  
+            km: (data.km || 0),  
+            img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),  
+            verified: !!data.verified  
+          };  
+          // memorizza nome per CTA  
+          try { window.PLUTOO_DOG_NAME = (myDog.name || "").trim(); } catch (_) {}  
+        }  
+      } catch (_) {}  
+    }  
+
+    if (typeof window.openProfilePage === "function") {  
+      window.openProfilePage(myDog || { id: myId });  
+    }  
+
+    // riallineo CTA (sicurezza)  
+    if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
+    return;  
+  }  
+
+  // ✅ se NON hai un DOG: apri create
+  localStorage.setItem("currentView", "profile");
+localStorage.setItem("currentProfileDogId", "__create__");
+  
+  if (typeof window.openProfilePage === "function") {  
+    window.openProfilePage({  
+      id: "__create__",  
+      isCreate: true,  
+      name: "",  
+      img: "",  
+      breed: "",  
+      bio: "",  
+      age: "",  
+      km: 0,  
+      sex: ""  
+    });  
+  }  
+
+  // CTA resta visibile  
+  if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
+  return;  
+};  
+
+document.addEventListener("click", (ev) => {  
+  const t = ev.target;  
+  if (!t) return;  
+  const btn = t.closest && t.closest("#btnCreateDogInline, #btnCreateDogFromProfile");  
+  if (!btn) return;  
+  clickHandler(ev);  
+}, true);  
+
+// ✅ quando qualcuno aggiorna lo stato DOG altrove, può forzare refresh chiamando questo evento  
+window.addEventListener("plutoo:dog-changed", () => {  
+  if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
+});
+
+} catch (e) {
+console.error("bindCreateDogButtonsOnce error:", e);
+}
+})();
+
+// ✅ DOG presence check (Firestore source of truth)
+// (wrappato in IIFE async per evitare await fuori contesto)
+window.plutooDogPresenceCheck = async function plutooDogPresenceCheck() {
+try {
+
+// ✅ BOOTSTRAP SEMPRE da cache (prima di Firestore)  
+// Così al refresh NON perdi "🐶 Nome" per timing auth/db.  
+try {  
+  const cHas  = localStorage.getItem("plutoo_has_dog") === "1";  
+  const cId   = localStorage.getItem("plutoo_dog_id") || "";  
+  const cName = localStorage.getItem("plutoo_dog_name") || "";  
+  const cRO   = localStorage.getItem("plutoo_readonly") === "1";  
+
+  if (cId) {  
+    window.PLUTOO_HAS_DOG = true;  
+    window.PLUTOO_DOG_ID = cId;  
+    window.PLUTOO_DOG_NAME = cName;  
+    window.PLUTOO_READONLY = false;  
+  }  
+
+  if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
+} catch (_) {}  
+
+const uid = window.auth.currentUser.uid; // = PLUTOO_UID  
+if (!uid || !window.db) return;  
+
+ const doc = await window.db.collection("dogs").doc(String(uid)).get();
+const data = (doc && doc.exists) ? (doc.data() || {}) : null;
+
+const hasDog = !!(data && String(data.name || "").trim().length > 0);
+const dogId = hasDog ? String(uid) : null;
+const dogName = hasDog ? String(data.name || "").trim() : "";  
+
+// Stato globale (runtime)  
+window.PLUTOO_HAS_DOG = hasDog;  
+window.PLUTOO_DOG_ID = dogId;  
+window.PLUTOO_DOG_NAME = dogName;  
+
+// ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)  
+window.PLUTOO_READONLY = !hasDog;  
+
+// UI CTA aggiornata (mai sparire)  
+if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
+
+// Cache (non source of truth)  
+try {  
+  localStorage.setItem("plutoo_has_dog", hasDog ? "1" : "0");  
+  if (dogId) localStorage.setItem("plutoo_dog_id", dogId);  
+  else localStorage.removeItem("plutoo_dog_id");  
+  localStorage.setItem("plutoo_readonly", window.PLUTOO_READONLY ? "1" : "0");  
+  if (dogName) localStorage.setItem("plutoo_dog_name", dogName);  
+  else localStorage.removeItem("plutoo_dog_name");  
+} catch (_) {}
+
+} catch (err) {
+// (FIX) fallback safe: NON forzo "DOG assente" e NON tocco cache/stato.
+// Se auth/db non sono pronti al refresh, mantengo lo stato/cached e aggiorno solo UI.
+if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
+}
+};
+
+// Firebase handles
 const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
@@ -741,12 +792,41 @@ window.auth = auth;
 window.db = db;
 window.storage = storage;
 
+// ✅ run subito al load (ma SOLO quando la funzione esiste davvero)
+(function runPresenceWhenReady(){
+  try {
+    if (typeof window.plutooDogPresenceCheck === "function") {
+      window.plutooDogPresenceCheck();
+      return;
+    }
+  } catch (_) {}
+  setTimeout(runPresenceWhenReady, 200);
+})();
+
+// ✅ hook: rerun ad ogni cambio auth (logout/login) (con guardia "function ready")
+try {
+  if (window.auth && typeof window.auth.onAuthStateChanged === "function" && !window.__plutooDogPresenceHooked) {
+    window.__plutooDogPresenceHooked = true;
+    window.auth.onAuthStateChanged(() => {
+      (function runPresenceAfterAuth(){
+        try {
+          if (typeof window.plutooDogPresenceCheck === "function") {
+            window.plutooDogPresenceCheck();
+            return;
+          }
+        } catch (_) {}
+        setTimeout(runPresenceAfterAuth, 200);
+      })();
+    });
+  }
+} catch (_) {}
+
 // ✅ Persistenza Auth su device (no reset dopo refresh)
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
   console.error("Auth persistence error:", err);
 });
 
-auth.onAuthStateChanged(async (user) => {
+ auth.onAuthStateChanged(async (user) => {
   try {
     const linkLogin = document.getElementById("linkLogin");
     const linkRegister = document.getElementById("linkRegister");
@@ -755,6 +835,10 @@ auth.onAuthStateChanged(async (user) => {
       // ===== NON LOGGATO =====
       window.PLUTOO_UID = null;
       window.__booted = false;
+
+      // ✅ IMPORTANTISSIMO:
+      // NON resetto PLUTOO_HAS_DOG / DOG_ID qui, perché al refresh Firebase può passare da user=null per un istante.
+      // Il reset "vero" (Home/entered=0 + clear DOG) avviene SOLO su Logout esplicito / Delete account.
 
       if (linkLogin) {
         linkLogin.setAttribute("data-i18n", "login");
@@ -789,12 +873,36 @@ auth.onAuthStateChanged(async (user) => {
       linkRegister.style.display = "none";
     }
 
-    // 🔒 evita boot multipli sullo stesso UID
-    if (window.__booted) return;
-    window.__booted = true;
+    // ✅ FIRESTORE: crea/aggiorna users/{uid} (source of truth account)
+    try {
+      if (db && window.PLUTOO_UID) {
+        const uid = String(window.PLUTOO_UID);
+        const ref = db.collection("users").doc(uid);
+        const snap = await ref.get();
 
-    // 🚀 avvio app
-    if (typeof init === "function") init();
+        const base = {
+          email: (user && user.email) ? String(user.email) : "",
+          userAgent: (navigator && navigator.userAgent) ? String(navigator.userAgent) : "",
+          lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (!snap.exists) {
+          base.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        }
+
+        await ref.set(base, { merge: true });
+      }
+    } catch (e) {
+      console.error("users/{uid} upsert error:", e);
+    }
+
+    // 🔒 evita boot multipli sullo stesso UID
+    if (!window.__booted) {
+      window.__booted = true;
+
+      // 🚀 avvio app (una volta sola: già protetto da window.__booted)
+      if (typeof init === "function") init();
+    }
 
   } catch (e) {
     console.error("onAuthStateChanged error:", e);
@@ -1415,31 +1523,114 @@ const DOGS = [
     );
   }
 
+  
   // =========== Restore in APP ===========
-  if (state.entered) {
-    homeScreen.classList.add("hidden");
-    appScreen.classList.remove("hidden");
+if (state.entered) {
+  homeScreen.classList.add("hidden");
+  appScreen.classList.remove("hidden");
 
-    const viewToRestore = state.currentView || "nearby";
+  const viewToRestore = localStorage.getItem("currentView") || state.currentView || "nearby";
 
-    if (viewToRestore === "profile") {
-      const savedId = localStorage.getItem("currentProfileDogId");
-      if (savedId) {
-        const dog = DOGS.find(d => d.id == savedId);
-        if (dog && window.openProfilePage) {
-          window.openProfilePage(dog);
-        } else {
-          setActiveView("nearby");
-        }
+  if (viewToRestore === "profile") {
+    setActiveView("profile");
+
+    const savedId = localStorage.getItem("currentProfileDogId");
+
+    if (savedId) {
+
+      // 🔥 CREATE MODE: se ero in "__create__", riapro create
+      if (String(savedId) === "__create__" && typeof window.openProfilePage === "function") {
+
+        window.openProfilePage({
+          id: "__create__",
+          isCreate: true,
+          name: "",
+          img: "",
+          breed: "",
+          bio: "",
+          age: "",
+          km: 0,
+          sex: ""
+        });
+
       } else {
-        setActiveView("nearby");
+
+        const dog = DOGS.find(d => d.id == savedId);
+
+        if (dog && window.openProfilePage) {
+
+          window.openProfilePage(dog);
+
+        } else {
+
+          // ✅ se NON è un DOG demo, provo cache locale e poi Firestore
+          let myDog = null;
+
+          // 1) prova state/local
+          try {
+            const dogsLocal = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : [];
+            myDog = dogsLocal.find(x => x && String(x.id) === String(savedId)) || null;
+          } catch (_) {}
+
+          // 2) fallback localStorage "dogs"
+          if (!myDog) {
+            try {
+              const dogsLS = JSON.parse(localStorage.getItem("dogs") || "[]");
+              myDog = (Array.isArray(dogsLS) ? dogsLS : []).find(x => x && String(x.id) === String(savedId)) || null;
+            } catch (_) { myDog = null; }
+          }
+
+          // 3) se ho già dati → apro profilo
+          if (myDog && window.openProfilePage) {
+
+            window.openProfilePage(myDog);
+
+          } else if (window.db) {
+
+            // 4) Firestore (no await)
+            try {
+              window.db.collection("dogs").doc(String(savedId)).get()
+                .then((doc) => {
+                  if (doc && doc.exists && window.openProfilePage) {
+                    const data = doc.data() || {};
+                    window.openProfilePage({
+                      id: doc.id,
+                      name: (data.name || ""),
+                      breed: (data.breed || ""),
+                      age: (data.age || ""),
+                      sex: (data.sex || ""),
+                      bio: (data.bio || ""),
+                      km: (data.km || 0),
+                      img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),
+                      verified: !!data.verified
+                    });
+                  } else {
+                    setActiveView("nearby");
+                  }
+                })
+                .catch(() => {
+                  setActiveView("nearby");
+                });
+            } catch (_) {
+              setActiveView("nearby");
+            }
+
+          } else {
+            setActiveView("nearby");
+          }
+        }
       }
+
     } else {
-      setActiveView(viewToRestore);
+      setActiveView("nearby");
     }
 
-    showAdBanner();
+  } else {
+    setActiveView(viewToRestore);
   }
+
+  showAdBanner();
+}
 
   function openSponsor(){
   const url = "https://www.gelatofido.it/";
@@ -2135,6 +2326,14 @@ msgLists.forEach((list) => {
 });
 
   function setActiveView(name){
+    // ✅ GUARD: se arriva una view sconosciuta (es. "notifications"), non lasciare schermo nero
+    try {
+      const allowed = { nearby:1, love:1, play:1, profile:1, messages:1 };
+      if (!allowed[String(name || "")]) name = "nearby";
+    } catch (_) {
+      name = "nearby";
+    }
+
     localStorage.setItem("currentView", name);
 
     if (state.currentView !== name && state.currentView){
@@ -2309,13 +2508,16 @@ msgLists.forEach((list) => {
   function cardHTML(d){
     return `
       <article class="card dog-card" data-id="${d.id}">
-        <img
-          src="./${d.img}"
-          alt="${d.name}"
-          class="card-img"
-          decoding="async"
-          onerror="this.onerror=null;this.src='./plutoo-icon-192.png';"
-        />
+       <img
+  src="./${d.img}"
+  alt="${d.name}"
+  class="card-img"
+  loading="eager"
+  fetchpriority="high"
+  decoding="sync"
+  onerror="this.onerror=null;this.src='./plutoo-icon-192.png';"
+/>
+
         <div class="card-info">
           <h3>${d.name} ${d.verified?"✅":""}</h3>
           <p class="meta">${d.breed} · ${d.age} ${t("years")} · ${fmtKm(d.km)}</p>
@@ -3385,7 +3587,7 @@ window.openProfilePage = (d) => {
         </div>
         `
         : `
-        <img src="${heroImg}" alt="${d.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer;">
+        <img src="${heroImg}" alt="${d.name}" loading="eager" fetchpriority="high" decoding="sync" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer;">
         `
     }
   </div>
@@ -3721,109 +3923,196 @@ if (isCreate) {
       });
     }
   } else {
+    
     // PROFILO: hero img / gallery / selfie cliccabili
-    const heroImgEl = profileContent.querySelector(".pp-hero img");
-    if (heroImgEl) {
-      heroImgEl.addEventListener("click", () => {
-        openPlutooImageViewer(heroImgEl.getAttribute("src"));
-      });
-    }
+const heroImgEl = profileContent.querySelector(".pp-hero img");
+if (heroImgEl) {
+heroImgEl.addEventListener("click", () => {
+openPlutooImageViewer(heroImgEl.getAttribute("src"));
+});
+}
 
-    const selfieEl = profileContent.querySelector(".selfie .img");
-    if (selfieEl) {
-      selfieEl.addEventListener("click", () => {
-        openPlutooImageViewer(selfieEl.getAttribute("src"));
-      });
-    }
+const selfieEl = profileContent.querySelector(".selfie .img");  
+if (selfieEl) {  
+  selfieEl.addEventListener("click", () => {  
+    openPlutooImageViewer(selfieEl.getAttribute("src"));  
+  });  
+}  
 
-    // Elimina account (locale)
-    const btnDel = document.getElementById("btnDeleteAccount");
-    if (btnDel) {
-      btnDel.addEventListener("click", () => {
-        const ok = confirm(state.lang === "it"
-          ? "Eliminare l'account LOCALE? (Cancella TUTTI i dati Plutoo salvati su questo dispositivo)"
-          : "Delete LOCAL account? (Clears ALL Plutoo data stored on this device)");
-        if (!ok) return;
+// Elimina account (locale)  
+const btnDel = document.getElementById("btnDeleteAccount");  
+if (btnDel) {  
+  btnDel.addEventListener("click", () => {  
+    const ok = confirm(state.lang === "it"  
+      ? "Eliminare l'account? (Cancella profilo e dati da Firebase + TUTTI i dati Plutoo su questo dispositivo)"  
+      : "Delete account? (Deletes profile/data from Firebase + ALL Plutoo data on this device)");  
+    if (!ok) return;  
 
-        try {
-          // ✅ wipe mirato: rimuovo tutte le chiavi Plutoo + per-dog (gallery_, selfieImage_, docs, stories, ecc.)
-          const keys = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k) keys.push(k);
-          }
+    try {  
+      // ✅ 1) Cancellazione Firebase (NO await: solo Promise chain)  
+      const uid = window.PLUTOO_UID || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");  
+      const user = (window.auth && window.auth.currentUser) ? window.auth.currentUser : null;  
+      const db = window.db || null;  
 
-          keys.forEach((k) => {
-            // tutto ciò che è chiaramente Plutoo / per-dog
-            if (
-              k === "dogs" ||
-              k === "matches" ||
-              k === "matchCount" ||
-              k === "currentProfileDogId" ||
-              k === "ownerDocsUploaded" ||
-              k === "dogDocsUploaded" ||
-              k === "socialRewardViewed" ||
-              k === "selfieUntilByDog" ||
-              k === "plutoo_plus" ||
-              k === "plutoo_has_dog" ||
-              k === "plutoo_dog_id" ||
-              k === "plutoo_readonly" ||
-              k.startsWith("plutoo_") ||
-              k.startsWith("gallery_") ||
-              k.startsWith("selfieImage_") ||
-              k.startsWith("galleryBound_") ||
-              k.startsWith("ownerSocialByDog_") ||
-              k.startsWith("story_") ||
-              k.startsWith("stories_") ||
-              k.startsWith("StoriesState_") ||
-              k.startsWith("notifications_") ||
-              k.startsWith("follow_") ||
-              k.startsWith("photo_")
-            ) {
-              localStorage.removeItem(k);
-            }
-          });
+      const deleteFromFirebase = () => {  
+        // Se non ho auth/db, salto (non blocco mai l'app)  
+        if (!uid || !user || !db) return Promise.resolve();  
 
-          // ✅ RESET runtime (QUESTO È IL FIX)
+        // a) elimina dogs dell'ownerUid  
+        const delDogs = db.collection("dogs").where("ownerUid", "==", uid).get()  
+          .then((snap) => {  
+            const jobs = [];  
+            snap.forEach((doc) => {  
+              jobs.push(doc.ref.delete().catch(() => {}));  
+            });  
+            return Promise.all(jobs);  
+          })  
+          .catch(() => {});  
+
+        // b) elimina users/{uid}  
+        const delUserDoc = db.collection("users").doc(uid).delete().catch(() => {});  
+
+        // c) elimina Auth user (può richiedere recent login)  
+        const delAuth = user.delete();  
+
+        return Promise.all([delDogs, delUserDoc, delAuth]).then(() => {}).catch((err) => { throw err; });  
+      };  
+
+      deleteFromFirebase()  
+        .then(() => {  
+          // ✅ wipe mirato: rimuovo tutte le chiavi Plutoo + per-dog (gallery_, selfieImage_, docs, stories, ecc.)  
+          const keys = [];  
+          for (let i = 0; i < localStorage.length; i++) {  
+            const k = localStorage.key(i);  
+            if (k) keys.push(k);  
+          }  
+
+          keys.forEach((k) => {  
+            // tutto ciò che è chiaramente Plutoo / per-dog  
+            if (  
+              k === "dogs" ||  
+              k === "matches" ||  
+              k === "matchCount" ||  
+              k === "currentProfileDogId" ||  
+              k === "ownerDocsUploaded" ||  
+              k === "dogDocsUploaded" ||  
+              k === "socialRewardViewed" ||  
+              k === "selfieUntilByDog" ||  
+              k === "plutoo_plus" ||  
+              k === "plutoo_has_dog" ||  
+              k === "plutoo_dog_id" ||  
+              k === "plutoo_readonly" ||  
+              k.startsWith("plutoo_") ||  
+              k.startsWith("gallery_") ||  
+              k.startsWith("selfieImage_") ||  
+              k.startsWith("galleryBound_") ||  
+              k.startsWith("ownerSocialByDog_") ||  
+              k.startsWith("story_") ||  
+              k.startsWith("stories_") ||  
+              k.startsWith("StoriesState_") ||  
+              k.startsWith("notifications_") ||  
+              k.startsWith("follow_") ||  
+              k.startsWith("photo_")  
+            ) {  
+              localStorage.removeItem(k);  
+            }  
+          });  
+
+          // ✅ RESET runtime (QUESTO È IL FIX)  
+          try {  
+            window.PLUTOO_HAS_DOG = false;  
+            window.PLUTOO_READONLY = false;  
+            window.PLUTOO_DOG_ID = "";  
+            window.CURRENT_USER_DOG_ID = "";  
+            try { CURRENT_USER_DOG_ID = ""; } catch (_) {}  
+          } catch (_) {}  
+
+          // ✅ reset state in RAM (evita UI incoerente prima del reload)  
+          try {  
+            if (state) {  
+              state.dogs = [];  
+              state.matches = {};  
+              state.matchCount = 0;  
+              state.ownerDocsUploaded = {};  
+              state.dogDocsUploaded = {};  
+              state.selfieUntilByDog = {};  
+              state.socialRewardViewed = {};  
+              state.createDogDraft = {};  
+              state.currentDogProfile = null;  
+            }  
+          } catch (_) {}  
+
+          // (opzionale ma pulito) session storage  
+          try { sessionStorage.clear(); } catch (_) {}  
+
+          // ✅ signOut (se possibile) — poi reload  
+          try {  
+            if (window.auth) {  
+              return window.auth.signOut().catch(() => {});  
+            }  
+          } catch (_) {}  
+          return Promise.resolve();  
+        })  
+        .then(() => {  
+          // ✅ forza ritorno HOME al reload (anche nel SUCCESS, non solo nel catch)
           try {
-            window.PLUTOO_HAS_DOG = false;
-            window.PLUTOO_READONLY = false;
-            window.PLUTOO_DOG_ID = "";
-            window.CURRENT_USER_DOG_ID = "";
-            try { CURRENT_USER_DOG_ID = ""; } catch (_) {}
+            localStorage.removeItem("entered");
+            localStorage.removeItem("currentView");
+            localStorage.setItem("entered", "0");
+            localStorage.setItem("currentView", "home");
           } catch (_) {}
 
-          // ✅ reset state in RAM (evita UI incoerente prima del reload)
-          try {
-            if (state) {
-              state.dogs = [];
-              state.matches = {};
-              state.matchCount = 0;
-              state.ownerDocsUploaded = {};
-              state.dogDocsUploaded = {};
-              state.selfieUntilByDog = {};
-              state.socialRewardViewed = {};
-              state.createDogDraft = {};
-              state.currentDogProfile = null;
-            }
-          } catch (_) {}
+          location.reload();  
+        })  
+        .catch((err) => {  
+            
+      // ✅ non blocco mai l'app
 
-          // (opzionale ma pulito) session storage
-          try { sessionStorage.clear(); } catch (_) {}
-        } catch (_) {}
+const code = (err && err.code) ? err.code : "";
+if (code === "auth/requires-recent-login") {
+alert("Per eliminare l’account serve un login recente. Ti disconnetto: rientra e riprova.");
 
-        location.reload();
-      });
-    }
-  }
+// ✅ forza ritorno HOME al reload
+try {
+localStorage.removeItem("entered");
+localStorage.removeItem("currentView");
+localStorage.setItem("entered", "0");
+localStorage.setItem("currentView", "home");
+} catch (_) {}
+
+try { if (window.auth) window.auth.signOut().catch(() => {}); } catch (_) {}
+location.reload();
+return;
+}
+
+alert("Errore eliminazione account. Ti riporto alla Home senza bloccare l'app.");
+
+// ✅ forza ritorno HOME al reload
+try {
+localStorage.removeItem("entered");
+localStorage.removeItem("currentView");
+localStorage.setItem("entered", "0");
+localStorage.setItem("currentView", "home");
+} catch (_) {}
+
+try { if (window.auth) window.auth.signOut().catch(() => {}); } catch (_) {}
+location.reload();
+});
+
+} catch (_) {}  
+
+  });  
+}
+
+}
 })();
 
-const btnSaveDogDraft0 = document.getElementById("btnSaveDogDraft");
+      const btnSaveDogDraft0 = document.getElementById("btnSaveDogDraft");
 if (btnSaveDogDraft0 && isCreate) {
   const btnSaveDogDraft = btnSaveDogDraft0.cloneNode(true);
   btnSaveDogDraft0.parentNode.replaceChild(btnSaveDogDraft, btnSaveDogDraft0);
 
-  btnSaveDogDraft.addEventListener("click", () => {
+  btnSaveDogDraft.addEventListener("click", async () => {
     const nameInput = document.getElementById("createDogName");
     const breedInput = document.getElementById("createDogBreed");
     const ageInput = document.getElementById("createDogAge");
@@ -3854,19 +4143,114 @@ if (btnSaveDogDraft0 && isCreate) {
       return;
     }
 
-    const newDogId = "dog_" + Date.now();
+    // =========================
+    // ✅ FIREBASE (PRODUCTION): Storage + Firestore (source of truth)
+    // =========================
+    const uid = (window.PLUTOO_UID) || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
+    if (!uid || !window.db || !window.storage) {
+      if (errorDiv) {
+        errorDiv.textContent = state.lang === "it"
+          ? "❌ Login richiesto (Firebase non pronto)"
+          : "❌ Login required (Firebase not ready)";
+        errorDiv.style.display = "block";
+      }
+      return;
+    }
+
+    // helper: dataURL -> Blob
+    const dataUrlToBlob = (dataUrl) => {
+      const parts = String(dataUrl || "").split(",");
+      const meta = parts[0] || "";
+      const b64 = parts[1] || "";
+      const mimeMatch = meta.match(/data:([^;]+);base64/i);
+      const mime = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : "image/jpeg";
+      const bin = atob(b64);
+      const len = bin.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    };
+
+    // id definitivo Firestore (1 utente = 1 DOG)
+const dogRef = window.db.collection("dogs").doc(String(uid));
+const newDogId = dogRef.id;
+
+    // upload foto profilo su Storage
+    let photoUrl = "";
+    try {
+      const blob = dataUrlToBlob(state.createDogDraft.photoDataUrl);
+      const ext = (blob.type && blob.type.includes("png")) ? "png" : "jpg";
+      const storageRef = window.storage.ref().child(`dogs/${uid}/${newDogId}/profile.${ext}`);
+
+      // feedback inline "salvataggio..."
+      if (errorDiv) {
+        errorDiv.textContent = state.lang === "it" ? "Salvataggio in corso..." : "Saving...";
+        errorDiv.style.display = "block";
+        errorDiv.style.border = "1px solid rgba(205, 164, 52, 0.35)";
+        errorDiv.style.background = "rgba(205, 164, 52, 0.10)";
+        errorDiv.style.color = "#CDA434";
+      }
+
+      await storageRef.put(blob, { contentType: blob.type || "image/jpeg" });
+      photoUrl = await storageRef.getDownloadURL();
+
+      } catch (e) {
+  try { console.error("Storage upload error:", e); } catch (_) {}
+
+  const code = (e && e.code) ? String(e.code) : "";
+  const msg  = (e && e.message) ? String(e.message) : "";
+
+  if (errorDiv) {
+    errorDiv.textContent = state.lang === "it"
+      ? `❌ Errore upload foto (Storage) ${code ? "— " + code : ""}${msg ? " — " + msg : ""}`
+      : `❌ Photo upload error (Storage) ${code ? "— " + code : ""}${msg ? " — " + msg : ""}`;
+    errorDiv.style.display = "block";
+  }
+  return;
+    }
+
+    // write su Firestore (dogs/{dogId})
+    try {
+      const createdAt = (firebase && firebase.firestore && firebase.firestore.FieldValue && firebase.firestore.FieldValue.serverTimestamp)
+        ? firebase.firestore.FieldValue.serverTimestamp()
+        : new Date();
+
+      await dogRef.set({
+        ownerUid: uid,
+        name: name,
+        breed: breed,
+        age: parseInt(age, 10),
+        sex: sex,
+        bio: bio || "",
+        km: 0,
+        verified: false,
+        photoUrl: photoUrl,
+        createdAt: createdAt,
+        updatedAt: createdAt
+      }, { merge: true });
+    } catch (e) {
+      if (errorDiv) {
+        errorDiv.textContent = state.lang === "it"
+          ? "❌ Errore salvataggio profilo (Firestore)"
+          : "❌ Profile save error (Firestore)";
+        errorDiv.style.display = "block";
+      }
+      return;
+    }
+
     const newDog = {
       id: newDogId,
       name: name,
       breed: breed,
       age: parseInt(age, 10),
       sex: sex,
-      img: state.createDogDraft.photoDataUrl,
+      img: photoUrl,
       verified: false,
       bio: bio || "",
       km: 0
     };
 
+    // cache locale (solo UI/velocità; source of truth = Firestore)
     if (!state.dogs) state.dogs = [];
     state.dogs.push(newDog);
     localStorage.setItem("dogs", JSON.stringify(state.dogs));
@@ -3874,12 +4258,13 @@ if (btnSaveDogDraft0 && isCreate) {
     state.createDogDraft = {};
 
     // =========================
-    // ✅ FIX STATO: da ORA "hai un DOG" (localStorage + runtime)
+    // ✅ FIX STATO: da ORA "hai un DOG" (runtime + cache)
     // =========================
     try {
       window.PLUTOO_HAS_DOG = true;
       window.PLUTOO_READONLY = false;
       window.PLUTOO_DOG_ID = newDogId;
+      window.PLUTOO_DOG_NAME = name;
 
       // se nel codice esiste CURRENT_USER_DOG_ID, lo allinei qui
       window.CURRENT_USER_DOG_ID = newDogId;
@@ -3889,17 +4274,21 @@ if (btnSaveDogDraft0 && isCreate) {
       localStorage.setItem("plutoo_has_dog", "1");
       localStorage.setItem("plutoo_dog_id", newDogId);
       localStorage.setItem("plutoo_readonly", "0");
+      localStorage.setItem("plutoo_dog_name", name);
 
       // spegni classe readonly (se era stata attivata)
       document.body.classList.remove("plutoo-readonly");
 
-    // aggiorna CTA Vicino a te → diventa "Il mio profilo"
-if (typeof window.refreshCreateDogCTA === "function") {
-  window.refreshCreateDogCTA();
-}
+      // aggiorna CTA Vicino a te → diventa "Il mio profilo"
+      if (typeof window.refreshCreateDogCTA === "function") {
+        window.refreshCreateDogCTA();
+      }
+
+      // segnala cambio stato (se qualcuno ascolta)
+      try { window.dispatchEvent(new Event("plutoo:dog-changed")); } catch (_) {}
     } catch (_) {}
 
-    // feedback inline (resta qui; nel prossimo step lo rendiamo visibile anche dopo il redirect)
+    // feedback inline
     if (errorDiv) {
       errorDiv.textContent = state.lang === "it" ? "✅ Profilo salvato" : "✅ Profile saved";
       errorDiv.style.display = "block";
