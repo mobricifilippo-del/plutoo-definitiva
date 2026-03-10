@@ -727,16 +727,15 @@ body.story-open #storiesBar {
   aspect-ratio:1/1;
 }
 
-.pp-hero img{
+ .pp-hero img{
   display:block;
   width:100%;
-  aspect-ratio: 16/9;
-  height:auto;
-  object-fit:contain;        /* ✅ non taglia */
+  height:100%;
+  object-fit:contain;
   object-position:center;
-  background:#0b0b0f;        /* ✅ riempie il “vuoto” */
-  cursor:pointer;            /* ✅ cliccabile */
-}
+  background:#0b0b0f;
+  cursor:pointer;
+ }
 
 .pp-head{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin:.4rem 0 .7rem 0}
 .pp-name{font-size:1.5rem;font-weight:900;color:var(--violet-glow);margin:0}
@@ -951,7 +950,16 @@ body.story-open #storiesBar {
   overflow:hidden;height:120px;display:flex;align-items:center;justify-content:center;
   color:var(--muted);font-size:.9rem;
 }
-.gallery img{width:100%;height:100%;object-fit:cover;cursor:pointer}
+
+.gallery img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  background:#0b0b0f;
+  cursor:pointer;
+}
+
 .add-photo{
   display:inline-flex;align-items:center;gap:.4rem;border:1px dashed var(--violet);
   color:var(--violet);padding:.5rem .75rem;border-radius:10px;font-size:.9rem;
@@ -963,7 +971,15 @@ body.story-open #storiesBar {
   position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--violet);
   box-shadow:0 8px 20px rgba(0,0,0,.4), inset 0 0 0 1px rgba(138,123,255,.16);
 }
-.selfie .img{display:block;width:100%;height:220px;object-fit:cover;filter:blur(16px) brightness(.7)}
+.selfie .img{
+  display:block;
+  width:100%;
+  height:220px;
+  object-fit:contain;
+  object-position:center;
+  background:#0b0b0f;
+  filter:blur(16px) brightness(.7);
+}
 .selfie.unlocked .img{filter:none}
 .selfie .over{
   position:absolute;inset:auto 0 0 0;display:flex;gap:.7rem;justify-content:center;
@@ -1246,7 +1262,7 @@ body.story-open #storiesBar {
   max-height:400px;display:flex;align-items:center;justify-content:center;
 }
 .upload-preview img,.upload-preview video{
-  width:100%;height:auto;max-height:400px;object-fit:contain;
+  width:100%;height:auto;max-height:400px;object-fit:cover;
 }
 .story-customize{display:flex;flex-direction:column;gap:1.5rem;padding:1rem 0}
 .customize-section{display:flex;flex-direction:column;gap:.8rem}
@@ -1984,6 +2000,42 @@ line-height: 1.6;
   transform: scale(1.05);
 }
 
+/* ===== STORIES EDITOR TESTO SOPRA IMMAGINE ===== */
+
+.story-editor{
+  position: relative;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+#uploadStoryStep2 .story-editor .upload-preview{
+  height: 400px;
+  max-height: 400px;
+}
+
+.story-text-input{
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+
+  background: transparent;
+  border: none;
+  padding: 0;
+
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+  text-align: center;
+
+  resize: none;
+  outline: none;
+
+  text-shadow:
+    0 2px 6px rgba(0,0,0,.8),
+    0 0 10px rgba(0,0,0,.6);
+}
+
 /* === MATCH FLASH – STILE COME ENTRA MA GIALLO === */
 
 .match-overlay{
@@ -2212,4 +2264,26 @@ line-height: 1.6;
     transform: scale(1);
     filter: brightness(1);
   }
+}
+
+.story-header-actions{
+  display:flex;
+  align-items:center;
+  gap:.55rem;
+}
+
+.story-delete-btn{
+  border:0;
+  border-radius:999px;
+  padding:.45rem .85rem;
+  background:rgba(255,59,48,.92);
+  color:#fff;
+  font-weight:700;
+  font-size:.85rem;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(0,0,0,.28);
+}
+
+.story-delete-btn.hidden{
+  display:none;
 }
