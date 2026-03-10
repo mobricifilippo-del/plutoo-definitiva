@@ -419,22 +419,28 @@ document.getElementById("btnLogout")?.addEventListener("click", async () => {
 const btnEnter = document.getElementById("btnEnter");
 
 function updateEnterState() {
-  if (!btnEnter) return;
+  alert("UPDATE ENTER STATE CALLED");
+  const enterBtn = document.getElementById("btnEnter");
+  if (!enterBtn) return;
 
   const logged = !!(window.auth && window.auth.currentUser);
 
   if (logged) {
-    btnEnter.disabled = false;
-    btnEnter.classList.remove("disabled");
+    enterBtn.disabled = false;
+    enterBtn.classList.remove("disabled");
 
     // ✨ FEEDBACK LOGIN: accendi ENTRA (oro) se non ancora cliccato
-    btnEnter.classList.add("enter-glow");
+    enterBtn.classList.remove("enter-glow");
+enterBtn.style.animation = "none";
+void enterBtn.offsetWidth;
+enterBtn.style.animation = "";
+enterBtn.classList.add("enter-glow");
   } else {
-    btnEnter.disabled = true;
-    btnEnter.classList.add("disabled");
+    enterBtn.disabled = true;
+    enterBtn.classList.add("disabled");
 
     // reset glow se logout
-    btnEnter.classList.remove("enter-glow");
+    enterBtn.classList.remove("enter-glow");
   }
 }
 
@@ -581,12 +587,6 @@ try {
       heroLogo.style.transition = "";
     }
   }, 3500);
-});
-
-// iniziale + ogni cambio auth
-updateEnterState();
-firebase.auth().onAuthStateChanged(() => {
-  updateEnterState();
 });
 }); // <-- CHIUDE
 
@@ -803,42 +803,46 @@ window.storage = storage;
   setTimeout(runPresenceWhenReady, 200);
 })();
 
-// ✅ hook: rerun ad ogni cambio auth (logout/login) (con guardia "function ready")
-try {
-  if (window.auth && typeof window.auth.onAuthStateChanged === "function" && !window.__plutooDogPresenceHooked) {
-    window.__plutooDogPresenceHooked = true;
-    window.auth.onAuthStateChanged(() => {
-      (function runPresenceAfterAuth(){
-        try {
-          if (typeof window.plutooDogPresenceCheck === "function") {
-            window.plutooDogPresenceCheck();
-            return;
-          }
-        } catch (_) {}
-        setTimeout(runPresenceAfterAuth, 200);
-      })();
-    });
-  }
-} catch (_) {}
-
 // ✅ Persistenza Auth su device (no reset dopo refresh)
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
   console.error("Auth persistence error:", err);
 });
 
  auth.onAuthStateChanged(async (user) => {
+  const runPresenceAfterAuth = () => {
+  try {
+  const enterBtn = document.getElementById("btnEnter");
+  const logged = !!user;
+
+  if (enterBtn) {
+    if (logged) {
+      enterBtn.disabled = false;
+      enterBtn.classList.remove("disabled");
+      enterBtn.classList.remove("enter-glow");
+      void enterBtn.offsetWidth;
+      enterBtn.classList.add("enter-glow");
+    } else {
+      enterBtn.disabled = true;
+      enterBtn.classList.add("disabled");
+      enterBtn.classList.remove("enter-glow");
+    }
+  }
+} catch (_) {}
+
+  try {
+    if (typeof window.plutooDogPresenceCheck === "function") {
+      window.plutooDogPresenceCheck();
+    }
+  } catch (_) {}
+};
+
   try {
     const linkLogin = document.getElementById("linkLogin");
     const linkRegister = document.getElementById("linkRegister");
 
     if (!user) {
-      // ===== NON LOGGATO =====
       window.PLUTOO_UID = null;
       window.__booted = false;
-
-      // ✅ IMPORTANTISSIMO:
-      // NON resetto PLUTOO_HAS_DOG / DOG_ID qui, perché al refresh Firebase può passare da user=null per un istante.
-      // Il reset "vero" (Home/entered=0 + clear DOG) avviene SOLO su Logout esplicito / Delete account.
 
       if (linkLogin) {
         linkLogin.setAttribute("data-i18n", "login");
@@ -853,19 +857,18 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
         linkRegister.style.display = "";
       }
 
+      runPresenceAfterAuth();
       return;
     }
 
-    // ===== LOGGATO =====
     window.PLUTOO_UID = user.uid;
 
     if (linkLogin) {
       linkLogin.removeAttribute("data-i18n");
       linkLogin.textContent = "Logout";
-      // ✅ NON fare logout qui: deve solo aprire la tendina account
       linkLogin.onclick = (e) => {
         e.preventDefault();
-        window.openAuth("login"); // mostrerà "già loggato" grazie al tuo override
+        window.openAuth("login");
       };
     }
 
@@ -873,7 +876,6 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
       linkRegister.style.display = "none";
     }
 
-    // ✅ FIRESTORE: crea/aggiorna users/{uid} (source of truth account)
     try {
       if (db && window.PLUTOO_UID) {
         const uid = String(window.PLUTOO_UID);
@@ -896,11 +898,10 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
       console.error("users/{uid} upsert error:", e);
     }
 
-    // 🔒 evita boot multipli sullo stesso UID
+    runPresenceAfterAuth();
+
     if (!window.__booted) {
       window.__booted = true;
-
-      // 🚀 avvio app (una volta sola: già protetto da window.__booted)
       if (typeof init === "function") init();
     }
 
@@ -941,93 +942,84 @@ if (isAndroidWebView) {
   let CURRENT_USER_DOG_ID = String(localStorage.getItem("currentDogId") || localStorage.getItem("dogId") || "d1");
 
   // ============ Stato (caricato da localStorage dove possibile) ============
-  const state = {
-    // UX / navigazione
-    entered: localStorage.getItem("entered") === "1",
-    currentView: localStorage.getItem("currentView") || "nearby",
-    viewHistory: [],
-    processingSwipe: false,
+const state = {
+  // UX / navigazione
+  entered: localStorage.getItem("entered") === "1",
+  currentView: localStorage.getItem("currentView") || "nearby",
+  viewHistory: [],
+  processingSwipe: false,
 
-    // ===== Profile / Docs / Selfie (required for profile open) =====
-ownerDocsUploaded: {},
-dogDocsUploaded: {},
-selfieUntilByDog: {},
-ownerSocialByDog: {},
+  // lingua
+  lang: localStorage.getItem("lang") || "it",
 
-    // lingua
-    lang: localStorage.getItem("lang") || "it",
+  // PLUS
+  plus: localStorage.getItem("plutoo_plus") === "yes",
+  plusPlan: localStorage.getItem("plusPlan") || "monthly",
 
-    // PLUS
-    plus: localStorage.getItem("plutoo_plus") === "yes",
-    plusPlan: localStorage.getItem("plusPlan") || "monthly",
+  // Filtri
+  filters: {
+    breed:        localStorage.getItem("f_breed") || "",
+    distKm:       parseInt(localStorage.getItem("f_distKm") || "50", 10),
+    verified:     localStorage.getItem("f_verified") === "1",
+    sex:          localStorage.getItem("f_sex") || "",
+    ageMin:       localStorage.getItem("f_ageMin") || "",
+    ageMax:       localStorage.getItem("f_ageMax") || "",
+    weight:       localStorage.getItem("f_weight") || "",
+    height:       localStorage.getItem("f_height") || "",
+    pedigree:     localStorage.getItem("f_pedigree") || "",
+    breeding:     localStorage.getItem("f_breeding") || "",
+    size:         localStorage.getItem("f_size") || "",
+  },
 
-    // Filtri
-    filters: {
-      breed:        localStorage.getItem("f_breed") || "",
-      distKm:       parseInt(localStorage.getItem("f_distKm") || "50", 10),
-      verified:     localStorage.getItem("f_verified") === "1",
-      sex:          localStorage.getItem("f_sex") || "",
-      ageMin:       localStorage.getItem("f_ageMin") || "",
-      ageMax:       localStorage.getItem("f_ageMax") || "",
-      weight:       localStorage.getItem("f_weight") || "",
-      height:       localStorage.getItem("f_height") || "",
-      pedigree:     localStorage.getItem("f_pedigree") || "",
-      breeding:     localStorage.getItem("f_breeding") || "",
-      size:         localStorage.getItem("f_size") || "",
-    },
+  // Swipe & rewards
+  swipeCount: parseInt(localStorage.getItem("swipes") || "0", 10),
+  nextRewardAt: parseInt(localStorage.getItem("nextRewardAt") || "10", 10),
+  rewardOpen: false,
 
-    // Swipe & rewards
-    swipeCount: parseInt(localStorage.getItem("swipes") || "0", 10),
-    nextRewardAt: parseInt(localStorage.getItem("nextRewardAt") || "10", 10),
-    rewardOpen: false,
+  // Match / amicizie / chat
+  matches: JSON.parse(localStorage.getItem("matches") || "{}"),
+  friendships: JSON.parse(localStorage.getItem("friendships") || "{}"),
+  chatMessagesSent: JSON.parse(localStorage.getItem("chatMessagesSent") || "{}"),
+  matchCount: Number(localStorage.getItem("matchCount") || "0"),
 
-    // Match / amicizie / chat
-    matches: JSON.parse(localStorage.getItem("matches") || "{}"),
-    friendships: JSON.parse(localStorage.getItem("friendships") || "{}"),
-    chatMessagesSent: JSON.parse(localStorage.getItem("chatMessagesSent") || "{}"),
-    matchCount: Number(localStorage.getItem("matchCount") || "0"),
+  // Selfie unlock (per DOG)
+  selfieUntilByDog: JSON.parse(localStorage.getItem("selfieUntilByDog") || "{}"),
 
-    // Selfie unlock (per DOG)
-    selfieUntilByDog: JSON.parse(localStorage.getItem("selfieUntilByDog") || "{}"),
+  // Rewards già visti per social
+  socialRewardViewed: JSON.parse(localStorage.getItem("socialRewardViewed") || "{}"),
 
-    // Rewards già visti per social
-    socialRewardViewed: JSON.parse(localStorage.getItem("socialRewardViewed") || "{}"),
+  // Dati caricati (docs)
+  ownerDocsUploaded: JSON.parse(localStorage.getItem("ownerDocsUploaded") || "{}"),
+  dogDocsUploaded: JSON.parse(localStorage.getItem("dogDocsUploaded") || "{}"),
 
-    // Dati caricati (docs)
-    ownerDocsUploaded: JSON.parse(localStorage.getItem("ownerDocsUploaded") || "{}"),
-    dogDocsUploaded: JSON.parse(localStorage.getItem("dogDocsUploaded") || "{}"),
+  // Stories
+  storyOpen: false,
 
-    // Stories
-    storyOpen: false,
+  // Indici deck
+  currentLoveIdx: 0,
+  currentPlayIdx: 0,
 
-    // Indici deck
-    currentLoveIdx: 0,
-    currentPlayIdx: 0,
+  // Geo
+  geo: null,
 
-    // Geo
-    geo: null,
+  // Razze
+  breeds: [],
 
-    // Razze
-    breeds: [],
+  // Profilo corrente
+  currentDogProfile: null,
+  previousViewForMessages: "nearby",
 
-    // Profilo corrente
-    currentDogProfile: null,
-    previousViewForMessages: "nearby",
+  // Follow / seguiti (mock locale)
+  followersByDog: JSON.parse(localStorage.getItem("followersByDog") || "{}"),
+  followingByDog: JSON.parse(localStorage.getItem("followingByDog") || "{}"),
+  ownerSocialByDog: JSON.parse(localStorage.getItem("ownerSocialByDog") || "{}"),
 
-    // Follow / seguiti (mock locale)
-    followersByDog: 
-      JSON.parse(localStorage.getItem("followersByDog") || "{}"),
-    followingByDog: 
-      JSON.parse(localStorage.getItem("followingByDog") || "{}"),
-    ownerSocialByDog: 
-      JSON.parse(localStorage.getItem("ownerSocialByDog") || "{}"),
+  // Like foto profilo
+  photoLikesByDog: JSON.parse(localStorage.getItem("photoLikesByDog") || "{}"),
 
-    // Like foto profilo
-    photoLikesByDog: JSON.parse(localStorage.getItem("photoLikesByDog") || "{}"),
-
-    // Like stories (per media id)
-    storyLikesByMedia: JSON.parse(localStorage.getItem("storyLikesByMedia") || "{}"),
-  };
+  // Like stories (per media id)
+  storyLikesByMedia: JSON.parse(localStorage.getItem("storyLikesByMedia") || "{}"),
+};
 
 // ✅ FIX DEFINITIVO: una sola sorgente di verità per la lingua e per tutte le funzioni che usano window.state
   window.state = state;
@@ -1182,7 +1174,9 @@ ownerSocialByDog: {},
       if (!userStory) return 0;
       return userStory.media.filter(m => new Date(m.timestamp).toDateString() === today).length;
     },
-    canUploadStory() { return state.plus || this.getTodayStoriesCount() < STORIES_CONFIG.FREE_DAILY_LIMIT; },
+    canUploadStory() { 
+  return !!state.plus; 
+    },
     generateMockStories() {
       return [
        { userId:"d1", userName:"Luna", avatar:"dog1.jpg", verified:true, isDemo:true,
@@ -1201,69 +1195,6 @@ ownerSocialByDog: {},
   };
   
   window.StoriesState = StoriesState;
-
-  // ============ HOME: ENTRA (con animazione WOW) ============
-  btnEnter?.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    try { localStorage.setItem("entered", "1"); } catch(err){}
-    state.entered = true;
-
-  const bark = document.getElementById("dogBark");
-if (bark) {
-  bark.currentTime = 0;
-  bark.volume = 0.5;
-  const playPromise = bark.play();
-  if (playPromise && typeof playPromise.then === "function") {
-    playPromise.catch(() => {
-      // in produzione niente alert, al massimo in futuro un log silenzioso
-    });
-  }
-}
-
-    if (heroLogo) {
-      heroLogo.classList.remove("heartbeat-violet", "heartbeat-violet-wow");
-      void heroLogo.offsetWidth;
-      heroLogo.classList.add("heartbeat-violet-wow");
-    }
-
-    const flash = document.getElementById("whiteFlash");
-    if (flash) {
-      flash.classList.add("active");
-    }
-
-    setTimeout(() => {
-      appScreen?.classList.remove("hidden");
-      document.body.classList.remove("story-open");
-
-      if (typeof initStories === "function") {
-        initStories();
-      }
-      setActiveView(state.currentView);
-    }, 500);
-
-    setTimeout(() => {
-      homeScreen?.classList.add("hidden");
-      const flash2 = document.getElementById("whiteFlash");
-      if (flash2) {
-        flash2.classList.remove("active");
-      }
-      if (heroLogo) {
-        heroLogo.style.transition = "opacity 1.5s ease-out";
-        heroLogo.style.opacity = "0";
-        showAdBanner();
-      }
-    }, 2000);
-
-    setTimeout(() => {
-      if (heroLogo) {
-        heroLogo.classList.remove("heartbeat-violet-wow");
-        heroLogo.style.opacity = "";
-        heroLogo.style.transition = "";
-      }
-    }, 3500);
-  });
 
   if (state.entered) {
     homeScreen?.classList.add("hidden");
@@ -3657,7 +3588,7 @@ window.openProfilePage = (d) => {
 
     ${d.bio || ""}
 
-    ${storiesHTML}
+    ${""}
 
     <h3 class="section-title">${state.lang === "it" ? "Galleria" : "Gallery"}</h3>
     <div class="gallery" id="dogGallery"></div>
@@ -4657,6 +4588,295 @@ const newDogId = dogRef.id;
         });
       });
 
+      // ===============================
+// ✅ OWNER-ONLY: Profile Settings + Edit Socials (BIND) — STABILE
+// ===============================
+(function bindOwnerOnlyProfileButtons() {
+  try {
+    if (!d || !d.id) return;
+
+    const myDogId = String(window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id") || "");
+    const hasDog  = (window.PLUTOO_HAS_DOG === true || localStorage.getItem("plutoo_has_dog") === "1");
+    const isOwnerViewing = hasDog && myDogId && String(d.id) === myDogId;
+    if (!isOwnerViewing) return;
+
+    if (!state || typeof state !== "object") return;
+    if (!state.ownerSocialByDog || typeof state.ownerSocialByDog !== "object") state.ownerSocialByDog = {};
+
+    const closeExisting = (id) => {
+      const old = document.getElementById(id);
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+    };
+
+    const normalizeUrl = (u) => {
+      const s = String(u || "").trim();
+      if (!s) return "";
+      if (/^https?:\/\//i.test(s)) return s;
+      return "https://" + s.replace(/^\/+/, "");
+    };
+
+    // =========================
+    // 1) IMPOSTAZIONI PROFILO (full screen stabile, no router)
+    // =========================
+    const btnSettings0 = document.getElementById("btnProfileSettings");
+    if (btnSettings0) {
+      const btnSettings = btnSettings0.cloneNode(true);
+      btnSettings0.parentNode.replaceChild(btnSettings, btnSettings0);
+
+      btnSettings.addEventListener("click", () => {
+        closeExisting("plutooProfileSettingsView");
+
+        const wrap = document.createElement("div");
+        wrap.id = "plutooProfileSettingsView";
+        wrap.style.position = "fixed";
+        wrap.style.left = "0";
+        wrap.style.top = "0";
+        wrap.style.right = "0";
+        wrap.style.bottom = "0";
+        wrap.style.zIndex = "99999";
+        wrap.style.background = "rgba(0,0,0,.86)";
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+
+        const card = document.createElement("div");
+        card.style.margin = "12px";
+        card.style.borderRadius = "18px";
+        card.style.border = "1px solid rgba(255,255,255,.10)";
+        card.style.background = "#121218";
+        card.style.padding = "14px";
+        card.style.display = "flex";
+        card.style.flexDirection = "column";
+        card.style.gap = "10px";
+        card.style.flex = "1";
+        card.style.overflow = "auto";
+
+        const title = document.createElement("div");
+        title.style.fontWeight = "900";
+        title.style.fontSize = "1.05rem";
+        title.textContent = (state.lang === "it") ? "Impostazioni profilo" : "Profile settings";
+
+        const bioLabel = document.createElement("div");
+        bioLabel.style.opacity = ".85";
+        bioLabel.style.fontWeight = "800";
+        bioLabel.textContent = (state.lang === "it") ? "Bio del DOG" : "DOG bio";
+
+        const bio = document.createElement("textarea");
+        bio.rows = 5;
+        bio.value = String(d.bio || "");
+        bio.placeholder = (state.lang === "it")
+          ? "Scrivi una breve descrizione del tuo DOG…"
+          : "Write a short description of your DOG…";
+        bio.style.width = "100%";
+        bio.style.background = "transparent";
+        bio.style.border = "1px solid rgba(255,255,255,.12)";
+        bio.style.borderRadius = "14px";
+        bio.style.padding = "10px 12px";
+        bio.style.color = "inherit";
+        bio.style.resize = "vertical";
+        bio.style.minHeight = "120px";
+
+        const feedback = document.createElement("div");
+        feedback.style.display = "none";
+        feedback.style.padding = ".65rem .8rem";
+        feedback.style.borderRadius = "14px";
+        feedback.style.fontWeight = "900";
+
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.gap = ".6rem";
+        row.style.marginTop = "8px";
+
+        const btnBack = document.createElement("button");
+        btnBack.type = "button";
+        btnBack.className = "btn ghost";
+        btnBack.style.flex = "1";
+        btnBack.textContent = (state.lang === "it") ? "← Indietro" : "← Back";
+
+        const btnSave = document.createElement("button");
+        btnSave.type = "button";
+        btnSave.className = "btn accent";
+        btnSave.style.flex = "1";
+        btnSave.textContent = (state.lang === "it") ? "Salva" : "Save";
+
+        btnBack.addEventListener("click", () => closeExisting("plutooProfileSettingsView"));
+        wrap.addEventListener("click", (e) => { if (e.target === wrap) closeExisting("plutooProfileSettingsView"); });
+
+        btnSave.addEventListener("click", async () => {
+          const newBio = String(bio.value || "").trim();
+
+          feedback.style.display = "block";
+          feedback.style.border = "1px solid rgba(205,164,52,.35)";
+          feedback.style.background = "rgba(205,164,52,.10)";
+          feedback.style.color = "#CDA434";
+          feedback.textContent = (state.lang === "it") ? "Salvataggio in corso..." : "Saving...";
+
+          try {
+            const db = window.db || null;
+
+            // dogs/{uid} => docId = d.id (owner viewing)
+            if (db) {
+              const dogRef = db.collection("dogs").doc(String(d.id));
+              const ts = (window.firebase && firebase.firestore && firebase.firestore.FieldValue && firebase.firestore.FieldValue.serverTimestamp)
+                ? firebase.firestore.FieldValue.serverTimestamp()
+                : new Date();
+              await dogRef.set({ bio: newBio, updatedAt: ts }, { merge: true });
+            }
+
+            d.bio = newBio;
+
+            try {
+              if (Array.isArray(state.dogs)) {
+                const idx = state.dogs.findIndex(x => String(x && x.id) === String(d.id));
+                if (idx >= 0) {
+                  state.dogs[idx].bio = newBio;
+                  localStorage.setItem("dogs", JSON.stringify(state.dogs));
+                }
+              }
+            } catch (_) {}
+
+            feedback.style.border = "1px solid rgba(60,200,120,.45)";
+            feedback.style.background = "rgba(60,200,120,.10)";
+            feedback.style.color = "#bff7d6";
+            feedback.textContent = (state.lang === "it") ? "✅ Bio salvata" : "✅ Bio saved";
+
+            setTimeout(() => {
+              closeExisting("plutooProfileSettingsView");
+              if (typeof window.openProfilePage === "function") window.openProfilePage(d);
+            }, 450);
+
+          } catch (e) {
+            try { console.error("Profile bio save error:", e); } catch (_) {}
+            feedback.style.border = "1px solid rgba(255,80,80,.45)";
+            feedback.style.background = "rgba(255,0,0,.08)";
+            feedback.style.color = "#ffb3b3";
+            feedback.textContent = (state.lang === "it") ? "❌ Errore salvataggio bio" : "❌ Bio save error";
+          }
+        });
+
+        row.appendChild(btnBack);
+        row.appendChild(btnSave);
+
+        card.appendChild(title);
+        card.appendChild(bioLabel);
+        card.appendChild(bio);
+        card.appendChild(feedback);
+        card.appendChild(row);
+
+        wrap.appendChild(card);
+        document.body.appendChild(wrap);
+      });
+    }
+
+    // =========================
+    // 2) MODIFICA SOCIAL (sheet leggero stabile)
+    // =========================
+    const btnSocial0 = document.getElementById("btnEditSocial");
+    if (btnSocial0) {
+      const btnSocial = btnSocial0.cloneNode(true);
+      btnSocial0.parentNode.replaceChild(btnSocial, btnSocial0);
+
+      btnSocial.addEventListener("click", () => {
+        closeExisting("plutooEditSocialSheet");
+
+        const saved = (state.ownerSocialByDog && state.ownerSocialByDog[d.id]) ? state.ownerSocialByDog[d.id] : {};
+
+        const wrap = document.createElement("div");
+        wrap.id = "plutooEditSocialSheet";
+        wrap.style.position = "fixed";
+        wrap.style.left = "0";
+        wrap.style.top = "0";
+        wrap.style.right = "0";
+        wrap.style.bottom = "0";
+        wrap.style.zIndex = "99999";
+        wrap.style.background = "rgba(0,0,0,.70)";
+        wrap.style.display = "flex";
+        wrap.style.alignItems = "flex-end";
+
+        const sheet = document.createElement("div");
+        sheet.style.width = "100%";
+        sheet.style.borderTopLeftRadius = "20px";
+        sheet.style.borderTopRightRadius = "20px";
+        sheet.style.border = "1px solid rgba(255,255,255,.10)";
+        sheet.style.background = "#121218";
+        sheet.style.padding = "14px";
+        sheet.style.boxSizing = "border-box";
+
+        sheet.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div style="font-weight:900;font-size:1.05rem;">
+              ${state.lang === "it" ? "Modifica social" : "Edit socials"}
+            </div>
+            <button type="button" id="plutooCloseSocialSheet" class="btn ghost" style="padding:.45rem .7rem;">✕</button>
+          </div>
+
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+            <input id="plutooSocialInstagram" type="text" value="${String(saved.instagram || "")}"
+              placeholder="Instagram URL"
+              style="width:100%;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;color:inherit;outline:none" />
+
+            <input id="plutooSocialFacebook" type="text" value="${String(saved.facebook || "")}"
+              placeholder="Facebook URL"
+              style="width:100%;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;color:inherit;outline:none" />
+
+            <input id="plutooSocialTiktok" type="text" value="${String(saved.tiktok || "")}"
+              placeholder="TikTok URL"
+              style="width:100%;background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;color:inherit;outline:none" />
+
+            <div id="plutooSocialSaveFeedback" style="display:none;padding:.65rem .8rem;border-radius:14px;font-weight:900;"></div>
+
+            <button type="button" id="plutooSaveSocialSheet" class="btn accent" style="width:100%;justify-content:center;">
+              ${state.lang === "it" ? "Salva" : "Save"}
+            </button>
+          </div>
+        `;
+
+        wrap.addEventListener("click", (e) => { if (e.target === wrap) closeExisting("plutooEditSocialSheet"); });
+
+        document.body.appendChild(wrap);
+        wrap.appendChild(sheet);
+
+        const closeBtn = document.getElementById("plutooCloseSocialSheet");
+        if (closeBtn) closeBtn.onclick = () => closeExisting("plutooEditSocialSheet");
+
+        const saveBtn = document.getElementById("plutooSaveSocialSheet");
+        const fbEl = document.getElementById("plutooSocialFacebook");
+        const igEl = document.getElementById("plutooSocialInstagram");
+        const ttEl = document.getElementById("plutooSocialTiktok");
+        const fbk = document.getElementById("plutooSocialSaveFeedback");
+
+        if (saveBtn) {
+          saveBtn.onclick = () => {
+            const next = {
+              instagram: normalizeUrl(igEl ? igEl.value : ""),
+              facebook:  normalizeUrl(fbEl ? fbEl.value : ""),
+              tiktok:    normalizeUrl(ttEl ? ttEl.value : "")
+            };
+
+            state.ownerSocialByDog[d.id] = next;
+            try { localStorage.setItem("ownerSocialByDog", JSON.stringify(state.ownerSocialByDog)); } catch (_) {}
+
+            if (fbk) {
+              fbk.style.display = "block";
+              fbk.style.border = "1px solid rgba(60,200,120,.45)";
+              fbk.style.background = "rgba(60,200,120,.10)";
+              fbk.style.color = "#bff7d6";
+              fbk.textContent = (state.lang === "it") ? "✅ Social salvati" : "✅ Social saved";
+            }
+
+            setTimeout(() => {
+              closeExisting("plutooEditSocialSheet");
+              if (typeof window.openProfilePage === "function") window.openProfilePage(d);
+            }, 450);
+          };
+        }
+      });
+    }
+
+  } catch (e) {
+    console.error("bindOwnerOnlyProfileButtons error:", e);
+  }
+})();
+
       // --- DOCS: apertura file picker + salvataggio stato ---
       // ✅ bind-once per docs: se già presente input nel profilo, non crearne altri
       let docFileInput = qs('input[data-doc-picker="1"]', profileContent);
@@ -5430,29 +5650,41 @@ async function init(){
   }
 
   function renderStoryViewer() {
-    const story = StoriesState.stories.find(
-      (s) => s.userId === StoriesState.currentStoryUserId
-    );
-    if (!story) return;
+  const story = StoriesState.stories.find(
+    (s) => s.userId === StoriesState.currentStoryUserId
+  );
+  if (!story) return;
 
-    const visibleMedia = getVisibleMediaList(story);
-    if (!visibleMedia.length) {
-      closeStoryViewer();
-      return;
+  const visibleMedia = getVisibleMediaList(story);
+  if (!visibleMedia.length) {
+    closeStoryViewer();
+    return;
+  }
+
+  const media = visibleMedia[StoriesState.currentMediaIndex];
+  if (!media) return;
+
+  $("storyUserAvatar").src = story.avatar;
+  $("storyUserName").textContent = story.userName;
+  $("storyTimestamp").textContent = getTimeAgo(media.timestamp);
+
+  // ✅ mostra "Elimina" solo sui tuoi aggiornamenti
+  const deleteBtn = $("deleteStoryBtn");
+  if (deleteBtn) {
+    if (story.userId === "currentUser") {
+      deleteBtn.classList.remove("hidden");
+      deleteBtn.onclick = deleteCurrentStoryMedia;
+    } else {
+      deleteBtn.classList.add("hidden");
+      deleteBtn.onclick = null;
     }
+  }
 
-    const media = visibleMedia[StoriesState.currentMediaIndex];
-    if (!media) return;
+  renderProgressBars(visibleMedia.length);
+  renderStoryContent(media);
 
-    $("storyUserAvatar").src = story.avatar;
-    $("storyUserName").textContent = story.userName;
-    $("storyTimestamp").textContent = getTimeAgo(media.timestamp);
-
-    renderProgressBars(visibleMedia.length);
-    renderStoryContent(media);
-
-    media.viewed = true;
-    StoriesState.saveStories();
+  media.viewed = true;
+  StoriesState.saveStories();
   }
 
   function renderProgressBars(count) {
@@ -5491,6 +5723,25 @@ async function init(){
       img.alt = "Story";
       img.className = `filter-${media.filter}`;
       content.appendChild(img);
+      
+      // ===== TEXT OVERLAY =====
+if (media.text && media.text.trim() !== "") {
+  const text = document.createElement("div");
+  text.className = "story-text-overlay";
+  text.innerText = media.text;
+
+  text.style.position = "absolute";
+  text.style.left = (media.textX * 100) + "%";
+  text.style.top = (media.textY * 100) + "%";
+  text.style.transform = "translate(-50%, -50%)";
+  text.style.color = media.textColor || "#ffffff";
+  text.style.fontSize = "22px";
+  text.style.fontWeight = "600";
+  text.style.textAlign = "center";
+  text.style.textShadow = "0 2px 8px rgba(0,0,0,.9)";
+
+  content.appendChild(text);
+}
     } else if (media.type === "video") {
       const video = document.createElement("video");
       video.src = media.url;
@@ -5601,6 +5852,48 @@ async function init(){
     renderStoriesBar();
   }
 
+function deleteCurrentStoryMedia() {
+  const story = StoriesState.stories.find(
+    (s) => s.userId === StoriesState.currentStoryUserId
+  );
+  if (!story) return;
+
+  const visibleMedia = getVisibleMediaList(story);
+  const currentMedia = visibleMedia[StoriesState.currentMediaIndex];
+  if (!currentMedia) return;
+
+  const ok = confirm(
+    state.lang === "it"
+      ? "Vuoi eliminare questo aggiornamento?"
+      : "Do you want to delete this update?"
+  );
+  if (!ok) return;
+
+  // rimuove il media corrente usando l'id
+  story.media = (story.media || []).filter(m => m && m.id !== currentMedia.id);
+
+  // se non resta nulla, rimuove tutta la story dell'utente
+  if (!story.media.length) {
+    StoriesState.stories = StoriesState.stories.filter(
+      s => s.userId !== StoriesState.currentStoryUserId
+    );
+    StoriesState.saveStories();
+    closeStoryViewer();
+    renderStoriesBar();
+    return;
+  }
+
+  // se l'indice attuale supera il nuovo totale, torna all'ultimo valido
+  const newVisible = getVisibleMediaList(story);
+  if (StoriesState.currentMediaIndex >= newVisible.length) {
+    StoriesState.currentMediaIndex = Math.max(0, newVisible.length - 1);
+  }
+
+  StoriesState.saveStories();
+  renderStoryViewer();
+  renderStoriesBar();
+}
+
   function getTimeAgo(timestamp) {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
     if (seconds < 60) return "ora";
@@ -5650,13 +5943,14 @@ function pruneStories24h() {
       const before = s.media.length;
       s.media = s.media.filter(m => {
         if (!m) return false;
-        const exp = typeof m.expiresAt === "number" ? m.expiresAt : (typeof m.timestamp === "number" ? (m.timestamp + 24 * 60 * 60 * 1000) : 0);
+        const exp = typeof m.expiresAt === "number"
+          ? m.expiresAt
+          : (typeof m.timestamp === "number" ? (m.timestamp + 24 * 60 * 60 * 1000) : 0);
         return exp > now;
       });
       if (s.media.length !== before) changed = true;
     });
 
-    // rimuovi storie vuote
     const beforeStories = StoriesState.stories.length;
     StoriesState.stories = StoriesState.stories.filter(s => s && Array.isArray(s.media) && s.media.length > 0);
     if (StoriesState.stories.length !== beforeStories) changed = true;
@@ -5671,18 +5965,30 @@ function resetUploadModalUI() {
   if (step1) step1.classList.add("active");
   if (step2) step2.classList.remove("active");
 
+  // ripristina upload zone (se era stata nascosta dopo selezione)
+  try {
+    const zone = step1 ? qs(".upload-zone", step1) : null;
+    if (zone) zone.style.display = "";
+  } catch (_) {}
+
   const preview = $("uploadPreview");
   if (preview) {
     preview.innerHTML = "";
     preview.classList.add("hidden");
     preview.dataset.type = "";
     preview.dataset.hasMedia = "false";
+    preview.dataset.mediaUrl = "";
+    preview.dataset.mediaMime = "";
   }
 
+  // preview nello step 2 (div .upload-preview senza id)
+  try {
+    const step2Preview = $("uploadStoryStep2") ? qs(".upload-preview", $("uploadStoryStep2")) : null;
+    if (step2Preview) step2Preview.innerHTML = "";
+  } catch (_) {}
+
   const nextBtn = $("nextToCustomize");
-  if (nextBtn) {
-    nextBtn.disabled = true;
-  }
+  if (nextBtn) nextBtn.disabled = true;
 
   const fileInput = $("storyFileInput");
   if (fileInput) fileInput.value = "";
@@ -5691,16 +5997,20 @@ function resetUploadModalUI() {
     StoriesState.uploadedFile = null;
     StoriesState.selectedFilter = StoriesState.selectedFilter || "none";
     StoriesState.selectedMusic = StoriesState.selectedMusic || "";
+    StoriesState.__publishing = false;
   }
 }
 
 function openUploadModal() {
   pruneStories24h();
 
+  // ✅ SOLO PLUS può pubblicare (messaggio definitivo)
   if (!StoriesState.canUploadStory()) {
-    showToast(state.lang === "it"
-      ? "Limite giornaliero Stories raggiunto"
-      : "Daily stories limit reached");
+    const msg = state.lang === "it"
+      ? "Gli Aggiornamenti DOG sono disponibili con Plutoo Plus.\nAttiva Plus per pubblicare aggiornamenti del tuo DOG."
+      : "DOG Updates are available with Plutoo Plus.\nActivate Plus to publish updates of your DOG.";
+    if (typeof showToast === "function") showToast(msg, "error");
+    else alert(msg);
     return;
   }
 
@@ -5726,58 +6036,67 @@ function handleFileSelect(e) {
   preview.classList.remove("hidden");
   preview.dataset.type = "";
   preview.dataset.hasMedia = "false";
+  preview.dataset.mediaUrl = "";
+  preview.dataset.mediaMime = "";
 
   const isImage = file.type && file.type.startsWith("image/");
   const isVideo = file.type && file.type.startsWith("video/");
 
-  if (!isImage && !isVideo) {
-    alert("Formato non supportato. Usa solo foto o video.");
+  // ✅ MODELLO DEFINITIVO: solo immagini (Aggiornamenti DOG)
+  if (!isImage) {
+    alert(state.lang === "it" ? "Formato non supportato. Usa solo una FOTO." : "Unsupported format. Use PHOTO only.");
     return;
   }
 
-  if (isImage && file.size > STORIES_CONFIG.MAX_PHOTO_SIZE) {
-    alert("Foto troppo grande. Riduci la dimensione e riprova.");
-    return;
-  }
-  if (isVideo && file.size > STORIES_CONFIG.MAX_VIDEO_SIZE) {
-    alert("Video troppo grande. Riduci la durata/dimensione e riprova.");
+  if (file.size > STORIES_CONFIG.MAX_PHOTO_SIZE) {
+    alert(state.lang === "it" ? "Foto troppo grande. Riduci la dimensione e riprova." : "Photo too large. Reduce size and retry.");
     return;
   }
 
   const reader = new FileReader();
 
   reader.onload = function (event) {
-    const base64 = event.target.result;
+    const dataUrl = event && event.target ? event.target.result : "";
+    if (!dataUrl) {
+      alert(state.lang === "it" ? "Errore nel caricamento del file. Riprova." : "File load error. Retry.");
+      return;
+    }
 
+    // ✅ salva in stato + anche su dataset (anti-perdita tra step)
     StoriesState.uploadedFile = {
-      type: isImage ? "image" : "video",
-      url: base64,
+      type: "image",
+      url: dataUrl,
       mime: file.type,
       size: file.size
     };
 
-    if (isImage) {
-      preview.innerHTML = `<img src="${base64}" alt="Story" />`;
-      preview.dataset.type = "image";
-    } else {
-      preview.innerHTML = `<video src="${base64}" controls playsinline muted></video>`;
-      preview.dataset.type = "video";
-    }
-
+    preview.innerHTML = `<img src="${dataUrl}" alt="Aggiornamento" />`;
+    preview.dataset.type = "image";
     preview.dataset.hasMedia = "true";
+    preview.dataset.mediaUrl = dataUrl;
+    preview.dataset.mediaMime = file.type || "image/*";
+
+    // ✅ dopo selezione: sparisce box upload, resta solo foto
+    try {
+      const step1 = $("uploadStoryStep1");
+      const zone = step1 ? qs(".upload-zone", step1) : null;
+      if (zone) zone.style.display = "none";
+    } catch (_) {}
 
     const nextBtn = $("nextToCustomize");
     if (nextBtn) nextBtn.disabled = false;
   };
 
   reader.onerror = function () {
-    alert("Errore nel caricamento del file. Riprova.");
+    alert(state.lang === "it" ? "Errore nel caricamento del file. Riprova." : "File load error. Retry.");
     StoriesState.uploadedFile = null;
 
     preview.innerHTML = "";
     preview.classList.add("hidden");
     preview.dataset.type = "";
     preview.dataset.hasMedia = "false";
+    preview.dataset.mediaUrl = "";
+    preview.dataset.mediaMime = "";
 
     const nextBtn = $("nextToCustomize");
     if (nextBtn) nextBtn.disabled = true;
@@ -5791,9 +6110,202 @@ function showCustomizeStep() {
   const step2 = $("uploadStoryStep2");
   if (!step1 || !step2) return;
 
+  // ✅ copia la stessa foto nello step2 (evita “pagina 2 vuota / box sopra”)
+  try {
+    const preview = $("uploadPreview");
+    const step2Preview = qs(".upload-preview", step2);
+    if (step2Preview) {
+      const dataUrl = preview && preview.dataset ? (preview.dataset.mediaUrl || "") : "";
+      if (dataUrl) step2Preview.innerHTML = `<img src="${dataUrl}" alt="Aggiornamento" />`;
+      else step2Preview.innerHTML = "";
+
+      // ====== ✅ EDITOR TESTO OVERLAY (Instagram-like) ======
+      try {
+        // assicura container posizionato
+        step2Preview.style.position = "relative";
+
+        // ✅ FIX: evita scroll/gesture che bloccano il drag verticale in WebView
+        step2Preview.style.touchAction = "none";
+
+        // textarea esistente (lo usiamo come storage, anche se non lo vuoi vedere)
+        const ta = document.getElementById("storyTextInput");
+        if (ta) {
+          ta.style.opacity = "0";
+          ta.style.pointerEvents = "none";
+          ta.style.position = "absolute";
+          ta.style.left = "-9999px";
+        }
+
+        // crea/riusa overlay
+        let overlay = step2Preview.querySelector(".story-text-overlay-editor");
+        if (!overlay) {
+          overlay = document.createElement("div");
+          overlay.className = "story-text-overlay-editor";
+          overlay.setAttribute("contenteditable", "true");
+          overlay.setAttribute("spellcheck", "false");
+
+          overlay.style.position = "absolute";
+          overlay.style.left = "50%";
+          overlay.style.top = "75%";
+          overlay.style.transform = "translate(-50%, -50%)";
+          overlay.style.padding = "6px 10px";
+          overlay.style.borderRadius = "14px";
+          overlay.style.maxWidth = "92%";
+          overlay.style.minWidth = "40px";
+          overlay.style.outline = "none";
+          overlay.style.textAlign = "center";
+          overlay.style.fontSize = "22px";
+          overlay.style.fontWeight = "700";
+          overlay.style.lineHeight = "1.15";
+          overlay.style.color = "#ffffff";
+          overlay.style.textShadow = "0 2px 10px rgba(0,0,0,.85)";
+          overlay.style.background = "rgba(0,0,0,.10)";
+
+          // ✅ FIX DRAG ANDROID/WEBVIEW
+          overlay.style.touchAction = "none";
+
+          step2Preview.appendChild(overlay);
+
+          // tap sulla foto → focus testo (tastiera)
+          const imgEl = step2Preview.querySelector("img");
+          if (imgEl) {
+            imgEl.style.display = "block";
+            imgEl.style.width = "100%";
+            imgEl.style.height = "100%";
+            imgEl.style.objectFit = "cover";
+            imgEl.addEventListener("click", () => {
+              overlay.focus();
+            });
+          }
+
+          // ✅ ENTER/INVIO: conferma testo (no a-capo) + chiudi tastiera
+          overlay.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter") {
+              ev.preventDefault();
+              overlay.blur();
+            }
+          });
+
+          // ✅ tap fuori dal testo: chiudi tastiera
+          step2Preview.addEventListener("pointerdown", (ev) => {
+            const inside = ev.target && ev.target.closest ? ev.target.closest(".story-text-overlay-editor") : null;
+            if (!inside) {
+              try { overlay.blur(); } catch (_) {}
+            }
+          });
+
+          // sync testo su textarea (per publishStory già esistente)
+          overlay.addEventListener("input", () => {
+            if (ta) ta.value = overlay.innerText || "";
+          });
+
+          // doppio tap/click → toggle colore (bianco/nero)
+          overlay.addEventListener("dblclick", (ev) => {
+            ev.preventDefault();
+            const cur = (overlay.dataset && overlay.dataset.color) ? overlay.dataset.color : "white";
+            const next = (cur === "white") ? "black" : "white";
+            if (overlay.dataset) overlay.dataset.color = next;
+
+            if (next === "black") {
+              overlay.style.color = "#111111";
+              overlay.style.textShadow = "0 2px 10px rgba(255,255,255,.55)";
+              overlay.style.background = "rgba(255,255,255,.14)";
+            } else {
+              overlay.style.color = "#ffffff";
+              overlay.style.textShadow = "0 2px 10px rgba(0,0,0,.85)";
+              overlay.style.background = "rgba(0,0,0,.10)";
+            }
+          });
+
+          // drag con dito (pointer)
+          let dragging = false;
+          let startX = 0, startY = 0;
+          let startLeft = 0, startTop = 0;
+
+          overlay.addEventListener("pointerdown", (ev) => {
+            dragging = true;
+
+            // ✅ FIX: durante drag non selezionare testo
+            overlay.style.userSelect = "none";
+            overlay.style.webkitUserSelect = "none";
+
+            overlay.setPointerCapture(ev.pointerId);
+            const rect = step2Preview.getBoundingClientRect();
+            const orect = overlay.getBoundingClientRect();
+
+            startX = ev.clientX;
+            startY = ev.clientY;
+
+            startLeft = (orect.left - rect.left) + (orect.width / 2);
+            startTop  = (orect.top - rect.top) + (orect.height / 2);
+
+            ev.preventDefault();
+          });
+
+          overlay.addEventListener("pointermove", (ev) => {
+            if (!dragging) return;
+
+            // ✅ FIX: blocca gesture/scroll che spezzano Y in WebView
+            ev.preventDefault();
+
+            const rect = step2Preview.getBoundingClientRect();
+
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+
+            let cx = startLeft + dx;
+            let cy = startTop + dy;
+
+            // clamp
+            if (cx < 20) cx = 20;
+            if (cy < 20) cy = 20;
+            if (cx > rect.width - 20) cx = rect.width - 20;
+            if (cy > rect.height - 20) cy = rect.height - 20;
+
+            overlay.style.left = (cx / rect.width * 100) + "%";
+            overlay.style.top  = (cy / rect.height * 100) + "%";
+
+            // salva su textarea dataset
+            if (ta && ta.dataset) {
+              ta.dataset.textX = String(cx / rect.width);
+              ta.dataset.textY = String(cy / rect.height);
+              ta.dataset.textColor = (overlay.dataset && overlay.dataset.color === "black") ? "#111111" : "#ffffff";
+            }
+          });
+
+          overlay.addEventListener("pointerup", (ev) => {
+            dragging = false;
+
+            // ✅ ripristina selezione testo
+            overlay.style.userSelect = "";
+            overlay.style.webkitUserSelect = "";
+
+            try { overlay.releasePointerCapture(ev.pointerId); } catch (_) {}
+          });
+
+          overlay.addEventListener("pointercancel", (ev) => {
+            dragging = false;
+
+            // ✅ ripristina selezione testo
+            overlay.style.userSelect = "";
+            overlay.style.webkitUserSelect = "";
+
+            try { overlay.releasePointerCapture(ev.pointerId); } catch (_) {}
+          });
+        }
+
+        // se già c’era testo salvato, rimettilo dentro overlay
+        if (ta && (ta.value || "").trim() !== "") {
+          overlay.innerText = ta.value;
+        }
+      } catch (_) {}
+      // ====== /EDITOR TESTO OVERLAY ======
+    }
+  } catch (_) {}
+
   step1.classList.remove("active");
   step2.classList.add("active");
-}
+              }
 
 function showUploadStep() {
   const step1 = $("uploadStoryStep1");
@@ -5805,31 +6317,8 @@ function showUploadStep() {
 }
 
 function setupFiltersGrid() {
-  const filtersGrid = $("filtersGrid");
-  if (filtersGrid) {
-    const filterButtons = qa(".filter-chip", filtersGrid);
-    filterButtons.forEach(btn => {
-      btn.addEventListener("click", () => {
-        filterButtons.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        StoriesState.selectedFilter = btn.dataset.filter || "none";
-      });
-    });
-  }
-
-  const musicGrid = $("musicGrid");
-  if (musicGrid) {
-    const musicButtons = qa(".music-chip", musicGrid);
-    musicButtons.forEach(btn => {
-      btn.addEventListener("click", () => {
-        musicButtons.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        StoriesState.selectedMusic = btn.dataset.music || "";
-      });
-    });
-  }
-
-  // fallback: select (nel tuo HTML c’è storyMusicSelect)
+  // ✅ Rimane la chiamata (stessa struttura), ma non attiviamo nulla nel modello definitivo
+  // (Filtri/Musica verranno tolti dal markup quando decidi tu, in uno step dedicato)
   const musicSelect = $("storyMusicSelect");
   if (musicSelect) {
     musicSelect.onchange = () => {
@@ -5838,116 +6327,281 @@ function setupFiltersGrid() {
   }
 }
 
-function publishStory() {
+async function publishStory() {
   // 🔒 VETRINA: blocca pubblicazione story
   if (window.PLUTOO_READONLY) {
     const msg = state.lang === "it"
-      ? "🔒 Crea il profilo DOG per pubblicare una story"
-      : "🔒 Create your DOG profile to publish a story";
-    if (typeof showToast === "function") showToast(msg);
+      ? "🔒 Crea il profilo DOG per pubblicare un aggiornamento"
+      : "🔒 Create your DOG profile to publish an update";
+    if (typeof showToast === "function") showToast(msg, "error");
     else alert(msg);
     return;
   }
 
-  pruneStories24h();
+  // ✅ anti multi-click / doppio binding
+  if (StoriesState.__publishing === true) return;
+  StoriesState.__publishing = true;
 
-  const preview = $("uploadPreview");
-  if (!preview || preview.dataset.hasMedia !== "true" || !StoriesState.uploadedFile) {
-    alert(state.lang === "it" ? "Seleziona prima una foto o un video" : "Select a photo or video first");
-    return;
-  }
+  try {
+    pruneStories24h();
 
-  const userId = "currentUser";
-  let userStory = StoriesState.stories.find(s => s.userId === userId);
-  if (!userStory) {
-    userStory = {
-      userId,
-      userName: "You",
-      avatar: "plutoo-icon-192.png",
+    const preview = $("uploadPreview");
+
+    // fallback se uploadedFile perso
+    if (!StoriesState.uploadedFile && preview && preview.dataset && preview.dataset.mediaUrl) {
+      StoriesState.uploadedFile = {
+        type: "image",
+        url: preview.dataset.mediaUrl,
+        mime: preview.dataset.mediaMime || "image/*",
+        size: 0
+      };
+    }
+
+    // blocco se davvero non esiste media
+    if (!StoriesState.uploadedFile) {
+      alert(state.lang === "it" ? "Seleziona prima una foto" : "Select a photo first");
+      StoriesState.__publishing = false;
+      return;
+    }
+
+    // solo immagini
+    if (StoriesState.uploadedFile.type !== "image") {
+      alert(state.lang === "it" ? "Formato non supportato. Usa solo una FOTO." : "Unsupported format. Use PHOTO only.");
+      StoriesState.__publishing = false;
+      return;
+    }
+
+    // ✅ Firebase pronto obbligatorio
+    if (!window.auth || !window.db || !window.storage) {
+      const msg = state.lang === "it"
+        ? "Firebase non pronto. Riprova tra un attimo."
+        : "Firebase not ready. Please retry in a moment.";
+      if (typeof showToast === "function") showToast(msg, "error");
+      else alert(msg);
+      StoriesState.__publishing = false;
+      return;
+    }
+
+    const currentUser = window.auth.currentUser;
+    const uid = currentUser && currentUser.uid ? currentUser.uid : (window.PLUTOO_UID || "");
+    if (!uid) {
+      const msg = state.lang === "it"
+        ? "Devi essere autenticato per pubblicare un aggiornamento."
+        : "You must be logged in to publish an update.";
+      if (typeof showToast === "function") showToast(msg, "error");
+      else alert(msg);
+      StoriesState.__publishing = false;
+      return;
+    }
+
+    const now = Date.now();
+
+    const storyTextEl = document.getElementById("storyTextInput");
+    const storyText = (storyTextEl && typeof storyTextEl.value === "string")
+      ? storyTextEl.value.trim()
+      : "";
+
+    const textColor = (storyTextEl && storyTextEl.dataset && storyTextEl.dataset.textColor)
+      ? storyTextEl.dataset.textColor
+      : "#ffffff";
+
+    const textX = (storyTextEl && storyTextEl.dataset && storyTextEl.dataset.textX !== undefined)
+      ? Number(storyTextEl.dataset.textX)
+      : 0.5;
+
+    const textY = (storyTextEl && storyTextEl.dataset && storyTextEl.dataset.textY !== undefined)
+      ? Number(storyTextEl.dataset.textY)
+      : 0.8;
+
+    const storyId = `story_${uid}_${now}`;
+    const storagePath = `stories/${uid}/${storyId}.jpg`;
+    const storageRef = window.storage.ref().child(storagePath);
+
+    // ✅ upload Base64/dataUrl su Firebase Storage
+    await storageRef.putString(
+      StoriesState.uploadedFile.url,
+      "data_url",
+      {
+        contentType: StoriesState.uploadedFile.mime || "image/jpeg",
+        customMetadata: {
+          ownerUid: uid,
+          storyId: storyId,
+          kind: "story"
+        }
+      }
+    );
+
+    const downloadURL = await storageRef.getDownloadURL();
+
+    const dogId = window.PLUTOO_DOG_ID || uid;
+    const dogName =
+      window.PLUTOO_DOG_NAME ||
+      localStorage.getItem("plutoo_dog_name") ||
+      "DOG";
+
+    const dogAvatar =
+      window.PLUTOO_DOG_AVATAR ||
+      localStorage.getItem("plutoo_dog_avatar") ||
+      "plutoo-icon-192.png";
+
+    const storyDoc = {
+      id: storyId,
+      storyId: storyId,
+      ownerUid: uid,
+      dogId: dogId,
+      dogName: dogName,
+      dogAvatar: dogAvatar,
       verified: false,
-      media: []
+
+      type: "image",
+      url: downloadURL,
+      storagePath: storagePath,
+      mime: StoriesState.uploadedFile.mime || "image/jpeg",
+      size: StoriesState.uploadedFile.size || 0,
+
+      timestamp: now,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAt: now + 24 * 60 * 60 * 1000,
+
+      text: storyText,
+      textColor: textColor,
+      textX: Number.isFinite(textX) ? textX : 0.5,
+      textY: Number.isFinite(textY) ? textY : 0.8,
+
+      filter: "none",
+      music: "",
+      viewed: false,
+      privacy: "public",
+      active: true
     };
-    StoriesState.stories.unshift(userStory);
+
+    // ✅ save su Firestore
+    await window.db.collection("stories").doc(storyId).set(storyDoc);
+
+    // ✅ mantengo anche sync locale per non rompere la UI attuale
+    let userStory = StoriesState.stories.find(s => s.userId === uid);
+
+    if (!userStory) {
+      userStory = {
+        userId: uid,
+        userName: dogName,
+        avatar: dogAvatar,
+        verified: false,
+        media: []
+      };
+      StoriesState.stories.unshift(userStory);
+    }
+
+    try {
+      const realMedia = Array.isArray(userStory.media) ? userStory.media.slice() : [];
+      realMedia.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      while (realMedia.length > 2) realMedia.shift();
+      userStory.media = realMedia;
+    } catch (_) {}
+
+    const newMedia = {
+      id: storyId,
+      type: "image",
+      url: downloadURL,
+      storagePath: storagePath,
+      timestamp: now,
+      expiresAt: now + 24 * 60 * 60 * 1000,
+
+      text: storyText,
+      textColor: textColor,
+      textX: Number.isFinite(textX) ? textX : 0.5,
+      textY: Number.isFinite(textY) ? textY : 0.8,
+
+      filter: "none",
+      music: "",
+      viewed: false,
+      privacy: "public"
+    };
+
+    userStory.media.push(newMedia);
+
+    if (typeof StoriesState.saveStories === "function")
+      StoriesState.saveStories();
+
+    StoriesState.uploadedFile = null;
+    StoriesState.selectedFilter = "none";
+    StoriesState.selectedMusic = "";
+
+    if (storyTextEl) {
+      storyTextEl.value = "";
+      if (storyTextEl.dataset) {
+        delete storyTextEl.dataset.textX;
+        delete storyTextEl.dataset.textY;
+        delete storyTextEl.dataset.textColor;
+      }
+    }
+
+    closeUploadModal();
+    if (typeof renderStoriesBar === "function")
+      renderStoriesBar();
+
+    if (typeof showToast === "function") {
+      showToast(state.lang === "it" ? "Aggiornamento pubblicato ✓" : "Update published ✓");
+    } else {
+      alert(state.lang === "it" ? "Aggiornamento pubblicato ✓" : "Update published ✓");
+    }
+
+  } catch (err) {
+    console.error("publishStory Firebase error:", err);
+
+    const msg = state.lang === "it"
+      ? "Errore nella pubblicazione dell'aggiornamento. Riprova."
+      : "Update publish error. Please retry.";
+
+    if (typeof showToast === "function") showToast(msg, "error");
+    else alert(msg);
+
+  } finally {
+    StoriesState.__publishing = false;
   }
-
-  const now = Date.now();
-  const newMedia = {
-    id: `m_${now}`,
-    type: StoriesState.uploadedFile.type,
-    url: StoriesState.uploadedFile.url,
-    timestamp: now,
-    expiresAt: now + 24 * 60 * 60 * 1000,
-    filter: StoriesState.selectedFilter || "none",
-    music: StoriesState.selectedMusic || "",
-    viewed: false,
-    privacy: "public"
-  };
-
-  userStory.media.push(newMedia);
-
-  if (typeof StoriesState.saveStories === "function") StoriesState.saveStories();
-
-  StoriesState.uploadedFile = null;
-  StoriesState.selectedFilter = "none";
-  StoriesState.selectedMusic = "";
-
-  closeUploadModal();
-  if (typeof renderStoriesBar === "function") renderStoriesBar();
-
-  showToast(state.lang === "it" ? "Story pubblicata!" : "Story published!");
 }
 
-(function bindUploadStoryModalOnce() {
-  const modal = $("uploadStoryModal");
-  if (!modal) return;
-  if (modal.dataset && modal.dataset.bound === "1") return;
-  if (modal.dataset) modal.dataset.bound = "1";
+function showToast(message, type = "success") {
+  let toast = document.getElementById("plutoo-toast");
 
-  // file input
-  const fileInput = $("storyFileInput");
-  if (fileInput) fileInput.onchange = handleFileSelect;
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "plutoo-toast";
 
-  // avanti / indietro
-  const nextBtn = $("nextToCustomize");
-  if (nextBtn) nextBtn.onclick = showCustomizeStep;
+    toast.style.position = "fixed";
+    toast.style.top = "20px";
+    toast.style.left = "50%";
+    toast.style.transform = "translateX(-50%)";
+    toast.style.background = "#6c4df6";
+    toast.style.color = "#fff";
+    toast.style.padding = "12px 18px";
+    toast.style.borderRadius = "14px";
+    toast.style.fontWeight = "600";
+    toast.style.fontSize = "14px";
+    toast.style.zIndex = "999999";
+    toast.style.boxShadow = "0 8px 25px rgba(0,0,0,0.25)";
+    toast.style.opacity = "0";
+    toast.style.transition = "opacity 0.25s ease";
 
-  const backBtn = $("backToUpload");
-  if (backBtn) backBtn.onclick = showUploadStep;
-
-  // pubblica
-  const pubBtn = $("publishStory");
-  if (pubBtn) pubBtn.onclick = publishStory;
-
-  // chiusure
-  const closeX = $("closeUploadStory");
-  if (closeX) closeX.onclick = closeUploadModal;
-
-  const cancelBtn = $("cancelUpload");
-  if (cancelBtn) cancelBtn.onclick = closeUploadModal;
-
-  // inizializza filtri/music una volta
-  setupFiltersGrid();
-})();
-
-function showToast(msg, type = "success") {
-  let el = document.getElementById("toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "toast";
-    el.className = "toast";
-    document.body.appendChild(el);
+    document.body.appendChild(toast);
   }
 
-  el.className = "toast";
-  el.textContent = msg;
+  if (type === "error") {
+    toast.style.background = "#e54848";
+  } else {
+    toast.style.background = "#6c4df6";
+  }
 
-  if (type === "error") el.classList.add("toast-error");
-  else el.classList.add("toast-success");
+  toast.textContent = message;
 
-  requestAnimationFrame(() => el.classList.add("show"));
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+  });
 
-  clearTimeout(el._t);
-  el._t = setTimeout(() => {
-    el.classList.remove("show");
-  }, 2200);
-}    
+  clearTimeout(toast._hideTimer);
+
+  toast._hideTimer = setTimeout(() => {
+    toast.style.opacity = "0";
+  }, 2500);
+}
+      
