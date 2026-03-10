@@ -175,7 +175,7 @@
   <div id="viewLove" class="view">
     <button id="btnBackLove" class="btn small ghost" style="margin-bottom:.6rem">← Indietro</button>
     <div id="loveCard" class="card swipe">
-      <img id="loveImg" src="" alt="" class="card-img">
+      <img id="loveImg" alt="" class="card-img">
       <div class="card-info">
         <h3 id="loveTitleTxt"></h3>
         <p id="loveMeta" class="meta"></p>
@@ -469,7 +469,10 @@
         <span id="storyTimestamp" class="story-timestamp"></span>
       </div>
     </div>
-    <button id="closeStoryViewer" class="story-close-btn story-back-btn" type="button">← Indietro</button>
+    <div class="story-header-actions">
+      <button id="deleteStoryBtn" class="story-delete-btn hidden" type="button">🗑 Elimina</button>
+      <button id="closeStoryViewer" class="story-close-btn story-back-btn" type="button">← Indietro</button>
+    </div>
   </div>
   <div id="storyProgressBars" class="story-progress-bars"></div>
   <div id="storyContent" class="story-content"></div>
@@ -485,13 +488,13 @@
     <button id="closeUploadStory" class="modal-close">✕</button>
 
     <div id="uploadStoryStep1" class="upload-step active">
-      <h2>📸 Carica una Story</h2>
+      <h2>📸 Carica un Aggiornamento</h2>
       <div class="upload-zone">
-        <input type="file" id="storyFileInput" accept="image/*,video/*" hidden>
+        <input type="file" id="storyFileInput" accept="image/*" hidden>
         <label for="storyFileInput" class="upload-label">
           <div class="upload-icon">📤</div>
-          <div>Tocca per caricare foto o video</div>
-          <div class="upload-hint">Max 10MB foto, 50MB video</div>
+          <div>Tocca per caricare una foto</div>
+          <div class="upload-hint">Max 10MB foto</div>
         </label>
       </div>
       <div id="uploadPreview" class="upload-preview hidden"></div>
@@ -500,21 +503,18 @@
 
     <div id="uploadStoryStep2" class="upload-step">
       <h2>✨ Personalizza</h2>
-      <div class="upload-preview"></div>
 
-      <div class="customize-section">
-        <h3>Filtri</h3>
-        <div id="filtersGrid" class="filters-grid"></div>
-      </div>
+      <div class="story-editor">
+        <div class="upload-preview"></div>
 
-      <div class="customize-section">
-        <h3>Musica</h3>
-        <select id="storyMusicSelect" class="form-control">
-          <option value="">Nessuna musica</option>
-          <option value="happy">🎵 Happy</option>
-          <option value="chill">🎵 Chill</option>
-          <option value="energetic">🎵 Energetic</option>
-        </select>
+        <textarea
+          id="storyTextInput"
+          class="story-text-input"
+          maxlength="120"
+          placeholder="Scrivi qui..."
+        ></textarea>
+
+        <div class="story-editor-hint">Tocca la foto per scrivere</div>
       </div>
 
       <div class="upload-actions">
@@ -675,6 +675,7 @@
     show(details);
   });
 })();
+  
 </script>
 
 <script src="app.js" defer></script>
