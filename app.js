@@ -185,7 +185,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function closeAuth() {
-    authSheet.classList.add("hidden");
+  authSheet.classList.add("hidden");
+  loginForm.classList.add("hidden");
+  registerForm.classList.add("hidden");
+  authAlready.classList.add("hidden");
+  setAuthError("login", "");
+  setAuthError("register", "");
   }
 
   linkLogin.addEventListener("click", (e) => {
@@ -381,12 +386,13 @@ document.getElementById("btnForgotPass")?.addEventListener("click", async () => 
         closeAuth();
       }, 900);
     } catch (err) {
-      setAuthError("register", err?.message || "Errore registrazione");
+      setAuthError("register", translateAuthError(err));
     }
   });
 
   // LOGOUT (dentro pannello "già loggato")
 document.getElementById("btnLogout")?.addEventListener("click", async () => {
+  sessionStorage.setItem("plutoo_explicit_logout", "1");
   try {
     await window.auth.signOut();
   } catch (_) {}
@@ -419,7 +425,6 @@ document.getElementById("btnLogout")?.addEventListener("click", async () => {
 const btnEnter = document.getElementById("btnEnter");
 
 function updateEnterState() {
-  alert("UPDATE ENTER STATE CALLED");
   const enterBtn = document.getElementById("btnEnter");
   if (!enterBtn) return;
 
@@ -600,28 +605,30 @@ if (window.__createDogBindDone) return;
 window.__createDogBindDone = true;
 
 // ✅ helper unico: aggiorna CTA in base allo stato (mai hide definitivo)  
-window.refreshCreateDogCTA = function () {  
-  const inlineBtn = document.getElementById("btnCreateDogInline");  
-  if (!inlineBtn) return;  
 
-  const hasDog = (window.PLUTOO_HAS_DOG === true);  
-  const dogId = window.PLUTOO_DOG_ID ? String(window.PLUTOO_DOG_ID) : "";  
-  const dogName = (window.PLUTOO_DOG_NAME ? String(window.PLUTOO_DOG_NAME) : "").trim();  
+  window.refreshCreateDogCTA = function () {
+  const inlineBtn = document.getElementById("btnCreateDogInline");
+  const lang = ((window.state && window.state.lang) || localStorage.getItem("lang") || "it");
+  if (!inlineBtn) return;
 
-  inlineBtn.style.display = "inline-flex";  
+  const hasDog = (window.PLUTOO_HAS_DOG === true);
+  const dogId = window.PLUTOO_DOG_ID ? String(window.PLUTOO_DOG_ID) : null;
+  const dogName = window.PLUTOO_DOG_NAME ? String(window.PLUTOO_DOG_NAME).trim() : "";
 
-  if (hasDog && dogId) {  
-    inlineBtn.dataset.mode = "my";  
-    if (dogName) {  
-      inlineBtn.textContent = `🐶 ${dogName}`;  
-    } else {  
-      inlineBtn.textContent = (window.state && window.state.lang === "it") ? "Il mio profilo" : "My profile";  
-    }  
-  } else {  
-    inlineBtn.dataset.mode = "create";  
-    inlineBtn.textContent = (window.state && window.state.lang === "it") ? "Crea profilo DOG" : "Create DOG profile";  
-  }  
-};  
+  inlineBtn.style.display = "inline-flex";
+
+  if (hasDog && dogId) {
+    inlineBtn.dataset.mode = "my";
+    if (dogName) {
+      inlineBtn.textContent = `🐶 ${dogName}`;
+    } else {
+      inlineBtn.textContent = (lang === "it") ? "Il mio profilo" : "My profile";
+    }
+  } else {
+    inlineBtn.dataset.mode = "create";
+    inlineBtn.textContent = (lang === "it") ? "Crea profilo DOG" : "Create DOG profile";
+  }
+};
 
 // prima passata (stato corrente)  
 window.refreshCreateDogCTA();  
@@ -734,25 +741,28 @@ try {
   const cName = localStorage.getItem("plutoo_dog_name") || "";  
   const cRO   = localStorage.getItem("plutoo_readonly") === "1";  
 
-  if (cId) {  
-    window.PLUTOO_HAS_DOG = true;  
-    window.PLUTOO_DOG_ID = cId;  
-    window.PLUTOO_DOG_NAME = cName;  
-    window.PLUTOO_READONLY = false;  
-  }  
+  if (cHas && cId) {
+  window.PLUTOO_HAS_DOG = true;
+  window.PLUTOO_DOG_ID = cId;
+  window.PLUTOO_DOG_NAME = cName;
+  window.PLUTOO_READONLY = cRO;
+  }
 
   if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
 } catch (_) {}  
 
-const uid = window.auth.currentUser.uid; // = PLUTOO_UID  
-if (!uid || !window.db) return;  
+const uid =
+  (window.PLUTOO_UID) ||
+  (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
+
+if (!uid || !window.db) return;
 
  const doc = await window.db.collection("dogs").doc(String(uid)).get();
 const data = (doc && doc.exists) ? (doc.data() || {}) : null;
 
-const hasDog = !!(data && String(data.name || "").trim().length > 0);
+ const hasDog = !!(data && String(data.name || "").trim().length > 0);
 const dogId = hasDog ? String(uid) : null;
-const dogName = hasDog ? String(data.name || "").trim() : "";  
+const dogName = hasDog ? String(data.name || "").trim() : "";
 
 // Stato globale (runtime)  
 window.PLUTOO_HAS_DOG = hasDog;  
@@ -766,13 +776,36 @@ window.PLUTOO_READONLY = !hasDog;
 if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
 
 // Cache (non source of truth)  
-try {  
-  localStorage.setItem("plutoo_has_dog", hasDog ? "1" : "0");  
-  if (dogId) localStorage.setItem("plutoo_dog_id", dogId);  
-  else localStorage.removeItem("plutoo_dog_id");  
-  localStorage.setItem("plutoo_readonly", window.PLUTOO_READONLY ? "1" : "0");  
-  if (dogName) localStorage.setItem("plutoo_dog_name", dogName);  
-  else localStorage.removeItem("plutoo_dog_name");  
+try {
+  localStorage.setItem("plutoo_has_dog", hasDog ? "1" : "0");
+  if (dogId) localStorage.setItem("plutoo_dog_id", dogId); else localStorage.removeItem("plutoo_dog_id");
+  localStorage.setItem("plutoo_readonly", window.PLUTOO_READONLY ? "1" : "0");
+  if (dogName) localStorage.setItem("plutoo_dog_name", dogName); else localStorage.removeItem("plutoo_dog_name");
+
+  if (!Array.isArray(state.dogs)) state.dogs = [];
+
+  state.dogs = state.dogs.filter(d => !(d && String(d.id) === String(uid)));
+
+ if (hasDog) {
+  state.dogs.push({
+    id: String(uid),
+    name: String(data.name || ""),
+    breed: String(data.breed || ""),
+    age: Number(data.age || 0),
+    sex: String(data.sex || ""),
+    img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
+    verified: !!data.verified,
+    bio: String(data.bio || ""),
+    km: Number(data.km || 0),
+    weight: Number(data.weight || 0),
+    height: Number(data.height || 0),
+    pedigree: !!data.pedigree,
+    breeding: !!data.breeding,
+    size: String(data.size || "")
+  });
+ }
+  
+  localStorage.setItem("dogs", JSON.stringify(state.dogs));
 } catch (_) {}
 
 } catch (err) {
@@ -804,11 +837,13 @@ window.storage = storage;
 })();
 
 // ✅ Persistenza Auth su device (no reset dopo refresh)
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
-  console.error("Auth persistence error:", err);
-});
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .catch((err) => {
+    console.error("Auth persistence error:", err);
+  })
+  .finally(() => {
 
- auth.onAuthStateChanged(async (user) => {
+auth.onAuthStateChanged(async (user) => {
   const runPresenceAfterAuth = () => {
   try {
   const enterBtn = document.getElementById("btnEnter");
@@ -837,29 +872,41 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
 };
 
   try {
-    const linkLogin = document.getElementById("linkLogin");
-    const linkRegister = document.getElementById("linkRegister");
+   const linkLogin = document.getElementById("linkLogin");
+const linkRegister = document.getElementById("linkRegister");
 
-    if (!user) {
-      window.PLUTOO_UID = null;
-      window.__booted = false;
+  if (!user) {
+  const explicitLogout = sessionStorage.getItem("plutoo_explicit_logout") === "1";
+  const authKey = `firebase:authUser:${firebase.app().options.apiKey}:[DEFAULT]`;
+  const hasBooted = window.__booted === true;
+  const enteredBoot = localStorage.getItem("entered") === "1";
 
-      if (linkLogin) {
-        linkLogin.setAttribute("data-i18n", "login");
-        linkLogin.textContent = "Login";
-        linkLogin.onclick = (e) => {
-          e.preventDefault();
-          window.openAuth("login");
-        };
-      }
+  // bootstrap iniziale: se l'app è già entrata, NON passare mai dalla UI guest/Home
+  if (!explicitLogout && (enteredBoot || (!hasBooted && localStorage.getItem(authKey)))) {
+    return;
+  }
 
-      if (linkRegister) {
-        linkRegister.style.display = "";
-      }
+  // vero logout
+  sessionStorage.removeItem("plutoo_explicit_logout");
+  window.PLUTOO_UID = null;
+  window.__booted = false;
 
-      runPresenceAfterAuth();
-      return;
-    }
+  if (linkLogin) {
+    linkLogin.setAttribute("data-i18n", "login");
+    linkLogin.textContent = "Login";
+    linkLogin.onclick = (e) => {
+      e.preventDefault();
+      window.openAuth("login");
+    };
+  }
+
+  if (linkRegister) {
+    linkRegister.style.display = "";
+  }
+
+  runPresenceAfterAuth();
+  return;
+  }
 
     window.PLUTOO_UID = user.uid;
 
@@ -908,7 +955,8 @@ auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch((err) => {
   } catch (e) {
     console.error("onAuthStateChanged error:", e);
   }
-});
+    });
+  });
 
 // Disabilita PWA/Service Worker dentro l'app Android (WebView)
 const isAndroidWebView =
@@ -939,7 +987,8 @@ if (isAndroidWebView) {
     return (navigator.language||"it").toLowerCase().startsWith("en")?"en":"it";
   }
 
-  let CURRENT_USER_DOG_ID = String(localStorage.getItem("currentDogId") || localStorage.getItem("dogId") || "d1");
+  let CURRENT_USER_DOG_ID =
+String(localStorage.getItem("currentDogId") || localStorage.getItem("dogId") || "");
 
   // ============ Stato (caricato da localStorage dove possibile) ============
 const state = {
@@ -1114,12 +1163,15 @@ const state = {
 
   const storyLikeBtn = $("storyLikeBtn");
 
-  const adBanner = $("adBanner");
-  const matchOverlay = $("matchOverlay");
+const adBanner = $("adBanner"); const matchOverlay = $("matchOverlay");
 
-  
-  // ============ STORIES – Config & State ============
-  const STORIES_CONFIG = {
+if (state.entered === true) {
+  homeScreen?.classList.add("hidden");
+  appScreen?.classList.remove("hidden");
+}
+
+// ============ STORIES – Config & State ============
+const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
     VIDEO_MAX_DURATION_FREE: 15,
     VIDEO_MAX_DURATION_PLUS: 90,
@@ -1196,11 +1248,6 @@ const state = {
   
   window.StoriesState = StoriesState;
 
-  if (state.entered) {
-    homeScreen?.classList.add("hidden");
-    appScreen?.classList.remove("hidden");
-  }
-
   // ============ I18N ============
   const I18N = {
     it: {
@@ -1212,7 +1259,7 @@ const state = {
       sponsorCopy: "Fido, il gelato per i nostri amici a quattro zampe",
       sponsorUrl: "https://www.fido.it/",
       ethicsLine1: "Non abbandonare mai i tuoi amici",
-      ethicsLine2: "(canili nelle vicinanze)",
+      ethicsLine2: "(rifugi nelle vicinanze)",
       terms: "Termini",
       privacy: "Privacy",
       nearby: "Vicino a te",
@@ -1264,7 +1311,7 @@ const state = {
       plusPeriod: "/mese",
       activatePlus: "Attiva Plutoo Plus",
       cancel: "Annulla",
-      mapsShelters: "canili nelle vicinanze",
+      mapsShelters: "Rifugi nelle vicinanze",
       noProfiles: "Nessun profilo. Modifica i filtri.",
       years: "anni"
     },
@@ -1459,13 +1506,12 @@ const DOGS = [
 if (state.entered) {
   homeScreen.classList.add("hidden");
   appScreen.classList.remove("hidden");
-
   const viewToRestore = localStorage.getItem("currentView") || state.currentView || "nearby";
 
   if (viewToRestore === "profile") {
-    setActiveView("profile");
+  setActiveView("profile");
 
-    const savedId = localStorage.getItem("currentProfileDogId");
+  const savedId = localStorage.getItem("currentProfileDogId");
 
     if (savedId) {
 
@@ -1484,15 +1530,22 @@ if (state.entered) {
           sex: ""
         });
 
-      } else {
+  } else {
 
         const dog = DOGS.find(d => d.id == savedId);
 
         if (dog && window.openProfilePage) {
 
-          window.openProfilePage(dog);
+  setTimeout(() => {
+    if (typeof window.openProfilePage === "function") {
+      window.openProfilePage(dog);
+    }
+  }, 0);
 
-        } else {
+} else {
+
+        // ramo DOG vetrina ELIMINATO dal restore:
+// i DOG demo restano nella lista, ma non sono più profili persistenti al refresh
 
           // ✅ se NON è un DOG demo, provo cache locale e poi Firestore
           let myDog = null;
@@ -1539,9 +1592,10 @@ if (state.entered) {
                     setActiveView("nearby");
                   }
                 })
-                .catch(() => {
-                  setActiveView("nearby");
-                });
+              .catch(() => {
+                setActiveView("nearby");
+              });  
+              
             } catch (_) {
               setActiveView("nearby");
             }
@@ -1552,8 +1606,8 @@ if (state.entered) {
         }
       }
 
-    } else {
-      setActiveView("nearby");
+   } else {
+  setActiveView("nearby");
     }
 
   } else {
@@ -2301,17 +2355,17 @@ msgLists.forEach((list) => {
   tabLove.classList.remove("active");
   if (tabPlay) tabPlay.classList.remove("active");
    
-    if (name === "nearby") {
-      if (viewNearby) {
-        viewNearby.classList.remove("hidden");
-        viewNearby.classList.add("active");
-      }
-      tabNearby.classList.add("active");
-      renderNearby();
-      renderStoriesBar();
-      window.renderStories && window.renderStories();
-      if (btnSearchPanel) btnSearchPanel.disabled = false;
-    }
+   if (name === "nearby") {
+  if (viewNearby) {
+    viewNearby.classList.remove("hidden");
+    viewNearby.classList.add("active");
+  }
+  tabNearby.classList.add("active");
+  renderNearby();
+  renderStoriesBar();
+  window.renderStories && window.renderStories();
+  if (btnSearchPanel) btnSearchPanel.disabled = false;
+   }
 
     if (name === "love") {
       if (viewLove) {
@@ -2391,7 +2445,7 @@ msgLists.forEach((list) => {
       return;
     }
 
-    if (state.currentView === "nearby"){
+   if (state.currentView === "nearby"){
         localStorage.removeItem("entered");
         state.entered=false;
         appScreen.classList.add("hidden");
@@ -2409,8 +2463,9 @@ msgLists.forEach((list) => {
   }
 
   // ============ Nearby ============
+
   function renderNearby(){
-    if(!nearGrid) return;
+  if(!nearGrid) return;
 
     const list = filteredDogs();
     if (!list.length){
@@ -2422,8 +2477,8 @@ msgLists.forEach((list) => {
     setTimeout(()=>{
       qa(".dog-card").forEach(card=>{
         const id = card.getAttribute("data-id");
-        const d  = DOGS.find(x=>x.id===id);
-        if(!d) return;
+const d  = list.find(x => x && String(x.id) === String(id));
+if(!d) return;
 
         card.addEventListener("click", ()=>{
           card.classList.add("flash-violet");
@@ -2437,24 +2492,29 @@ msgLists.forEach((list) => {
   }
 
   function cardHTML(d){
-    return `
-      <article class="card dog-card" data-id="${d.id}">
-       <img
-  src="./${d.img}"
-  alt="${d.name}"
-  class="card-img"
-  loading="eager"
-  fetchpriority="high"
-  decoding="sync"
-  onerror="this.onerror=null;this.src='./plutoo-icon-192.png';"
-/>
+  const rawImg = String(d.img || "");
+  const srcValue = rawImg.startsWith("http") ? rawImg : `./${rawImg}`;
 
-        <div class="card-info">
-          <h3>${d.name} ${d.verified?"✅":""}</h3>
-          <p class="meta">${d.breed} · ${d.age} ${t("years")} · ${fmtKm(d.km)}</p>
-          <p class="bio">${d.bio||""}</p>
-        </div>
-      </article>`;
+  return `
+    <article class="card dog-card" data-id="${d.id}">
+      <img
+        src="${srcValue}"
+        alt="${d.name}"
+        class="card-img"
+        loading="eager"
+        fetchpriority="high"
+        decoding="sync"
+        style="opacity:0"
+        onload="this.style.opacity='1'"
+        onerror="this.onerror=null;this.src='./plutoo-icon-192.png';this.style.opacity='1';"
+      />
+
+      <div class="card-info">
+        <h3>${d.name} ${d.verified?"✅":""}</h3>
+        <p class="meta">${d.breed} · ${d.age} ${t("years")} · ${fmtKm(d.km)}</p>
+        <p class="bio">${d.bio||""}</p>
+      </div>
+    </article>`;
   }
 
   function fmtKm(n){
@@ -2464,28 +2524,40 @@ msgLists.forEach((list) => {
   }
 
   function filteredDogs(){
-    const f = state.filters;
-    return DOGS
-      .filter(d => !d.km || d.km <= (f.distKm || 999))
-      .filter(d => (!f.verified || !state.plus) ? true : d.verified)
-      .filter(d => (!f.sex) ? true : d.sex === f.sex)
-      .filter(d => (!f.breed) ? true : d.breed.toLowerCase().startsWith(f.breed.toLowerCase()))
-      .filter(d => { if (!state.plus || !f.ageMin) return true; return d.age >= parseInt(f.ageMin); })
-      .filter(d => { if (!state.plus || !f.ageMax) return true; return d.age <= parseInt(f.ageMax); })
-      .filter(d => { if (!state.plus || !f.weight) return true; return d.weight >= parseInt(f.weight); })
-      .filter(d => { if (!state.plus || !f.height) return true; return d.height >= parseInt(f.height); })
-      .filter(d => {
-        if (!state.plus || !f.pedigree) return true;
-        return f.pedigree === "yes" ? d.pedigree : true;
-      })
-      .filter(d => {
-        if (!state.plus || !f.breeding) return true;
-        return f.breeding === "yes" ? d.breeding : true;
-      })
-      .filter(d => {
-        if (!state.plus || !f.size) return true;
-        return d.size === f.size;
-      });
+const f = state.filters;
+
+let realDogs = [];
+try { realDogs = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : []; } catch (_) {}
+if (!realDogs.length) {
+try { realDogs = JSON.parse(localStorage.getItem("dogs") || "[]"); } catch (_) { realDogs = []; }
+}
+if (!Array.isArray(realDogs)) realDogs = [];
+
+const sourceDogs = [...realDogs, ...DOGS];
+const myDogId = String(window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id") || "");
+
+return sourceDogs
+.filter(d => !myDogId || String(d.id) !== myDogId)
+.filter(d => !d.km || d.km <= (f.distKm || 999))
+.filter(d => (!f.verified || !state.plus) ? true : d.verified)
+.filter(d => (!f.sex) ? true : d.sex === f.sex)
+.filter(d => (!f.breed) ? true : d.breed.toLowerCase().startsWith(f.breed.toLowerCase()))
+.filter(d => { if (!state.plus || !f.ageMin) return true; return d.age >= parseInt(f.ageMin); })
+.filter(d => { if (!state.plus || !f.ageMax) return true; return d.age <= parseInt(f.ageMax); })
+.filter(d => { if (!state.plus || !f.weight) return true; return d.weight >= parseInt(f.weight); })
+.filter(d => { if (!state.plus || !f.height) return true; return d.height >= parseInt(f.height); })
+.filter(d => {
+if (!state.plus || !f.pedigree) return true;
+return f.pedigree === "yes" ? d.pedigree : true;
+})
+.filter(d => {
+if (!state.plus || !f.breeding) return true;
+return f.breeding === "yes" ? d.breeding : true;
+})
+.filter(d => {
+if (!state.plus || !f.size) return true;
+return d.size === f.size;
+});
   }
 
   // ============ Swipe ============
@@ -3431,8 +3503,14 @@ window.openProfilePage = (d) => {
   }
 
   state.currentDogProfile = d;
+
+if (!DOGS.find(x => x && String(x.id) === String(d.id))) {
   localStorage.setItem("currentProfileDogId", d.id);
-  setActiveView("profile");
+} else {
+  localStorage.removeItem("currentProfileDogId");
+}
+
+setActiveView("profile");
 
   history.pushState({ view: "profile", dogId: d.id }, "", "");
   profilePage.classList.remove("hidden");
@@ -3734,19 +3812,20 @@ if (isCreate) {
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        const dataUrl = e.target.result;
+      const dataUrl = e.target.result;
 
-        if (!state.createDogDraft) state.createDogDraft = {};
-        state.createDogDraft.photoDataUrl = dataUrl;
+  if (!state.createDogDraft) state.createDogDraft = {};
+  state.createDogDraft.photoDataUrl = dataUrl;
 
-        if (previewImg) {
-          previewImg.src = dataUrl;
-          previewImg.style.display = "block";
-        }
-        if (emptyBox) emptyBox.style.display = "none"; // ✅ FIX: non coprire la foto
-        if (createDogPhotoFeedback) createDogPhotoFeedback.style.display = "block";
-        if (btnRemoveCreateDogPhoto) btnRemoveCreateDogPhoto.style.display = "inline-flex";
-      };
+  if (previewImg) {
+    previewImg.src = dataUrl;
+    previewImg.style.display = "block";
+  }
+
+  if (emptyBox) emptyBox.style.display = "none";
+  if (createDogPhotoFeedback) createDogPhotoFeedback.style.display = "block";
+  if (btnRemoveCreateDogPhoto) btnRemoveCreateDogPhoto.style.display = "inline-flex";
+};
 
       reader.readAsDataURL(file);
     });
@@ -4169,22 +4248,41 @@ const newDogId = dogRef.id;
       return;
     }
 
-    const newDog = {
-      id: newDogId,
-      name: name,
-      breed: breed,
-      age: parseInt(age, 10),
-      sex: sex,
-      img: photoUrl,
-      verified: false,
-      bio: bio || "",
-      km: 0
+    let newDog = {
+  id: newDogId,
+  name: name,
+  breed: breed,
+  age: parseInt(age, 10),
+  sex: sex,
+  img: photoUrl,
+  verified: false,
+  bio: bio || "",
+  km: 0
+};
+
+try {
+  const dogSnap = await dogRef.get();
+  if (dogSnap && dogSnap.exists) {
+    const data = dogSnap.data() || {};
+    newDog = {
+      id: dogSnap.id,
+      name: data.name || "",
+      breed: data.breed || "",
+      age: data.age || "",
+      sex: data.sex || "",
+      img: data.photoUrl || "",
+      verified: !!data.verified,
+      bio: data.bio || "",
+      km: data.km || 0
     };
+  }
+} catch (_) {}
 
     // cache locale (solo UI/velocità; source of truth = Firestore)
-    if (!state.dogs) state.dogs = [];
-    state.dogs.push(newDog);
-    localStorage.setItem("dogs", JSON.stringify(state.dogs));
+if (!state.dogs) state.dogs = [];
+state.dogs = state.dogs.filter(d => !(d && String(d.id) === String(newDogId)));
+state.dogs.push(newDog);
+localStorage.setItem("dogs", JSON.stringify(state.dogs));
 
     state.createDogDraft = {};
 
@@ -4595,10 +4693,10 @@ const newDogId = dogRef.id;
   try {
     if (!d || !d.id) return;
 
-    const myDogId = String(window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id") || "");
-    const hasDog  = (window.PLUTOO_HAS_DOG === true || localStorage.getItem("plutoo_has_dog") === "1");
-    const isOwnerViewing = hasDog && myDogId && String(d.id) === myDogId;
-    if (!isOwnerViewing) return;
+   const myDogId = String(window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id") || "");
+const hasDog = (window.PLUTOO_HAS_DOG === true || localStorage.getItem("plutoo_has_dog") === "1");
+const isOwnerViewing = hasDog && myDogId && String(d.id) === myDogId;
+if (!isOwnerViewing) return; 
 
     if (!state || typeof state !== "object") return;
     if (!state.ownerSocialByDog || typeof state.ownerSocialByDog !== "object") state.ownerSocialByDog = {};
@@ -5326,16 +5424,24 @@ async function sendChatMessage(text, dogId, hasMatch, msgCount) {
         : (dogId || "");
 
     if (!safeDogId) {
-      console.error("sendChatMessage: dogId mancante");
-      statusEl.textContent = "⚠️";
-      statusEl.dataset.status = "error";
-      return;
-    }
+  console.error("sendChatMessage: dogId mancante");
+  statusEl.textContent = "⚠️";
+  statusEl.dataset.status = "error";
+  return;
+}
 
-    const chatId =
-      (chatPane && chatPane.dataset && chatPane.dataset.chatId)
-        ? chatPane.dataset.chatId
-        : `${selfUid}_${safeDogId}`;
+const isShowcaseDog = !!DOGS.find(d => d && String(d.id) === String(safeDogId));
+if (isShowcaseDog) {
+  console.warn("sendChatMessage: DOG vetrina, niente persistenza chat");
+  statusEl.textContent = "⚠️";
+  statusEl.dataset.status = "error";
+  return;
+}
+
+const chatId =
+  (chatPane && chatPane.dataset && chatPane.dataset.chatId)
+    ? chatPane.dataset.chatId
+    : `${selfUid}_${safeDogId}`;
 
     const dogProfile =
       state.currentDogProfile || DOGS.find(d => d.id === safeDogId) || {};
@@ -5512,8 +5618,43 @@ async function init(){
     if (sizeFilter) sizeFilter.value = state.filters.size;
   }
 
+  try {
+    if (window.db) {
+      const snap = await window.db.collection("dogs").get();
+      const realDogs = [];
+
+      snap.forEach((doc) => {
+        const data = doc.data() || {};
+        const name = String(data.name || "").trim();
+        if (!name) return;
+
+        realDogs.push({
+          id: doc.id,
+          name: name,
+          breed: String(data.breed || ""),
+          age: Number(data.age || 0),
+          sex: String(data.sex || ""),
+          img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
+          verified: !!data.verified,
+          bio: String(data.bio || ""),
+          km: Number(data.km || 0),
+          weight: Number(data.weight || 0),
+          height: Number(data.height || 0),
+          pedigree: !!data.pedigree,
+          breeding: !!data.breeding,
+          size: String(data.size || "")
+        });
+      });
+
+      state.dogs = realDogs;
+      localStorage.setItem("dogs", JSON.stringify(realDogs));
+    }
+  } catch (e) {
+    console.error("Nearby real dogs load error:", e);
+  }
+
   if (state.entered){
-    // initStories parte dopo ENTRA per effetto WOW
+  // initStories parte dopo ENTRA per effetto WOW
   }
 }
 
