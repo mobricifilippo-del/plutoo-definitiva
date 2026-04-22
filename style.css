@@ -13,20 +13,23 @@
 
 /* Base */
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
 html,body{
+  height:100%;
+  min-height:100%;
   margin:0;
   padding:0;
   background:var(--bg-main);
   color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;
+  font-family:...
   overflow-x:hidden;
 }
 
 body{
   min-height:100vh;
-  overflow-y:auto;
+  overflow-y:hidden;
   padding-top: env(safe-area-inset-top);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 40px);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 img{display:block;max-width:100%}
@@ -160,16 +163,32 @@ a{color:inherit;text-decoration:none}
 .btn.tiny{padding:.35rem .5rem;border-radius:10px;font-weight:700;font-size:.88rem}
 .btn.small{padding:.45rem .7rem;border-radius:12px;font-size:.9rem}
 
-/* ===== TOPBAR ICON BUTTONS (Messaggi / Notifiche) ===== */
+/* ===== TOPBAR ICON BUTTONS (Messaggi / Notifiche / Bacheca) ===== */
 #btnMessages,
-#notifBtn{
-  min-width:40px;
-  height:40px;
-  padding:0;
+#notifBtn,
+#btnDogBoard{
+  min-width:36px;
+  height:36px;
+  padding:0 .85rem;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   border-radius:14px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 6px 14px rgba(0,0,0,.22);
+  transition:transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+}
+
+#btnMessages:active,
+#notifBtn:active,
+#btnDogBoard:active{
+  transform:translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.04),
+    0 3px 8px rgba(0,0,0,.18);
 }
 
 /* ===== BADGE NUMERICO MESSAGGI ===== */
@@ -254,7 +273,7 @@ a{color:inherit;text-decoration:none}
   display:inline-flex;align-items:center;gap:.4rem;
   background:linear-gradient(135deg,#E8CE7A,#CDA434);
   color:#111;border:1px solid rgba(0,0,0,.15);
-  padding:.5rem .75rem;border-radius:12px;font-size:.88rem;
+  padding:.5rem 1.25rem;border-radius:12px;font-size:.88rem;
   box-shadow:0 4px 12px rgba(205,164,52,.35), inset 0 0 0 1px rgba(255,255,255,.25);
 }
 .btn.plus-btn:hover{
@@ -289,7 +308,7 @@ a{color:inherit;text-decoration:none}
   min-height:auto;
   display:flex;
   flex-direction:column;
-  margin-bottom: 80px;
+  margin-bottom: 80xp;
   padding:1.2rem;
 }
 
@@ -297,7 +316,7 @@ a{color:inherit;text-decoration:none}
 .home-bar{display:flex;align-items:center;gap:.8rem;width:100%}
 .home-left{flex:0 0 auto}
 .home-center{flex:.25 1 auto}
-.home-right{flex:0 0 auto;display:flex;align-items:center;gap:.6rem}
+.home-right{flex:1 1 auto; ;display:flex;align-items:center;gap:.6rem}
 .lang-flags{display:flex;gap:.35rem}
 .logo-row{display:flex;gap:.65rem;align-items:center}
 .logo-small{width:42px;height:42px;border-radius:10px}
@@ -315,7 +334,7 @@ a{color:inherit;text-decoration:none}
   color:var(--violet);
   text-decoration:none;
   font-weight:800;
-  padding:.18rem .45rem;
+  padding:.18rem .3rem;
   border-radius:999px;
   border:1px solid rgba(140,100,255,.28);
   background:rgba(140,100,255,.08);
@@ -390,33 +409,100 @@ a{color:inherit;text-decoration:none}
 }
 
 /* ================= APP / NAVBAR ================= */
-.app{min-height:auto;display:flex;flex-direction:column}
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
 
 .topbar{
   position:sticky;top:0;z-index:1000;
-  display:flex;align-items:center;gap:.8rem;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:start;
+  gap:.8rem;
   background:rgba(12,12,18,.94);
   -webkit-backdrop-filter:saturate(120%) blur(6px);
   backdrop-filter:saturate(120%) blur(6px);
-  border-bottom:1px solid var(--line);padding:.35rem .9rem;
+  border-bottom:1px solid var(--line);
+  padding:.35rem .9rem;
 }
-.topbar .left,.topbar .right{display:flex;align-items:center;flex:0 0 auto;z-index:2;gap:.5rem}
-.topbar .right{
-  flex-direction:column;
+
+.topbar .left{
+  justify-self:start;
+  height:100%;
+  display:flex;
   align-items:center;
-  margin-left:auto;
+  gap:.6rem;
+  transform:translateY(-8px);
 }
-#btnMessages{
-  margin-top:.45rem;
+
+.topbar .right{
+  display:grid;
+  grid-template-columns:max-content max-content;
+  justify-content:center;
+  justify-items:center;
+  align-items:center;
+  justify-items:center;
+  row-gap:.3rem;
+  column-gap:.25rem;
+  justify-self:end;
+  align-self:start;
+  width:max-content;
+  transform:translateY(6px);
 }
-.topbar .logo{border-radius:8px}
-.brand-mini{color:var(--gold)}
+
+.topbar .right .plus-btn{
+  grid-column:1 / -1;
+  transform:translateY(-4px);
+}
+
+#btnMessages,
+#notifBtn{
+  min-width:40px;
+  height:40px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+
+  background:rgba(255,255,255,.95);
+  border:1px solid rgba(0,0,0,.08);
+
+  box-shadow:
+    0 4px 12px rgba(0,0,0,.25),
+    inset 0 0 0 1px rgba(255,255,255,.6);
+
+  transition:all .15s ease;
+}
+
+#btnDogBoard{
+  grid-column:1 / -1;
+  justify-self:center;
+}
+
+.topbar .logo{
+  width:60px;
+  height:60px;
+  border-radius:14px;
+  display:block;
+  transform: translateY(2px);
+}
+
+.brand-mini{
+  color:var(--gold);
+  font-size:1.05rem;
+  font-weight:800;
+}
 
 .tabs{
     display:flex;
     align-items:center;
     justify-content:center;
-    flex:1 1 auto;
+    justify-self:center;
+    align-self:end;
+    min-width:0;
     max-width:100%;
     gap:.7rem;
     flex-wrap:wrap;
@@ -424,24 +510,57 @@ a{color:inherit;text-decoration:none}
     column-gap:.7rem;
     white-space:normal;
     overflow:visible;
+  transform: translateY(4px);
+padding: 0 .5rem;
 }
+
+#tabLuoghi{
+  transform:translateY(-6px);
+}
+
 @media (min-width:720px){
   .tabs{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;gap:.8rem}
 }
 
 .tab{
-  appearance:none;border:0;background:transparent;color:var(--muted);
-  font-size:.88rem;font-weight:700;letter-spacing:.3px;
-  padding:.5rem .75rem;border-radius:10px;transition:all .2s ease;cursor:pointer;
+  appearance:none;
+  border:1px solid rgba(138,123,255,.25);
+  background:rgba(20,20,30,.6);
+  color:var(--muted);
+  font-size:.88rem;
+  font-weight:700;
+  letter-spacing:.3px;
+
+  padding:.58rem .75rem;
+  border-radius:12px;
+
+  transition:all .2s ease;
+  cursor:pointer;
   position:relative;
+
+  box-shadow:
+    0 2px 6px rgba(0,0,0,.4),
+    inset 0 0 0 1px rgba(138,123,255,.15);
 }
+
 .tab:hover{color:var(--text);background:rgba(138,123,255,.08)}
+
 .tab.active{
-  color:var(--violet-glow);background:rgba(138,123,255,.15);
-  box-shadow:0 0 12px rgba(138,123,255,.25) inset, 0 0 16px rgba(138,123,255,.15);
+  color:var(--violet-glow);
+  background:rgba(138,123,255,.18);
+
+  box-shadow:0 6px 18px rgba(138,123,255,.35);
 }
 
 .tab.dropdown{position:relative}
+
+.tab.dropdown{
+  background:transparent;
+  box-shadow:none;
+  border:none;
+  padding:0;
+}
+
 .dropdown-menu{
   position:absolute;top:calc(100% + .35rem);right:0;min-width:180px;
   background:var(--panel);border:1px solid var(--violet);border-radius:12px;
@@ -449,6 +568,13 @@ a{color:inherit;text-decoration:none}
   padding:.5rem;z-index:999;display:none;
 }
 .dropdown.open .dropdown-menu{display:block}
+
+.tab.dropdown.open #tabLuoghi{
+  color:var(--violet-glow);
+  background:rgba(138,123,255,.18);
+  box-shadow:0 6px 18px rgba(138,123,255,.35);
+}
+
 .menu-item{
   display:block;width:100%;text-align:left;background:transparent;border:0;
   color:var(--text);font-size:.88rem;padding:.55rem .7rem;border-radius:8px;
@@ -614,12 +740,34 @@ body.story-open #storiesBar {
 }
 
 /* ================= CONTENT ================= */
-.content{flex:1;padding:.6rem}
+
+.content{
+  flex:1;
+  padding:.6rem;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+
 .view{display:none}
+
 .view.active{display:block}
+
+#viewDogBoard.active{
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  min-height:0;
+}
+
 .view-header{padding:0 0 .6rem 0}
 
-.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+.grid-2{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:1rem;
+  padding-bottom: 96px;
+}
 
 .card{
   background:var(--bg-alt);border:1px solid var(--violet);border-radius:16px;
@@ -1448,6 +1596,7 @@ body.story-open #storiesBar {
   background:#fff;margin:.3rem auto;
 }
 .sponsor-copy{color:var(--muted);font-size:.93rem}
+
 .ad-banner{
   position: relative;
   width: 100%;
@@ -1460,7 +1609,7 @@ body.story-open #storiesBar {
   font-size: .9rem;
   color: var(--muted);
   text-align: center;
-  margin-top: 2.5rem;
+  margin-top: auto;
 }
 
 /* Nasconde lo sponsor globale quando è attiva la Home */
@@ -1523,13 +1672,22 @@ body.story-open #storiesBar {
 /* ===== MESSAGGI - HEADER & FOOTER ===== */
 
 #viewMessages {
-display: flex;
-flex-direction: column;
-height: 100vh;
-padding-top: 0 !important;
-margin-top: 0 !important;
-background: #0d021a !important;
-overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  background: #0d021a !important;
+  overflow: hidden;
+}
+
+#viewDogBoard{
+  display:flex;
+  flex-direction:column;
+  padding-top:0 !important;
+  margin-top:0 !important;
+  background:#0d021a !important;
 }
 
 /* barra messaggi ATTACCATA in alto */
@@ -1604,12 +1762,38 @@ border-color: rgba(177, 154, 255, 0.4);
 }
 
 /* corpo messaggi - scrollabile */
+
 .messages-body {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+}
+
+#viewDogBoard .messages-body{
+  display:flex;
+  flex-direction:column;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+  padding:0;
+}
+
+#viewDogBoard #dogBoardList{
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  overflow-y:auto;
+  min-height:0;
+}
+
+#viewDogBoard .dogboard-composer{
+  flex:0 0 auto;
+  margin-top:0;
+  margin-bottom:.8rem;
+  bottom:auto;
 }
 
 /* liste messaggi */
@@ -1626,12 +1810,269 @@ display: block;
 display: none !important;
 }
 
-.empty-state {
-text-align: center;
-color: rgba(255, 255, 255, 0.5);
-padding: 40px 20px;
-font-size: 1rem;
-line-height: 1.6;
+.empty-state { text-align: center; color: rgba(255, 255, 255, 0.5); padding: 40px 20px; font-size: 1rem; line-height: 1.6; }
+
+/* ================= BACHECA DOG ================= */
+.dogboard-feed-head{
+  display:flex;
+  justify-content:flex-start;
+  margin-bottom:.75rem;
+}
+
+#dogBoardList{
+  flex: 1;
+  display:flex;
+  flex-direction:column;
+  gap:.75rem;
+  min-height:180px;
+}
+
+.dogboard-empty-state{
+  display:flex;
+  flex-direction:column;
+  gap:.4rem;
+  padding:1rem;
+  border-radius:16px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(138,123,255,.16);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+.dogboard-empty-icon{
+  font-size:1.4rem;
+  line-height:1;
+}
+
+.dogboard-empty-title{
+  font-size:1rem;
+  font-weight:800;
+  color:var(--violet-glow);
+}
+
+.dogboard-empty-text{
+  font-size:.92rem;
+  line-height:1.5;
+  color:rgba(255,255,255,.74);
+}
+
+.dogboard-composer{
+  margin-top: auto;
+}
+
+.dogboard-composer-card{
+  display:flex;
+  flex-direction:column;
+  gap:.65rem;
+  padding:.9rem;
+  border-radius:18px;
+  background:rgba(20,20,30,.92);
+  border:1px solid rgba(138,123,255,.18);
+  box-shadow:0 10px 24px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+.dogboard-composer-head{
+  display:flex;
+  flex-direction:column;
+  gap:.15rem;
+}
+
+.dogboard-composer-title{
+  font-size:1rem;
+  font-weight:800;
+  color:#fff;
+}
+
+.dogboard-composer-subtitle{
+  font-size:.82rem;
+  color:rgba(255,255,255,.62);
+}
+
+.dogboard-composer-field textarea{
+  width:100%;
+  min-height:76px;
+  border:1px solid rgba(138,123,255,.18);
+  border-radius:14px;
+  background:rgba(255,255,255,.04);
+  color:#fff;
+  padding:.75rem .85rem;
+  font:inherit;
+  resize:none;
+  outline:none;
+}
+
+.dogboard-composer-field textarea::placeholder{
+  color:rgba(255,255,255,.42);
+}
+
+.dogboard-composer-actions{
+  display:flex;
+  gap:.6rem;
+  align-items:center;
+}
+
+.dogboard-composer-actions .btn{
+  flex:1 1 0;
+  justify-content:center;
+}
+
+.dogboard-composer-note{
+  font-size:.8rem;
+  color:rgba(255,255,255,.6);
+}
+
+.dogboard-photos-preview{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.45rem;
+  min-height:6px;
+}
+
+.dogboard-item{
+  display:flex;
+  align-items:flex-start;
+  gap:.75rem;
+  padding:.85rem;
+  border-radius:16px;
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(138,123,255,.14);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+}
+
+.dogboard-avatar{
+  flex:0 0 52px;
+  width:52px;
+  height:52px;
+  border-radius:999px;
+  overflow:hidden;
+  border:2px solid rgba(138,123,255,.45);
+  box-shadow:0 0 14px rgba(138,123,255,.18);
+  background:rgba(255,255,255,.04);
+}
+
+.dogboard-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.dogboard-main{
+  flex:1 1 auto;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:.35rem;
+}
+
+.dogboard-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.6rem;
+}
+
+.dogboard-title{
+  font-size:.98rem;
+  font-weight:800;
+  color:#fff;
+  line-height:1.2;
+}
+
+.dogboard-time{
+  flex:0 0 auto;
+  font-size:.78rem;
+  color:rgba(255,255,255,.55);
+}
+
+.dogboard-text{
+  font-size:.95rem;
+  line-height:1.45;
+  color:rgba(255,255,255,.88);
+  word-break:break-word;
+}
+
+.dogboard-zone{
+  font-size:.82rem;
+  color:rgba(255,255,255,.6);
+  margin-top:.1rem;
+  line-height:1.3;
+}
+
+.dogboard-photos{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.45rem;
+  margin-top:.15rem;
+}
+
+/* ================= VIEWER ANNUNCIO (BACHECA DOG) ================= */
+
+.dogboard-viewer{
+  display:flex;
+  flex-direction:column;
+  gap:.7rem;
+  padding:.4rem .2rem .2rem;
+}
+
+/* immagine principale (post) */
+.dogboard-viewer-avatar{
+  width:100%;
+  border-radius:16px;
+  overflow:hidden;
+  background:#0b0b0f;
+  border:1px solid rgba(138,123,255,.14);
+}
+
+.dogboard-viewer-avatar img{
+  width:100%;
+  display:block;
+  max-height:260px;
+  object-fit:cover;
+}
+
+/* nome DOG */
+.dogboard-viewer-name{
+  font-size:1.05rem;
+  font-weight:900;
+  color:var(--violet-glow);
+  line-height:1.2;
+  margin-top:.2rem;
+}
+
+/* riuso .dogboard-zone esistente → NON duplicata */
+/* la rendiamo solo più coerente nel viewer */
+.dogboard-viewer .dogboard-zone{
+  margin-top:-.1rem;
+  opacity:.85;
+}
+
+/* testo annuncio nel viewer */
+.dogboard-viewer .dogboard-text{
+  font-size:.95rem;
+  line-height:1.5;
+  color:var(--text);
+  margin-top:.1rem;
+}
+
+/* eventuali foto extra sotto */
+.dogboard-viewer .dogboard-photos{
+  margin-top:.2rem;
+  gap:.35rem;
+}
+
+/* CTA Rispondi già esistente */
+.dogboard-viewer .btn{
+  margin-top:.35rem;
+  align-self:flex-start;
+}
+
+.dogboard-photo{
+  width:84px;
+  height:84px;
+  object-fit:cover;
+  border-radius:12px;
+  display:block;
+  border:1px solid rgba(138,123,255,.16);
 }
 
 /* ===============================
