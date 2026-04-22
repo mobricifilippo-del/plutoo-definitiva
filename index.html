@@ -90,11 +90,13 @@
     
     <!-- Top Bar -->
     <div id="mainTopbar" class="topbar">
+      
       <div class="left">
-        <button id="btnBack" class="btn small ghost" aria-label="Back">←</button>
-        <img src="plutoo-icon-192.png" alt="Plutoo" class="logo" style="width:32px;height:32px">
-        <span class="brand-mini" data-i18n="brand">Plutoo</span>
-      </div><div class="tabs" role="tablist">
+  <button id="btnBack" class="btn small ghost" aria-label="Back">←</button>
+  <img src="plutoo-icon-192.png" alt="Plutoo" class="logo">
+      </div>
+      
+      <div class="tabs" role="tablist">
     <button id="tabNearby" class="tab active" role="tab" data-i18n="nearby">Vicino a te</button>
     <button id="tabLove" class="tab" role="tab" data-i18n="love">Accoppiamento</button>
     <div class="tab dropdown" role="menuitem">
@@ -134,6 +136,10 @@
     </svg>
   </span>
   <span id="notifDot" class="notif-dot hidden"></span>
+   </button>
+
+   <button id="btnDogBoard" class="btn small ghost" type="button" aria-label="Bacheca DOG">
+     Bacheca DOG
    </button>
   </div>
 </div>
@@ -236,16 +242,71 @@
   </div>
   <!-- fine MESSAGGI -->
 
+  <!-- BACHECA DOG -->
+  <div id="viewDogBoard" class="view">
+    <div class="messages-topbar">
+      <button id="btnDogBoardBack" class="btn back-btn">
+        <span class="back-icon">←</span>
+      </button>
+      <img src="plutoo-icon-192.png" class="messages-logo" alt="Plutoo">
+
+      <div class="messages-top-tabs">
+        <button class="msg-top-tab active" type="button">Bacheca DOG</button>
+      </div>
+    </div>
+
+    <div class="messages-body">
+      <div id="dogBoardList" class="messages-list active">
+        <div class="dogboard-empty-state"></div>
+      </div>
+    </div>
+
+    <div id="dogBoardComposer" class="dogboard-composer">
+      <div class="dogboard-composer-card">
+
+        <div class="dogboard-composer-head">
+          <div class="dogboard-composer-title">Pubblica annuncio</div>
+          <div class="dogboard-composer-subtitle">Testo + max 3 foto</div>
+        </div>
+
+        <div class="dogboard-composer-field">
+          <textarea id="dogBoardText" maxlength="300" placeholder="Scrivi il tuo annuncio..."></textarea>
+        </div>
+
+        <div class="dogboard-composer-actions">
+          <input id="dogBoardPhotos" type="file" accept="image/*" multiple hidden>
+
+          <label for="dogBoardPhotos" class="btn ghost" id="btnDogBoardPhotos">
+            Aggiungi foto
+          </label>
+
+          <button id="btnPublishDogBoard" class="btn primary" type="button">
+            Pubblica annuncio
+          </button>
+        </div>
+
+        <div class="dogboard-composer-note">
+          Puoi caricare fino a 3 foto.
+        </div>
+
+        <div id="dogBoardPreview" class="dogboard-photos-preview"></div>
+
+      </div>
+    </div>
+  </div>
+  <!-- fine BACHECA DOG -->
+
 </div><!-- fine .content -->
 
-<div id="adBanner" class="ad-banner">
-  Banner Test AdMob · Bannerhome
-</div>
-
-<div class="legal-links legal-purple">
-  <a href="termini.html">Termini</a> ·
-  <a href="privacy.html">Privacy</a> ·
-  <a href="contatti.html">Contatti</a>
+<div class="app-footer" style="margin-top:auto;flex:0 0 auto;">
+  <div id="adBanner" class="ad-banner">
+    Banner Test AdMob · Bannerhome
+  </div>
+  <div class="legal-links legal-purple">
+    <a href="termini.html">Termini</a> ·
+    <a href="privacy.html">Privacy</a> ·
+    <a href="contatti.html">Contatti</a>
+  </div>
 </div>
 
 </div><!-- ✅ CHIUDE #appScreen (QUESTA CHIUSURA DEVE STARE QUI) -->
