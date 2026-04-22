@@ -450,148 +450,150 @@ enterBtn.classList.add("enter-glow");
 }
 
 btnEnter?.addEventListener("click", async (e) => {
-  e.preventDefault();
-  e.stopPropagation();
+e.preventDefault();
+e.stopPropagation();
 
-  // sicurezza extra
-  if (!window.auth || !window.auth.currentUser) {
-    openAuth("login");
-    return;
-  }
+// sicurezza extra
+if (!window.auth || !window.auth.currentUser) {
+openAuth("login");
+return;
+}
 
-  // ✨ rimuove il glow SOLO quando clicco ENTRA
-  btnEnter.classList.remove("enter-glow");
+// ✨ rimuove il glow SOLO quando clicco ENTRA
+btnEnter.classList.remove("enter-glow");
 
-  // ✅ ENTRA definitivo (WOW)
-  try { localStorage.setItem("entered", "1"); } catch (err) {}
-  state.entered = true;
+// ✅ ENTRA definitivo (WOW)
+try { localStorage.setItem("entered", "1"); } catch (err) {}
+state.entered = true;
 
-  const bark = document.getElementById("dogBark");
-  if (bark) {
-    bark.currentTime = 0;
-    bark.volume = 0.5;
-    const playPromise = bark.play();
-    if (playPromise && typeof playPromise.then === "function") {
-      playPromise.catch(() => {
-        // in produzione niente alert
-      });
-    }
-  }
+const bark = document.getElementById("dogBark");
+if (bark) {
+bark.currentTime = 0;
+bark.volume = 0.5;
+const playPromise = bark.play();
+if (playPromise && typeof playPromise.then === "function") {
+playPromise.catch(() => {
+// in produzione niente alert
+});
+}
+}
 
-  if (heroLogo) {
-    heroLogo.classList.remove("heartbeat-violet", "heartbeat-violet-wow");
-    void heroLogo.offsetWidth;
-    heroLogo.classList.add("heartbeat-violet-wow");
-  }
+if (heroLogo) {
+heroLogo.classList.remove("heartbeat-violet", "heartbeat-violet-wow");
+void heroLogo.offsetWidth;
+heroLogo.classList.add("heartbeat-violet-wow");
+}
 
-  const flash = document.getElementById("whiteFlash");
-  if (flash) {
-    flash.classList.add("active");
-  }
+const flash = document.getElementById("whiteFlash");
+if (flash) {
+flash.classList.add("active");
+}
 
-  const targetView = state.currentView || "nearby";
+const targetView = state.currentView || "nearby";
 
-  setTimeout(() => {
+setTimeout(() => {
 
-    appScreen?.classList.remove("hidden");
-    document.body.classList.remove("story-open");
+appScreen?.classList.remove("hidden");  
+document.body.classList.remove("story-open");  
 
-    if (typeof initStories === "function") {
-      initStories();
-    }
+if (typeof initStories === "function") {  
+  initStories();  
+}  
 
-    // vista normale
-    setActiveView(targetView);
-    try { state.currentView = targetView; } catch (_) {}
+// vista normale  
+setActiveView(targetView);  
+try { state.currentView = targetView; } catch (_) {}
 
 // =========================
 // ✅ VETRINA: blocco interazioni (definitivo) — SOLO BLOCCO UPLOAD
 // =========================
 try {
-  if (
-  window.PLUTOO_READONLY &&
-  state.currentDogProfile?.id !== "__create__"
+if (
+window.PLUTOO_READONLY &&
+state.currentDogProfile?.id !== "create"
 ) {
-    document.body.classList.add("plutoo-readonly");
+document.body.classList.add("plutoo-readonly");
 
-    // ✅ disabilita SOLO azioni di UPLOAD (non chat/like/follow/tabs)
-    const idsToDisable = [
-      "uploadSelfie",
-      "publishStory"
-    ];
-    idsToDisable.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.disabled = true;
-    });
+// ✅ disabilita SOLO azioni di UPLOAD (non chat/like/follow/tabs)  
+const idsToDisable = [  
+  "uploadSelfie",  
+  "publishStory"  
+];  
+idsToDisable.forEach((id) => {  
+  const el = document.getElementById(id);  
+  if (el) el.disabled = true;  
+});  
 
-    // ✅ intercetta SOLO click su upload foto/documenti
-    if (!window.__plutooReadonlyBound) {
-      window.__plutooReadonlyBound = true;
+// ✅ intercetta SOLO click su upload foto/documenti  
+if (!window.__plutooReadonlyBound) {  
+  window.__plutooReadonlyBound = true;  
 
-      document.addEventListener("click", (ev) => {
-        try {
-          if (!window.PLUTOO_READONLY || state.currentDogProfile?.id === "__create__") return;
+  document.addEventListener("click", (ev) => {  
+    try {  
+      if (!window.PLUTOO_READONLY || state.currentDogProfile?.id === "__create__") return;  
 
-          const t = ev.target;
-          if (!t) return;
+      const t = ev.target;  
+      if (!t) return;  
 
-          const node = (t.closest ? t.closest("button,a,label,input,div,span") : null) || t;
-          const id = node && node.id ? String(node.id) : "";
+      const node = (t.closest ? t.closest("button,a,label,input,div,span") : null) || t;  
+      const id = node && node.id ? String(node.id) : "";  
 
-          // blocca anche classi note (UI)
-          const isAddPhoto = !!(node && node.classList && node.classList.contains("add-photo"));
-          const isDocItem  = !!(node && node.classList && node.classList.contains("doc-item"));
+      // blocca anche classi note (UI)  
+      const isAddPhoto = !!(node && node.classList && node.classList.contains("add-photo"));  
+      const isDocItem  = !!(node && node.classList && node.classList.contains("doc-item"));  
 
-          // blocca anche click su input file (se presente)
-          const isFileInput = !!(node && node.tagName === "INPUT" && String(node.type).toLowerCase() === "file");
+      // blocca anche click su input file (se presente)  
+      const isFileInput = !!(node && node.tagName === "INPUT" && String(node.type).toLowerCase() === "file");  
 
-          const isBlocked =
-            isAddPhoto ||
-            isDocItem ||
-            isFileInput ||
-            id === "uploadSelfie" ||
-            id === "publishStory";
+      const isBlocked =  
+        isAddPhoto ||  
+        isDocItem ||  
+        isFileInput ||  
+        id === "uploadSelfie" ||  
+        id === "publishStory";  
 
-          if (!isBlocked) return; // ✅ tutto il resto resta cliccabile
+      if (!isBlocked) return; // ✅ tutto il resto resta cliccabile  
 
-          ev.preventDefault();
-          ev.stopPropagation();
-          ev.stopImmediatePropagation();
+      ev.preventDefault();  
+      ev.stopPropagation();  
+      ev.stopImmediatePropagation();  
 
-          const msg2 = state.lang === "it"
-            ? "🔒 Per caricare foto o documenti devi creare il profilo DOG"
-            : "🔒 To upload photos or documents you must create your DOG profile";
-          if (typeof showToast === "function") showToast(msg2);
-          return false;
-        } catch (_) {}
-      }, true);
-    }
-  } else {
-    document.body.classList.remove("plutoo-readonly");
-  }
+      const msg2 = state.lang === "it"  
+        ? "🔒 Per caricare foto o documenti devi creare il profilo DOG"  
+        : "🔒 To upload photos or documents you must create your DOG profile";  
+      if (typeof showToast === "function") showToast(msg2);  
+      return false;  
+    } catch (_) {}  
+  }, true);  
+}
+
+} else {
+document.body.classList.remove("plutoo-readonly");
+}
 } catch (_) {}
-  }, 500);
+}, 500);
 
-  setTimeout(() => {
-    homeScreen?.classList.add("hidden");
-    const flash2 = document.getElementById("whiteFlash");
-    if (flash2) {
-      flash2.classList.remove("active");
-    }
-    if (heroLogo) {
-      heroLogo.style.transition = "opacity 1.5s ease-out";
-      heroLogo.style.opacity = "0";
-      showAdBanner();
-    }
-  }, 2000);
+setTimeout(() => {
+homeScreen?.classList.add("hidden");
 
-  setTimeout(() => {
-    if (heroLogo) {
-      heroLogo.classList.remove("heartbeat-violet-wow");
-      heroLogo.style.opacity = "";
-      heroLogo.style.transition = "";
-    }
-  }, 3500);
+const flash2 = document.getElementById("whiteFlash");
+if (flash2) {
+flash2.classList.remove("active");
+}
+if (heroLogo) {
+heroLogo.style.transition = "opacity 1.5s ease-out";
+heroLogo.style.opacity = "0";
+showAdBanner();
+}
+}, 2000);
+
+setTimeout(() => {
+if (heroLogo) {
+heroLogo.classList.remove("heartbeat-violet-wow");
+heroLogo.style.opacity = "";
+heroLogo.style.transition = "";
+}
+}, 3500);
 });
 }); // <-- CHIUDE
 
@@ -1100,7 +1102,15 @@ const state = {
   const viewLove     = $("viewLove");
   const viewPlay     = $("viewPlay");
   const viewMessages = $("viewMessages");
-  const nearGrid     = $("nearGrid");
+const viewDogBoard = $("viewDogBoard");
+const nearGrid     = $("nearGrid");
+
+const dogBoardList = $("dogBoardList");
+const dogBoardText = $("dogBoardText");
+const dogBoardPhotos = $("dogBoardPhotos");
+const dogBoardPreview = $("dogBoardPreview");
+const btnPublishDogBoard = $("btnPublishDogBoard");
+const btnRefreshDogBoard = $("btnRefreshDogBoard");
 
   const loveCard     = $("loveCard");
   const loveImg      = $("loveImg");
@@ -1698,23 +1708,30 @@ if (state.entered) {
   }
 
   // ============ Tabs ============
-  tabNearby?.addEventListener("click", ()=>setActiveView("nearby"));
-  tabLove?.addEventListener("click",   ()=>setActiveView("love"));
-  tabLuoghi?.addEventListener("click",(e)=>{
-    e.stopPropagation();
-    const wrap = tabLuoghi.parentElement;
-    const expanded = wrap.classList.toggle("open");
-    tabLuoghi.setAttribute("aria-expanded", expanded ? "true" : "false");
-  });
-  document.addEventListener("click",()=>tabLuoghi?.parentElement.classList.remove("open"));
+tabNearby?.addEventListener("click", ()=>setActiveView("nearby"));
+tabLove?.addEventListener("click",   ()=>setActiveView("love"));
+tabLuoghi?.addEventListener("click",(e)=>{
+  e.stopPropagation();
+  const wrap = tabLuoghi.parentElement;
+  const expanded = wrap.classList.toggle("open");
+  tabLuoghi.setAttribute("aria-expanded", expanded ? "true" : "false");
+  setActiveTabUI(expanded ? "luoghi" : state.currentView);
+});
+document.addEventListener("click",()=>{
+  tabLuoghi?.parentElement.classList.remove("open");
+  tabLuoghi?.setAttribute("aria-expanded", "false");
+  setActiveTabUI(state.currentView);
+});
 
-  qa(".menu-item", luoghiMenu).forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      const cat = btn.getAttribute("data-cat");
-      tabLuoghi.parentElement.classList.remove("open");
-      openMapsCategory(cat);
-    });
+qa(".menu-item", luoghiMenu).forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const cat = btn.getAttribute("data-cat");
+    tabLuoghi.parentElement.classList.remove("open");
+    tabLuoghi?.setAttribute("aria-expanded", "false");
+    setActiveTabUI(state.currentView);
+    openMapsCategory(cat);
   });
+});
 
 // ====== MESSAGGI - VISTA E TABS INTERN INTERNI ======
 const btnMessages = $("btnMessages");
@@ -2127,21 +2144,21 @@ if (!snap || snap.empty) {
         lastAt = lastAt.toDate();
       }
 
-      chats.push({
-        id: docSnap.id || null,
-        dogId: data.dogId || null,
-        members: Array.isArray(data.members) ? data.members : [],
-        lastMessageText: (data.lastMessageText || ""),
-        lastMessageAt: lastAt,
-        lastSenderUid: data.lastSenderUid || null,
-        dogName: data.dogName || null,
-        dogAvatar: data.dogAvatar || null,
-        match: data.match === true,
-
-        // opzionali: se non esistono su Firestore -> null/false
-        folder: data.folder || null,     // es: "requests" | "spam"
-        spam: data.spam === true
-      });
+     chats.push({
+  id: docSnap.id || null,
+  dogId: data.dogId || null,
+  members: Array.isArray(data.members) ? data.members : [],
+  lastMessageText: (data.lastMessageText || ""),
+  lastMessageAt: lastAt,
+  lastSenderUid: data.lastSenderUid || null,
+  dogName: data.dogName || null,
+  dogAvatar: data.dogAvatar || null,
+  names: data.names || {},
+  avatars: data.avatars || {},
+  match: data.match === true,
+  folder: data.folder || null,
+  spam: data.spam === true
+});
     });
 
     // Se non ci sono chat → mostro i testi "vuoti" e mi fermo
@@ -2198,53 +2215,84 @@ if (!snap || snap.empty) {
 };
 
     chats.forEach((chat) => {
-      const otherUid = chat.members.find((uid) => uid !== selfUid) || null;
-      const dogId = chat.dogId || null;
+  const otherUid = chat.members.find((uid) => uid !== selfUid) || null;
+  const dogId = chat.dogId || null;
 
-      const dogName = chat.dogName || (state.lang === "en" ? "DOG" : "Dog");
-      const text = (chat.lastMessageText || "").trim();
-      const dateText = chat.lastMessageAt ? chat.lastMessageAt.toLocaleString() : "";
+  const dogName =
+    (otherUid && chat.names && chat.names[otherUid]) ||
+    chat.dogName ||
+    (state.lang === "en" ? "DOG" : "Dog");
 
-      const hasText = text !== "";
+  const dogAvatar =
+    (otherUid && chat.avatars && chat.avatars[otherUid]) ||
+    chat.dogAvatar ||
+    null;
 
-      // ✅ Spam: priorità assoluta (se c'è flag spam)
-      const isSpam = chat.spam === true || chat.folder === "spam";
+  const text = (chat.lastMessageText || "").trim();
+  const dateText = chat.lastMessageAt ? chat.lastMessageAt.toLocaleString() : "";
 
-      // ✅ Match: verità = Firestore match, con fallback alla cache locale (se esiste)
-      const hasMatch = (chat.match === true) || (state.matches && state.matches[dogId] === true);
+  // PRIORITÀ 1: SPAM
+  if (chat.spam === true || chat.folder === "spam") {
+    spamList.appendChild(
+      makeRow(
+        `${dogName}${text ? " - " + text : ""}`,
+        dateText,
+        chat.id,
+        dogId,
+        otherUid,
+        "spam",
+        dogAvatar
+      )
+    );
+    return;
+  }
 
-      // ✅ Ricevuti: se NON è mio, ha testo, NON è spam, e ho match
-      const isInbox =
-      hasText &&
-      !isSpam &&
-      hasMatch;
+  const isAccepted = chat.status === "accepted";
 
-      // ✅ Richieste: se NON è mio, ha testo, NON è spam, e NON ho match
-      const isRequest =
-        hasText &&
-        !isSpam &&
-        !hasMatch;
+  // PRIORITÀ 2: ACCETTATI (INBOX + MATCH)
+  if (isAccepted) {
+    inboxList.appendChild(
+      makeRow(
+        `${dogName}${text ? " - " + text : ""}`,
+        dateText,
+        chat.id,
+        dogId,
+        otherUid,
+        "inbox",
+        dogAvatar
+      )
+    );
 
-      if (isInbox) {
-        inboxList.appendChild(makeRow(`${dogName} - ${text}`, dateText, chat.id, dogId, otherUid, "inbox", chat.dogAvatar)
-        );
-      }
+    if (dogId) {
+      matchesList.appendChild(
+        makeRow(
+          `${dogName}`,
+          dateText,
+          chat.id,
+          dogId,
+          otherUid,
+          "matches",
+          dogAvatar
+        )
+      );
+    }
 
-      if (hasMatch && dogId) {
-        matchesList.appendChild(makeRow(`${dogName}`, dateText, chat.id, dogId, otherUid, "matches", chat.dogAvatar)
-        );
-      }
+    return;
+  }
 
-      if (isRequest) {
-      requestsList.appendChild(makeRow(`${dogName} - ${text}`, dateText, chat.id, dogId, otherUid, "requests", chat.dogAvatar)
-        );
-      }
-
-      if (isSpam) {
-        spamList.appendChild(makeRow(`${dogName} - ${text}`, dateText, chat.id, dogId, otherUid, "spam", chat.dogAvatar)
-        );
-      }
-    });
+  // PRIORITÀ 3: TUTTO IL RESTO → REQUESTS
+  requestsList.appendChild(
+    makeRow(
+      `${dogName}${text ? " - " + text : ""}`,
+      dateText,
+      chat.id,
+      dogId,
+      otherUid,
+      "requests",
+      dogAvatar
+    )
+  );
+});
 
     // Aggiorno gli "empty state" in base alla presenza di msg-item
     msgLists.forEach((list) => {
@@ -2310,95 +2358,144 @@ msgLists.forEach((list) => {
   });
 });
 
-  function setActiveView(name){
-    // ✅ GUARD: se arriva una view sconosciuta (es. "notifications"), non lasciare schermo nero
-    try {
-      const allowed = { nearby:1, love:1, play:1, profile:1, messages:1 };
-      if (!allowed[String(name || "")]) name = "nearby";
-    } catch (_) {
-      name = "nearby";
-    }
+ function setActiveTabUI(name){
+  tabNearby?.classList.remove("active");
+  tabLove?.classList.remove("active");
+  tabLuoghi?.classList.remove("active");
+  document.getElementById("btnDogBoard")?.classList.remove("active");
+  if (tabPlay) tabPlay.classList.remove("active");
 
-    localStorage.setItem("currentView", name);
+  if (name === "nearby") tabNearby?.classList.add("active");
+  if (name === "love") tabLove?.classList.add("active");
+  if (name === "luoghi") tabLuoghi?.classList.add("active");
+  if (name === "dogboard") document.getElementById("btnDogBoard")?.classList.add("active");
+}
 
-    if (state.currentView !== name && state.currentView){
-      state.viewHistory.push(state.currentView);
-    }
+function setActiveView(name){
+  // ✅ GUARD: se arriva una view sconosciuta (es. "notifications"), non lasciare schermo nero
+  try {
+    const allowed = { nearby:1, love:1, dogboard:1, play:1, profile:1, messages:1 };
+    if (!allowed[String(name || "")]) name = "nearby";
+  } catch (_) {
+    name = "nearby";
+  }
 
-    if (name === "messages" && state.currentView !== "messages"){
-      state.previousViewForMessages = state.currentView || "nearby";
-    }
+  localStorage.setItem("currentView", name);
 
-    state.currentView = name;
-    // 🔄 Mantieni allineato lo stato delle Stories
+  if (state.currentView !== name && state.currentView){
+    state.viewHistory.push(state.currentView);
+  }
+
+  if ((name === "messages" || name === "dogboard") && state.currentView !== name){
+    state.previousViewForMessages = state.currentView || "nearby";
+  }
+
+  state.currentView = name;
+
+  // 🔄 Mantieni allineato lo stato delle Stories
   try {
     StoriesState.loadStories();
   } catch (e) {}
 
-  [viewNearby, viewLove, viewPlay, viewMessages, profilePage].forEach(v => {
-  if (!v) return;
-  v.classList.remove("active");
-  v.classList.add("hidden");
+  [viewNearby, viewLove, viewPlay, viewMessages, document.getElementById("viewDogBoard"), profilePage].forEach(v => {
+    if (!v) return;
+    v.classList.remove("active");
+    v.classList.add("hidden");
   });
 
-    if (name === "profile" || name === "messages") {
-      mainTopbar?.classList.add("hidden");
-    } else {
-      mainTopbar?.classList.remove("hidden");
-    }
-
-    const storiesBar = $("storiesBar");
-    if (storiesBar) {
-      storiesBar.classList.toggle("hidden", name !== "nearby");
-    }
-    tabNearby.classList.remove("active");
-  tabLove.classList.remove("active");
-  if (tabPlay) tabPlay.classList.remove("active");
-   
-   if (name === "nearby") {
-  if (viewNearby) {
-    viewNearby.classList.remove("hidden");
-    viewNearby.classList.add("active");
+  if (name === "profile" || name === "messages" || name === "dogboard") {
+    mainTopbar?.classList.add("hidden");
+  } else {
+    mainTopbar?.classList.remove("hidden");
   }
-  tabNearby.classList.add("active");
-  renderNearby();
-  renderStoriesBar();
-  window.renderStories && window.renderStories();
-  if (btnSearchPanel) btnSearchPanel.disabled = false;
-   }
 
-    if (name === "love") {
-      if (viewLove) {
-        viewLove.classList.remove("hidden");
-        viewLove.classList.add("active");
-      }
-      tabLove.classList.add("active");
-      renderSwipe("love");
-    }
+  const globalAdBanner = document.getElementById("adBanner");
+  const globalLegalLinks = document.querySelector("#appScreen > .legal-links.legal-purple");
 
-    if (name === "profile") {
-  if (profilePage) {
-    profilePage.classList.remove("hidden");
-    profilePage.classList.add("active");
+ if (name === "dogboard") {
+  const el = document.getElementById("viewDogBoard");
+
+  if (!el) return;
+
+  el.classList.remove("hidden");
+  el.classList.add("active");
+ }
+
+  const storiesBar = $("storiesBar");
+  if (storiesBar) {
+    storiesBar.classList.toggle("hidden", name !== "nearby");
   }
-    }
 
-    if (name === "messages") {
-      if (viewMessages) {
-        viewMessages.classList.remove("hidden");
-        viewMessages.classList.add("active");
-      }
-    }
+  setActiveTabUI(name);
 
-    window.scrollTo({top:0, behavior:"smooth"});
+  if (name === "nearby") {
+    if (viewNearby) {
+      viewNearby.classList.remove("hidden");
+      viewNearby.classList.add("active");
+    }
+    renderNearby();
+    renderStoriesBar();
+    window.renderStories && window.renderStories();
+    if (btnSearchPanel) btnSearchPanel.disabled = false;
   }
+
+  if (name === "love") {
+    if (viewLove) {
+      viewLove.classList.remove("hidden");
+      viewLove.classList.add("active");
+    }
+    renderSwipe("love");
+  }
+
+  if (name === "profile") {
+    if (profilePage) {
+      profilePage.classList.remove("hidden");
+      profilePage.classList.add("active");
+    }
+  }
+
+  if (name === "messages") {
+  if (viewMessages) {
+    viewMessages.classList.remove("hidden");
+    viewMessages.classList.add("active");
+  }
+  }
+
+  document.documentElement.style.overflowY = (name === "dogboard" || name === "messages") ? "hidden" : "auto";
+document.body.style.overflowY = (name === "dogboard" || name === "messages") ? "hidden" : "auto";
+
+if (appScreen) {
+  if (name === "dogboard" || name === "messages") {
+    appScreen.style.minHeight = "0px";
+    appScreen.style.height = `${window.innerHeight}px`;
+    appScreen.style.overflow = "hidden";
+  } else {
+    appScreen.style.minHeight = "";
+    appScreen.style.height = "";
+    appScreen.style.overflow = "";
+  }
+}
+
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
 
   btnBack?.addEventListener("click", ()=> goBack() );
-  btnBackLove?.addEventListener("click", ()=> goBack() );
-  btnMsgBack?.addEventListener("click", () => {
-    const prev = state.previousViewForMessages || "nearby";
-    setActiveView(prev);
-  });
+btnBackLove?.addEventListener("click", ()=> goBack() );
+btnMsgBack?.addEventListener("click", () => {
+  const prev = state.previousViewForMessages || "nearby";
+  setActiveView(prev);
+});
+
+const btnDogBoard = document.getElementById("btnDogBoard");
+btnDogBoard?.addEventListener("click", () => {
+  setActiveView("dogboard");
+});
+
+const btnDogBoardBack = document.getElementById("btnDogBoardBack");
+btnDogBoardBack?.addEventListener("click", () => {
+  const prev = state.previousViewForMessages || "nearby";
+  setActiveView(prev);
+});
 
     function goBack(){
     // Se è aperta la lightbox della galleria profilo, chiudila
@@ -2814,18 +2911,22 @@ setTimeout(() => {
   // ✅ NUOVA FUNZIONE: Consolida match su Firestore (swipe + profilo)
 async function ensureChatForMatch(dog) {
   if (!dog || !dog.id) return;
-  
+
   try {
-    const selfUid = window.PLUTOO_UID || "anonymous";
-    const dogId = dog.id;
+    const selfUid = String(window.PLUTOO_UID || "anonymous");
+    const dogId = String(dog.id || "");
     const dogName = dog.name || "";
     const dogAvatar = dog.img || dog.avatar || "";
+    const otherUid = String(dog.ownerUid || "");
 
-    // chatId deterministico (stesso formato usato ovunque)
-    const chatId = `${selfUid}_${dogId}`;
+    if (!selfUid || !dogId || !otherUid) return;
+
+    // chatId condiviso tra i 2 partecipanti reali
+    const pair = [selfUid, otherUid].sort();
+    const chatId = `${pair[0]}__${pair[1]}`;
 
     const chatPayload = {
-      members: [selfUid],
+      members: [selfUid, otherUid],
       dogId,
       dogName,
       dogAvatar,
@@ -5251,23 +5352,23 @@ function openChat(chatIdOrDog, maybeDogId, maybeOtherUid) {
   let dogId = "";
   let chatId = "";
 
-  // Caso 1: openChat(dog) dal profilo
-  if (typeof chatIdOrDog === "object" && chatIdOrDog) {
-    dog = chatIdOrDog;
-    dogId = dog.id || "";
-  } else {
-    // Caso 2: openChat(chatId, dogId, otherUid) da lista Messaggi
-    chatId = chatIdOrDog || "";
-    dogId = maybeDogId || "";
+  let otherUid = "";
 
-    // Se dogId non arriva, ricavalo da chatId (formato: selfUid_dogId)
-    if (!dogId && chatId && chatId.startsWith(selfUid + "_")) {
-      dogId = chatId.slice((selfUid + "_").length);
-    }
-  }
+if (typeof chatIdOrDog === "object" && chatIdOrDog) {
+  dog = chatIdOrDog;
+  dogId = dog.id || "";
+  otherUid = dog.ownerUid || "";
+} else {
+  chatId = chatIdOrDog || "";
+  dogId = maybeDogId || "";
+  otherUid = maybeOtherUid || "";
+}
 
-  // ChatId UNICO e deterministico: sempre selfUid_dogId
-  chatId = `${selfUid}_${dogId}`;
+// ChatId UNICO e deterministico basato sui 2 partecipanti
+if (selfUid && otherUid) {
+  const pair = [String(selfUid), String(otherUid)].sort();
+  chatId = `${pair[0]}__${pair[1]}`;
+}
 
   // Trova DOG coerente (evita fallback strani)
   dog = dog || (DOGS.find(d => d.id === dogId) || null);
@@ -5280,6 +5381,7 @@ function openChat(chatIdOrDog, maybeDogId, maybeOtherUid) {
   // Salva metadati correnti
   chatPane.dataset.dogId = dogId;
   chatPane.dataset.chatId = chatId;
+  chatPane.dataset.otherUid = otherUid;
   chatPane.dataset.hasMatch = "0";
   state.currentDogId = dogId;
   state.currentChatId = chatId;
@@ -5418,6 +5520,19 @@ async function sendChatMessage(text, dogId, hasMatch, msgCount) {
   try {
     const selfUid = window.PLUTOO_UID || "anonymous";
 
+    const debugOtherUid =
+  (chatPane && chatPane.dataset && chatPane.dataset.otherUid)
+    ? chatPane.dataset.otherUid
+    : "MANCANTE";
+
+alert(
+  "DEBUG MESSAGGI\n\n" +
+  "selfUid: " + selfUid + "\n" +
+  "otherUid: " + debugOtherUid + "\n" +
+  "dogId: " + (chatPane?.dataset?.dogId || "MANCANTE") + "\n" +
+  "chatId ATTUALE: " + (chatPane?.dataset?.chatId || "MANCANTE")
+);
+
     const safeDogId =
       (chatPane && chatPane.dataset && chatPane.dataset.dogId)
         ? chatPane.dataset.dogId
@@ -5438,90 +5553,513 @@ if (isShowcaseDog) {
   return;
 }
 
-const chatId =
-  (chatPane && chatPane.dataset && chatPane.dataset.chatId)
-    ? chatPane.dataset.chatId
-    : `${selfUid}_${safeDogId}`;
+const otherUid =
+  (chatPane && chatPane.dataset && chatPane.dataset.otherUid)
+    ? String(chatPane.dataset.otherUid)
+    : "";
 
-    const dogProfile =
-      state.currentDogProfile || DOGS.find(d => d.id === safeDogId) || {};
+if (!otherUid) {
+  console.error("sendChatMessage: otherUid mancante");
+  statusEl.textContent = "⚠️";
+  statusEl.dataset.status = "error";
+  return;
+}
 
-    const dogName = dogProfile.name || null;
-    const dogAvatar =
-      dogProfile.img || dogProfile.avatar || dogProfile.photoUrl || null;
+const pair = [String(selfUid), String(otherUid)].sort();
+const chatId = `${pair[0]}__${pair[1]}`;
 
-    // 1) Messaggio (salvo ref per aggiornare ✓✓ quando diventa letto)
-    const msgRef = await db.collection("messages").add({
-      chatId,
-      senderUid: selfUid,
-      text,
-      type: "text",
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      isRead: false
-    });
+let dogName = null;
+let dogAvatar = null;
 
-    // ✓ inviato
-    statusEl.textContent = "✓";
-    statusEl.dataset.status = "sent";
+try {
+  const dogSnap = await db.collection("dogs").doc(String(safeDogId)).get();
+  const dogData = dogSnap && dogSnap.exists ? (dogSnap.data() || {}) : {};
 
-    // Listener: quando isRead diventa true -> ✓✓
-    // (NB: lo diventerà true SOLO se l’altro apre da "Ricevuti", come hai deciso tu)
-    msgRef.onSnapshot((doc) => {
-      const m = doc && doc.exists ? (doc.data() || {}) : {};
-      if (m.isRead === true) {
-        statusEl.textContent = "✓✓";
-        statusEl.dataset.status = "read";
-      }
-    }, () => {});
+  dogName = dogData.name || null;
+  dogAvatar =
+    dogData.photoUrl ||
+    dogData.img ||
+    dogData.avatar ||
+    null;
+} catch (e) {
+  console.error("Errore lettura dog Firestore:", e);
+}
 
-    // 2) Meta chat (NON tocchiamo match)
-    await db.collection("chats").doc(chatId).set({
-      // IMPORTANTISSIMO: non sovrascrivo più members (così non perdo l’altro UID)
-      members: firebase.firestore.FieldValue.arrayUnion(selfUid),
-      dogId: safeDogId,
-      dogName,
-      dogAvatar,
-      lastMessageText: text,
-      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-      lastSenderUid: selfUid
-    }, { merge: true });
+// 1) Messaggio (salvo ref per aggiornare ✓✓ quando diventa letto)
+const msgRef = await db.collection("messages").add({
+  chatId,
+  senderUid: selfUid,
+  text,
+  type: "text",
+  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  isRead: false
+});
 
-    if (typeof loadMessagesLists === "function") loadMessagesLists();
+// ✓ inviato
+statusEl.textContent = "✓";
+statusEl.dataset.status = "sent";
 
-    // Contatore coerente
-    state.chatMessagesSent[safeDogId] =
-      (state.chatMessagesSent[safeDogId] || 0) + 1;
+// Listener: quando isRead diventa true -> ✓✓
+// (NB: lo diventerà true SOLO se l’altro apre da "Ricevuti", come hai deciso tu)
+msgRef.onSnapshot((doc) => {
+  const m = doc && doc.exists ? (doc.data() || {}) : {};
+  if (m.isRead === true) {
+    statusEl.textContent = "✓✓";
+    statusEl.dataset.status = "read";
+  }
+}, () => {});
 
-    localStorage.setItem(
-      "chatMessagesSent",
-      JSON.stringify(state.chatMessagesSent)
-    );
+// 2) Meta chat: source of truth conversazione
+    
+ await db.collection("chats").doc(chatId).set({
+  members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
+  dogId: safeDogId,
+  names: { [otherUid]: dogName },
+  avatars: { [otherUid]: dogAvatar },
+  lastMessageText: text,
+  lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+  lastSenderUid: selfUid,
+  status: "request"
+}, { merge: true });
 
-    // Regole input
-    if (!state.plus && !hasMatch && state.chatMessagesSent[safeDogId] >= 1) {
-      chatInput.disabled = true;
-      chatInput.placeholder =
-        state.lang === "it"
-          ? "Match necessario per continuare"
-          : "Match needed to continue";
-    } else {
-      chatInput.disabled = false;
-      chatInput.placeholder =
-        state.lang === "it"
-          ? "Scrivi un messaggio…"
-          : "Type a message…";
-    }
+if (typeof loadMessagesLists === "function") loadMessagesLists();
+
+// Contatore coerente
+state.chatMessagesSent[safeDogId] =
+  (state.chatMessagesSent[safeDogId] || 0) + 1;
+
+localStorage.setItem(
+  "chatMessagesSent",
+  JSON.stringify(state.chatMessagesSent)
+);
+
+// Regole input
+if (!state.plus && !hasMatch && state.chatMessagesSent[safeDogId] >= 1) {
+  chatInput.disabled = true;
+  chatInput.placeholder =
+    state.lang === "it"
+      ? "Match necessario per continuare"
+      : "Match needed to continue";
+} else {
+  chatInput.disabled = false;
+  chatInput.placeholder =
+    state.lang === "it"
+      ? "Scrivi un messaggio…"
+      : "Type a message…";
+}
+        
 
   } catch (err) {
-    console.error("Errore Firestore sendChatMessage", err);
-    // errore -> icona warning sulla bolla
-    try {
-      const statusEl = bubble.querySelector(".msg-status");
-      statusEl.textContent = "⚠️";
-      statusEl.dataset.status = "error";
-    } catch (_) {}
+  console.error("🔥 ERRORE FIRESTORE:", err);
+
+  alert(
+    "ERRORE FIRESTORE:\n" +
+    (err && err.message ? err.message : JSON.stringify(err))
+  );
+
+  try {
+    const statusEl = bubble.querySelector(".msg-status");
+    statusEl.textContent = "⚠️";
+    statusEl.dataset.status = "error";
+  } catch (_) {}
+  }
+  
+}
+
+function escapeDogBoardHtml(value){
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function openDogBoardViewer(post){
+  try {
+    if (!post || !post.dogId) return;
+
+    const dog = (state.dogs || []).find(d => String(d.id) === String(post.dogId)) || null;
+
+    const pane = document.getElementById("chatPane");
+    const list = document.getElementById("chatList");
+    const header = pane?.querySelector(".chat-header span");
+
+    if (!pane || !list) return;
+
+    if (header) header.textContent = String(post.dogName || "Annuncio");
+
+    const photoUrls = Array.isArray(post.photos)
+      ? post.photos.filter(p => typeof p === "string" && p.startsWith("http"))
+      : [];
+
+    const mainPhoto = photoUrls[0] || String(post.dogAvatar || "./plutoo-icon-192.png");
+
+    list.innerHTML = `
+      <div class="dogboard-viewer">
+
+        <div class="dogboard-viewer-avatar">
+          <img src="${mainPhoto.replace(/"/g, "&quot;")}"
+               onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+        </div>
+
+        <div class="dogboard-viewer-name">${String(post.dogName || "")}</div>
+
+        ${String(post.zone || "").trim()
+          ? `<div class="dogboard-zone">${String(post.zone)
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;")}</div>`
+          : ""}
+
+        ${String(post.text || "").trim()
+          ? `<div class="dogboard-text">${String(post.text)
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#39;")}</div>`
+          : ""}
+
+        ${photoUrls.length > 1
+          ? `<div class="dogboard-photos">
+              ${photoUrls.map(url => `
+                <img
+                  src="${String(url).replace(/"/g, "&quot;")}"
+                  class="dogboard-photo"
+                  alt="Foto annuncio"
+                  onerror="this.style.display='none';"
+                >
+              `).join("")}
+            </div>`
+          : ""}
+
+        <button id="dogboardViewerReply" class="btn primary">
+          Rispondi
+        </button>
+
+      </div>
+    `;
+
+    pane.classList.remove("hidden");
+    pane.classList.add("show");
+
+    const replyBtn = document.getElementById("dogboardViewerReply");
+    if (replyBtn){
+      replyBtn.onclick = () => {
+        if (dog) openChat(dog);
+      };
+    }
+
+  } catch(e){
+    console.error("openDogBoardViewer error:", e);
   }
 }
+
+function bindDogBoardItems(){
+  if (!dogBoardList) return;
+
+  dogBoardList.onclick = (e) => {
+    let item = e.target;
+
+    while (item && !item.classList?.contains("dogboard-item")) {
+      item = item.parentElement;
+    }
+
+    if (!item) return;
+
+    const rawPost = item.getAttribute("data-post");
+    if (!rawPost) return;
+
+    try {
+      const post = JSON.parse(decodeURIComponent(rawPost));
+      openDogBoardViewer(post);
+    } catch (err) {
+      console.error("DogBoard item parse error:", err);
+    }
+  };
+}
+
+function renderDogBoardItem(payload, nowValue, mode = "prepend"){
+  if (!dogBoardList || !payload) return;
+
+  const nowTime = new Date(nowValue).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+  const html = `
+  <div class="dogboard-item"
+     data-dog-id="${payload.dogId}"
+     data-post="${encodeURIComponent(JSON.stringify({
+       dogId: String(payload.dogId || ""),
+       dogName: String(payload.dogName || ""),
+       dogAvatar: String(payload.dogAvatar || "./plutoo-icon-192.png"),
+       zone: String(payload.zone || ""),
+       text: String(payload.text || ""),
+       photos: Array.isArray(payload.photos) ? payload.photos.filter(p => typeof p === "string" && p.startsWith("http")) : [],
+       createdAtClient: nowValue
+     }))}"
+     role="button"
+     tabindex="0"
+     aria-label="Apri annuncio ${String(payload.dogName || "").replace(/"/g, "&quot;")}">
+    <div class="dogboard-avatar">
+      <img src="${String(payload.dogAvatar || "./plutoo-icon-192.png")}" alt="${String(payload.dogName || "DOG").replace(/"/g, "&quot;")}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+    </div>
+
+    <div class="dogboard-main">
+      <div class="dogboard-head">
+        <div class="dogboard-title">${String(payload.dogName || "")}</div>
+        <div class="dogboard-time">${nowTime}</div>
+      </div>
+
+      ${String(payload.zone || "").trim()
+        ? `<div class="dogboard-zone">${escapeDogBoardHtml(payload.zone)}</div>`
+        : ""}
+
+      <div class="dogboard-text">${escapeDogBoardHtml(payload.text || "")}</div>
+
+      ${Array.isArray(payload.photos)
+  ? (() => {
+      const validUrls = payload.photos.filter(p =>
+        typeof p === "string" &&
+        p.startsWith("http")
+      );
+
+      return validUrls.length
+        ? `<div class="dogboard-photos">
+            ${validUrls.map(url => `
+              <img
+                src="${url.replace(/"/g, "&quot;")}"
+                class="dogboard-photo"
+                alt="Foto annuncio"
+                onerror="this.style.display='none';"
+              >
+            `).join("")}
+          </div>`
+        : "";
+    })()
+  : ""}
+        
+    </div>
+  </div>
+  `;
+
+  if (mode === "append") {
+    dogBoardList.insertAdjacentHTML("beforeend", html);
+  } else {
+    dogBoardList.insertAdjacentHTML("afterbegin", html);
+  }
+
+  const emptyState = dogBoardList.querySelector(".dogboard-empty-state");
+  if (emptyState) emptyState.remove();
+
+  bindDogBoardItems();
+}
+
+async function loadDogBoardPosts(){
+  try {
+    if (!dogBoardList || !window.db) return;
+
+    dogBoardList.innerHTML = "";
+
+    const snap = await window.db
+      .collection("dogBoardPosts")
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+
+    snap.forEach(doc => {
+      const post = doc.data() || {};
+      const nowValue = post.createdAtClient || Date.now();
+      renderDogBoardItem(post, nowValue, "append");
+    });
+
+  } catch (e) {
+    console.error("DogBoard load error:", e);
+  }
+}
+
+    async function publishDogBoardTextOnly(){
+  try {
+    if (!btnPublishDogBoard || !dogBoardText || !dogBoardList || !window.db) return;
+    if (btnPublishDogBoard.dataset.busy === "1") return;
+
+    const text = String(dogBoardText.value || "").trim();
+
+const hasPhotos =
+  Array.isArray(dogBoardSelectedPhotos) &&
+  dogBoardSelectedPhotos.length > 0;
+
+if (!text && !hasPhotos) return;
+
+    const dogId = String(window.PLUTOO_DOG_ID || "");
+    const ownerUid = String(window.PLUTOO_UID || "");
+
+    if (!dogId || !ownerUid) {
+      alert(state.lang === "it" ? "Profilo DOG non pronto" : "DOG profile not ready");
+      return;
+    }
+
+    const currentDog =
+      (Array.isArray(state.dogs) ? state.dogs : []).find(d => d && String(d.id) === dogId) || null;
+
+    if (!currentDog || !String(currentDog.name || "").trim()) {
+      alert(state.lang === "it" ? "DOG corrente non trovato" : "Current DOG not found");
+      return;
+    }
+
+    btnPublishDogBoard.dataset.busy = "1";
+    btnPublishDogBoard.disabled = true;
+
+    const now = Date.now();
+
+    // ================= UPLOAD FOTO (FILE -> STORAGE -> URL) =================
+    let photoUrls = [];
+
+    if (Array.isArray(dogBoardSelectedPhotos) && dogBoardSelectedPhotos.length) {
+      for (let i = 0; i < dogBoardSelectedPhotos.length; i++) {
+        const file = dogBoardSelectedPhotos[i];
+
+        try {
+          const blob = file;
+          const path = `dogs/${dogId}/dogBoard/${Date.now()}_${i}.jpg`;
+          const storageRef = window.storage.ref().child(path);
+
+          await storageRef.put(blob);
+          const url = await storageRef.getDownloadURL();
+
+          photoUrls.push(url);
+        } catch (e) {
+          console.error("DogBoard upload error:", e);
+        }
+      }
+    }
+
+    const payload = {
+      dogId,
+      ownerUid,
+      dogName: String(currentDog.name || ""),
+      dogAvatar: String(currentDog.img || "./plutoo-icon-192.png"),
+      zone: String(currentDog.zone || currentDog.city || currentDog.location || ""),
+      text,
+      photos: photoUrls,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdAtClient: now
+    };
+
+    const docRef = await window.db.collection("dogBoardPosts").add(payload);
+
+    dogBoardSelectedPhotos = [];
+    if (dogBoardPreview) dogBoardPreview.innerHTML = "";
+    if (dogBoardPhotos) dogBoardPhotos.value = "";
+
+    renderDogBoardItem(payload, now, "prepend");
+
+    dogBoardText.value = "";
+
+    setTimeout(() => {
+      try {
+        const bodyEl = viewDogBoard?.querySelector(".messages-body");
+        const composerEl = document.getElementById("dogBoardComposer");
+        const bannerEl = adBanner;
+        const legalEl = document.querySelector(".legal-links.legal-purple");
+      } catch (_) {}
+    }, 80);
+
+  } catch (err) {
+    console.error("publishDogBoardTextOnly error", err);
+
+    alert(
+      (state.lang === "it" ? "Errore durante la pubblicazione:\n" : "Publish failed:\n") +
+      String((err && (err.message || err.code)) || err || "errore sconosciuto")
+    );
+  } finally {
+    if (btnPublishDogBoard) {
+      btnPublishDogBoard.dataset.busy = "0";
+      btnPublishDogBoard.disabled = false;
+    }
+  }
+}
+
+let dogBoardSelectedPhotos = [];
+
+dogBoardPhotos?.addEventListener("change", () => {
+  try {
+    const newFiles = Array.from(dogBoardPhotos.files || [])
+      .filter(f => f && String(f.type || "").startsWith("image/"));
+
+    dogBoardSelectedPhotos = [...dogBoardSelectedPhotos, ...newFiles].slice(0, 3);
+
+    renderDogBoardPreview();
+
+    dogBoardPhotos.value = "";
+  } catch (e) {
+    console.error("DogBoard photo select error:", e);
+  }
+});
+
+function renderDogBoardPreview(){
+  try {
+    if (!dogBoardPreview) return;
+
+    dogBoardPreview.innerHTML = "";
+
+    dogBoardSelectedPhotos.forEach((file, index) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "dogboard-photo-wrapper";
+
+        const img = document.createElement("img");
+        img.src = String(reader.result || "");
+        img.className = "dogboard-photo";
+
+        const btnRemove = document.createElement("button");
+        btnRemove.textContent = "✕";
+        btnRemove.className = "dogboard-photo-remove";
+
+        btnRemove.onclick = () => {
+          dogBoardSelectedPhotos = dogBoardSelectedPhotos.filter((_, i) => i !== index);
+          renderDogBoardPreview();
+        };
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(btnRemove);
+
+        dogBoardPreview.appendChild(wrapper);
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+  } catch (e) {
+    console.error("DogBoard preview error:", e);
+  }
+}
+
+btnPublishDogBoard?.addEventListener("click", () => {
+  try {
+    const isPlus = localStorage.getItem("plutoo_plus") === "yes";
+
+    if (isPlus) {
+      publishDogBoardTextOnly();
+      return;
+    }
+
+    if (typeof showRewardVideoMock === "function") {
+      showRewardVideoMock("dogboard_publish", () => {
+        publishDogBoardTextOnly();
+      });
+      return;
+    }
+
+    publishDogBoardTextOnly();
+
+  } catch (e) {
+    console.error("DogBoard publish error:", e);
+  }
+});
 
   // ============ Maps / servizi ============
   function openMapsCategory(cat){
@@ -5629,8 +6167,9 @@ async function init(){
         if (!name) return;
 
         realDogs.push({
-          id: doc.id,
-          name: name,
+  id: doc.id,
+  ownerUid: String(data.ownerUid || ""),
+  name: name,
           breed: String(data.breed || ""),
           age: Number(data.age || 0),
           sex: String(data.sex || ""),
