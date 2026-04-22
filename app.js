@@ -5609,13 +5609,46 @@ msgRef.onSnapshot((doc) => {
   }
 }, () => {});
 
+    // --- SELF DOG (utente corrente) ---
+let selfDogId = null;
+let selfDogName = null;
+let selfDogAvatar = null;
+
+try {
+  const selfUid = window.PLUTOO_UID || null;
+
+  if (selfUid) {
+    const selfDogSnap = await db.collection("dogs").doc(String(selfUid)).get();
+    const selfDogData = selfDogSnap && selfDogSnap.exists ? (selfDogSnap.data() || {}) : {};
+
+    selfDogId = selfUid;
+
+    selfDogName = selfDogData.name || null;
+
+    selfDogAvatar =
+      selfDogData.photoUrl ||
+      selfDogData.img ||
+      selfDogData.avatar ||
+      null;
+  }
+} catch (e) {
+  console.error("Errore lettura self dog Firestore:", e);
+}
+
 // 2) Meta chat: source of truth conversazione
     
  await db.collection("chats").doc(chatId).set({
   members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
   dogId: safeDogId,
-  names: { [otherUid]: dogName },
-  avatars: { [otherUid]: dogAvatar },
+  names: {
+  [selfUid]: selfDogName || null,
+  [otherUid]: dogName || null
+},
+
+avatars: {
+  [selfUid]: selfDogAvatar || null,
+  [otherUid]: dogAvatar || null
+},
   lastMessageText: text,
   lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
   lastSenderUid: selfUid,
