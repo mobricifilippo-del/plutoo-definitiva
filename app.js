@@ -2138,13 +2138,12 @@ if (!snap || snap.empty) {
     const chats = [];
     snap.forEach((docSnap) => {
       const data = docSnap.data() || {};
-
       let lastAt = data.lastMessageAt || null;
       if (lastAt && typeof lastAt.toDate === "function") {
         lastAt = lastAt.toDate();
       }
 
-     chats.push({
+    chats.push({
   id: docSnap.id || null,
   dogId: data.dogId || null,
   members: Array.isArray(data.members) ? data.members : [],
@@ -2155,11 +2154,12 @@ if (!snap || snap.empty) {
   dogAvatar: data.dogAvatar || null,
   names: data.names || {},
   avatars: data.avatars || {},
+  status: data.status || null,
   match: data.match === true,
   folder: data.folder || null,
   spam: data.spam === true
 });
-    });
+});
 
     // Se non ci sono chat → mostro i testi "vuoti" e mi fermo
     if (!chats.length) {
@@ -2215,8 +2215,13 @@ if (!snap || snap.empty) {
 };
 
     chats.forEach((chat) => {
-  const otherUid = chat.members.find((uid) => uid !== selfUid) || null;
-  const dogId = chat.dogId || null;
+  const otherUid =
+    (Array.isArray(chat.members) ? chat.members : []).find((uid) => uid !== selfUid) || null;
+
+  const dogId =
+    (otherUid && chat.dogIds && chat.dogIds[otherUid]) ||
+    chat.dogId ||
+    null;
 
   const dogName =
     (otherUid && chat.names && chat.names[otherUid]) ||
@@ -2247,7 +2252,7 @@ if (!snap || snap.empty) {
     return;
   }
 
-  const isAccepted = chat.status === "accepted";
+  const isAccepted = chat.status === "accepted" || chat.match === true;
 
   // PRIORITÀ 2: ACCETTATI (INBOX + MATCH)
   if (isAccepted) {
@@ -2264,17 +2269,40 @@ if (!snap || snap.empty) {
     );
 
     if (dogId) {
-      matchesList.appendChild(
-        makeRow(
-          `${dogName}`,
-          dateText,
-          chat.id,
-          dogId,
-          otherUid,
-          "matches",
-          dogAvatar
-        )
-      );
+  const row = makeRow(
+    `${dogName}`,
+    "",
+    chat.id,
+    dogId,
+    otherUid,
+    "matches",
+    dogAvatar
+  );
+
+  const cleanRow = row.cloneNode(true);
+
+  const previewEl = cleanRow.querySelector(".msg-preview");
+  if (previewEl) previewEl.remove();
+
+  const metaEl = cleanRow.querySelector(".msg-meta");
+  if (metaEl) metaEl.remove();
+
+  cleanRow.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dog = {
+      id: dogId,
+      name: dogName,
+      img: dogAvatar,
+      avatar: dogAvatar,
+      ownerUid: otherUid
+    };
+
+    openProfilePage(dog);
+  });
+
+  matchesList.appendChild(cleanRow);
     }
 
     return;
@@ -2926,15 +2954,16 @@ async function ensureChatForMatch(dog) {
     const chatId = `${pair[0]}__${pair[1]}`;
 
     const chatPayload = {
-      members: [selfUid, otherUid],
-      dogId,
-      dogName,
-      dogAvatar,
-      match: true,
-      lastMessageText: "",
-      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    };
+  members: [selfUid, otherUid],
+  dogId,
+  dogName,
+  dogAvatar,
+  match: true,
+  status: "accepted", // ← AGGIUNTA
+  lastMessageText: "",
+  lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+  updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+};
 
     await db.collection("chats").doc(chatId).set(chatPayload, { merge: true });
   } catch (err) {
@@ -5518,52 +5547,34 @@ async function sendChatMessage(text, dogId, hasMatch, msgCount) {
   const statusEl = bubble.querySelector(".msg-status");
 
   try {
-    const selfUid = window.PLUTOO_UID || "anonymous";
+  const selfUid = window.PLUTOO_UID || "anonymous";
 
-    const debugOtherUid =
-  (chatPane && chatPane.dataset && chatPane.dataset.otherUid)
-    ? chatPane.dataset.otherUid
-    : "MANCANTE";
+  const safeDogId =
+    (chatPane && chatPane.dataset && chatPane.dataset.dogId)
+      ? chatPane.dataset.dogId
+      : (dogId || "");
 
-alert(
-  "DEBUG MESSAGGI\n\n" +
-  "selfUid: " + selfUid + "\n" +
-  "otherUid: " + debugOtherUid + "\n" +
-  "dogId: " + (chatPane?.dataset?.dogId || "MANCANTE") + "\n" +
-  "chatId ATTUALE: " + (chatPane?.dataset?.chatId || "MANCANTE")
-);
+  if (!safeDogId) {
+    console.error("sendChatMessage: dogId mancante");
+    statusEl.textContent = "⚠️";
+    statusEl.dataset.status = "error";
+    return;
+  }
 
-    const safeDogId =
-      (chatPane && chatPane.dataset && chatPane.dataset.dogId)
-        ? chatPane.dataset.dogId
-        : (dogId || "");
+  const isShowcaseDog = !!DOGS.find(d => d && String(d.id) === String(safeDogId));
+  if (isShowcaseDog) {
+    console.warn("sendChatMessage: DOG vetrina, niente persistenza chat");
+    statusEl.textContent = "⚠️";
+    statusEl.dataset.status = "error";
+    return;
+  }
 
-    if (!safeDogId) {
-  console.error("sendChatMessage: dogId mancante");
-  statusEl.textContent = "⚠️";
-  statusEl.dataset.status = "error";
-  return;
-}
-
-const isShowcaseDog = !!DOGS.find(d => d && String(d.id) === String(safeDogId));
-if (isShowcaseDog) {
-  console.warn("sendChatMessage: DOG vetrina, niente persistenza chat");
-  statusEl.textContent = "⚠️";
-  statusEl.dataset.status = "error";
-  return;
-}
-
-const otherUid =
-  (chatPane && chatPane.dataset && chatPane.dataset.otherUid)
-    ? String(chatPane.dataset.otherUid)
-    : "";
-
-if (!otherUid) {
-  console.error("sendChatMessage: otherUid mancante");
-  statusEl.textContent = "⚠️";
-  statusEl.dataset.status = "error";
-  return;
-}
+  if (!otherUid) {
+    console.error("sendChatMessage: otherUid mancante");
+    statusEl.textContent = "⚠️";
+    statusEl.dataset.status = "error";
+    return;
+  }
 
 const pair = [String(selfUid), String(otherUid)].sort();
 const chatId = `${pair[0]}__${pair[1]}`;
@@ -5639,21 +5650,23 @@ try {
     
  await db.collection("chats").doc(chatId).set({
   members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
-  dogId: safeDogId,
-  names: {
-  [selfUid]: selfDogName || null,
-  [otherUid]: dogName || null
-},
 
-avatars: {
-  [selfUid]: selfDogAvatar || null,
-  [otherUid]: dogAvatar || null
-},
   lastMessageText: text,
   lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-  lastSenderUid: selfUid,
-  status: "request"
+  lastSenderUid: selfUid
+
 }, { merge: true });
+
+await db.collection("chats").doc(chatId).update({
+  [`names.${selfUid}`]: selfDogName,
+  [`names.${otherUid}`]: dogName,
+
+  [`avatars.${selfUid}`]: selfDogAvatar,
+  [`avatars.${otherUid}`]: dogAvatar,
+
+  [`dogIds.${selfUid}`]: selfDogId,
+  [`dogIds.${otherUid}`]: safeDogId
+});
 
 if (typeof loadMessagesLists === "function") loadMessagesLists();
 
@@ -6620,10 +6633,6 @@ function deleteCurrentStoryMedia() {
     if (!el) return;
     el.classList.add("active");
     setTimeout(() => el.classList.remove("active"), 900);
-  }
-
-  function playStoryMusic(musicId) {
-    console.log("🎵 Playing music:", musicId);
   }
 
   document.addEventListener("click", (e) => {
