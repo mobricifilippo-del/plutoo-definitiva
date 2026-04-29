@@ -981,16 +981,139 @@ if (isAndroidWebView) {
 }
 
   // ============ Helpers ============
-  const $  = (id) => document.getElementById(id);
-  const qs = (s, r=document) => r.querySelector(s);
-  const qa = (s, r=document) => r ? Array.from(r.querySelectorAll(s)) : [];
-  const $all = qa;
+const $  = (id) => document.getElementById(id);
+const qs = (s, r=document) => r.querySelector(s);
+const qa = (s, r=document) => r ? Array.from(r.querySelectorAll(s)) : [];
+const $all = qa;
 
-  function autodetectLang(){
-    return (navigator.language||"it").toLowerCase().startsWith("en")?"en":"it";
-  }
+function showPlutooModal(options = {}) {
+  return new Promise((resolve) => {
+    const title = options.title || "Plutoo";
+    const message = options.message || "";
+    const confirmText = options.confirmText || "OK";
+    const cancelText = options.cancelText || "";
+    const danger = options.danger === true;
 
-  let CURRENT_USER_DOG_ID =
+    const modal = document.createElement("div");
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.style.position = "fixed";
+    modal.style.inset = "0";
+    modal.style.zIndex = "99999";
+    modal.style.background = "rgba(0,0,0,.62)";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.padding = "18px";
+    modal.style.boxSizing = "border-box";
+
+    const box = document.createElement("div");
+    box.style.width = "min(92vw,380px)";
+    box.style.maxHeight = "82vh";
+    box.style.overflow = "auto";
+    box.style.background = "#171022";
+    box.style.border = "1px solid rgba(205,164,52,.45)";
+    box.style.borderRadius = "18px";
+    box.style.padding = "18px";
+    box.style.boxShadow = "0 18px 45px rgba(0,0,0,.45)";
+    box.style.color = "#fff";
+    box.style.boxSizing = "border-box";
+
+    const titleEl = document.createElement("div");
+    titleEl.style.fontWeight = "900";
+    titleEl.style.fontSize = "1.1rem";
+    titleEl.style.marginBottom = "8px";
+    titleEl.style.color = "#CDA434";
+    titleEl.textContent = title;
+
+    const messageEl = document.createElement("div");
+    messageEl.style.fontWeight = "700";
+    messageEl.style.marginBottom = "16px";
+    messageEl.style.lineHeight = "1.35";
+    messageEl.textContent = message;
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "10px";
+    actions.style.justifyContent = "flex-end";
+    actions.style.flexWrap = "wrap";
+
+    let cancelBtn = null;
+
+    if (cancelText) {
+      cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "btn ghost small";
+      cancelBtn.textContent = cancelText;
+      actions.appendChild(cancelBtn);
+    }
+
+    const confirmBtn = document.createElement("button");
+    confirmBtn.type = "button";
+    confirmBtn.className = "btn " + (danger ? "danger" : "accent") + " small";
+    confirmBtn.textContent = confirmText;
+
+    actions.appendChild(confirmBtn);
+
+    box.appendChild(titleEl);
+    box.appendChild(messageEl);
+    box.appendChild(actions);
+    modal.appendChild(box);
+
+    const close = (value) => {
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+      resolve(value);
+    };
+
+    modal.addEventListener("click", (ev) => {
+      if (ev.target === modal && cancelText) close(false);
+    });
+
+    modal.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && cancelText) close(false);
+    });
+
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        close(false);
+      };
+    }
+
+    confirmBtn.onclick = () => {
+      close(true);
+    };
+
+    document.body.appendChild(modal);
+
+    setTimeout(() => {
+      confirmBtn.focus();
+    }, 0);
+  });
+}
+
+function showPlutooAlert(message, options = {}) {
+  return showPlutooModal({
+    title: options.title || "Plutoo",
+    message: message || "",
+    confirmText: options.confirmText || "OK"
+  });
+}
+
+function showPlutooConfirm(message, options = {}) {
+  return showPlutooModal({
+    title: options.title || "Plutoo",
+    message: message || "",
+    cancelText: options.cancelText || "Annulla",
+    confirmText: options.confirmText || "Conferma",
+    danger: options.danger === true
+  });
+}
+
+function autodetectLang(){
+  return (navigator.language||"it").toLowerCase().startsWith("en")?"en":"it";
+}
+
+let CURRENT_USER_DOG_ID =
 String(localStorage.getItem("currentDogId") || localStorage.getItem("dogId") || "");
 
   // ============ Stato (caricato da localStorage dove possibile) ============
@@ -4529,248 +4652,385 @@ localStorage.setItem("dogs", JSON.stringify(state.dogs));
       // Se non ho un DOG reale, NON inietto note e NON disabilito bottoni.
       if (!window.PLUTOO_HAS_DOG) return;
 
-      // ==== GALLERIA PROFILO (max 5 foto, salvate in localStorage)
-      (function () {
-        if (!d || !profileContent) return;
+      // ==== GALLERIA PROFILO (max 5 foto, Firebase-first)
+(function () {
+  if (!d || !profileContent) return;
 
-        const galleryBlock = qs("#dogGallery", profileContent) || qs(".gallery", profileContent);
-        if (!galleryBlock) return;
+  const galleryBlock = qs("#dogGallery", profileContent) || qs(".gallery", profileContent);
+  if (!galleryBlock) return;
 
-        // ✅ bind-once: se già agganciata per questo dogId, basta
-        const bindKey = `galleryBound_${d.id}`;
-        if (galleryBlock.dataset && galleryBlock.dataset[bindKey] === "1") return;
-        if (galleryBlock.dataset) galleryBlock.dataset[bindKey] = "1";
+  const bindKey = `galleryBound_${d.id}`;
+  if (galleryBlock.dataset && galleryBlock.dataset[bindKey] === "1") return;
+  if (galleryBlock.dataset) galleryBlock.dataset[bindKey] = "1";
 
-        const maxPhotos = 5;
-        const dogId = d.id;
-        const storageKey = "gallery_" + dogId;
+  const maxPhotos = 5;
+  const dogId = d.id;
 
-        let images = [];
-        try {
-          const raw = localStorage.getItem(storageKey);
-          images = raw ? JSON.parse(raw) : [];
-        } catch (e) {
-          images = [];
+  let images = [];
+
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.multiple = true;
+  input.style.display = "none";
+  document.body.appendChild(input);
+
+  let pendingFiles = [];
+  let publishBar = null;
+
+  const ensurePublishBar = () => {
+    if (publishBar && publishBar.parentNode) return;
+
+    publishBar = document.createElement("div");
+    publishBar.id = "plutooGalleryPublishBar";
+    publishBar.style.margin = ".55rem 0 .15rem";
+    publishBar.style.padding = ".65rem .75rem";
+    publishBar.style.border = "1px solid rgba(205,164,52,.35)";
+    publishBar.style.borderRadius = "14px";
+    publishBar.style.background = "rgba(205,164,52,.08)";
+    publishBar.style.display = "none";
+    publishBar.style.gap = ".55rem";
+    publishBar.style.alignItems = "center";
+    publishBar.style.justifyContent = "space-between";
+
+    publishBar.innerHTML = `
+      <div style="font-weight:900;">
+        ${state.lang === "it" ? "Foto pronte ✅" : "Photos ready ✅"}
+        <span id="plutooGalleryPendingCount" style="opacity:.8;font-weight:800;"></span>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button type="button" id="plutooGalleryPublishBtn" class="btn accent small">
+          ${state.lang === "it" ? "Pubblica" : "Publish"}
+        </button>
+        <button type="button" id="plutooGalleryCancelBtn" class="btn ghost small">
+          ${state.lang === "it" ? "Annulla" : "Cancel"}
+        </button>
+      </div>
+    `;
+
+    galleryBlock.parentNode.insertBefore(publishBar, galleryBlock);
+
+    const pubBtn = document.getElementById("plutooGalleryPublishBtn");
+    const cancelBtn = document.getElementById("plutooGalleryCancelBtn");
+
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        pendingFiles = [];
+        const c = document.getElementById("plutooGalleryPendingCount");
+        if (c) c.textContent = "";
+        publishBar.style.display = "none";
+      };
+    }
+
+    if (pubBtn) {
+      pubBtn.onclick = () => {
+        if (!pendingFiles.length) return;
+
+        const c = document.getElementById("plutooGalleryPendingCount");
+
+        if (!window.db || !window.storage) {
+          if (c) c.textContent = state.lang === "it" ? " — Errore Firebase" : " — Firebase error";
+          return;
         }
-        if (!Array.isArray(images)) images = [];
 
-        // input unico
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.multiple = true;
-        input.style.display = "none";
-        document.body.appendChild(input);
+        if (c) c.textContent = state.lang === "it" ? " — Caricamento in corso..." : " — Uploading...";
 
-        // ===== UI: pannello "Pubblica" (creato via JS, non tocchiamo HTML)
-        let pendingFiles = [];
-        let publishBar = null;
+        const dogRef = window.db.collection("dogs").doc(String(dogId));
 
-        const ensurePublishBar = () => {
-          if (publishBar && publishBar.parentNode) return;
+        dogRef.get()
+          .then((dogSnap) => {
+            const data = (dogSnap && dogSnap.exists) ? (dogSnap.data() || {}) : {};
+            const currentGallery = Array.isArray(data.gallery) ? data.gallery : [];
 
-          publishBar = document.createElement("div");
-          publishBar.id = "plutooGalleryPublishBar";
-          publishBar.style.margin = ".55rem 0 .15rem";
-          publishBar.style.padding = ".65rem .75rem";
-          publishBar.style.border = "1px solid rgba(205,164,52,.35)";
-          publishBar.style.borderRadius = "14px";
-          publishBar.style.background = "rgba(205,164,52,.08)";
-          publishBar.style.display = "none";
-          publishBar.style.gap = ".55rem";
-          publishBar.style.alignItems = "center";
-          publishBar.style.justifyContent = "space-between";
+            const remaining = maxPhotos - currentGallery.length;
+            const toAdd = pendingFiles.slice(0, remaining);
 
-          publishBar.innerHTML = `
-            <div style="font-weight:900;">
-              ${state.lang === "it" ? "Foto pronte ✅" : "Photos ready ✅"}
-              <span id="plutooGalleryPendingCount" style="opacity:.8;font-weight:800;"></span>
-            </div>
-            <div style="display:flex;gap:.5rem;">
-              <button type="button" id="plutooGalleryPublishBtn" class="btn accent small">
-                ${state.lang === "it" ? "Pubblica" : "Publish"}
-              </button>
-              <button type="button" id="plutooGalleryCancelBtn" class="btn ghost small">
-                ${state.lang === "it" ? "Annulla" : "Cancel"}
-              </button>
-            </div>
-          `;
-
-          // metto la bar prima della galleria
-          galleryBlock.parentNode.insertBefore(publishBar, galleryBlock);
-
-          const pubBtn = document.getElementById("plutooGalleryPublishBtn");
-          const cancelBtn = document.getElementById("plutooGalleryCancelBtn");
-
-          if (cancelBtn) {
-            cancelBtn.onclick = () => {
+            if (!toAdd.length) {
               pendingFiles = [];
-              const c = document.getElementById("plutooGalleryPendingCount");
               if (c) c.textContent = "";
               publishBar.style.display = "none";
-            };
-          }
+              return;
+            }
 
-      if (pubBtn) {
-            pubBtn.onclick = () => {
-              if (!pendingFiles.length) return;
+            const stamp = Date.now();
 
-              const remaining = maxPhotos - images.length;
-              const toAdd = pendingFiles.slice(0, remaining);
-              if (!toAdd.length) {
-                pendingFiles = [];
-                const c = document.getElementById("plutooGalleryPendingCount");
-                if (c) c.textContent = "";
-                publishBar.style.display = "none";
-                return;
-              }
+            const uploads = toAdd.map((file, index) => {
+              const ext = (file.type && file.type.includes("png")) ? "png" : "jpg";
+              const fileName = "gallery_" + stamp + "_" + index + "." + ext;
+              const storagePath = `dogs/${dogId}/gallery/${fileName}`;
+              const storageRef = window.storage.ref().child(storagePath);
 
-              let pending = toAdd.length;
-
-              toAdd.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = e => {
-                  images.push(e.target.result);
-                  pending--;
-                  if (pending === 0) {
-                    try { localStorage.setItem(storageKey, JSON.stringify(images)); } catch (err) {}
-                    pendingFiles = [];
-                    const c = document.getElementById("plutooGalleryPendingCount");
-                    if (c) c.textContent = "";
-                    publishBar.style.display = "none";
-                    renderGallery();
+              return storageRef.put(file, { contentType: file.type || "image/jpeg" })
+                .then(() => storageRef.getDownloadURL())
+                .then((downloadUrl) => ({
+                  index: index,
+                  item: {
+                    url: downloadUrl,
+                    storagePath: storagePath,
+                    createdAt: new Date().toISOString()
                   }
-                };
-                reader.readAsDataURL(file);
+                }))
+                .catch(() => null);
+            });
+
+            Promise.all(uploads)
+              .then((results) => {
+                const newItems = results
+                  .filter(x => x && x.item)
+                  .sort((a, b) => a.index - b.index)
+                  .map(x => x.item);
+
+                if (!newItems.length) {
+                  pendingFiles = [];
+                  if (c) c.textContent = state.lang === "it" ? " — Errore caricamento" : " — Upload error";
+                  publishBar.style.display = "none";
+                  return;
+                }
+
+                const nextGallery = currentGallery.concat(newItems).slice(0, maxPhotos);
+
+                dogRef.set({ gallery: nextGallery }, { merge: true })
+                  .then(() => {
+                    images = nextGallery.map(x => x && x.url ? x.url : "").filter(Boolean);
+
+                    pendingFiles = [];
+                    if (c) c.textContent = state.lang === "it" ? " — Foto pubblicate" : " — Photos published";
+
+                    setTimeout(() => {
+                      if (c) c.textContent = "";
+                      publishBar.style.display = "none";
+                    }, 700);
+
+                    renderGallery();
+                  })
+                  .catch(() => {
+                    pendingFiles = [];
+                    if (c) c.textContent = state.lang === "it" ? " — Errore salvataggio" : " — Save error";
+                    publishBar.style.display = "none";
+                  });
               });
-            };
-          }
-        };
+          })
+          .catch(() => {
+            pendingFiles = [];
+            if (c) c.textContent = state.lang === "it" ? " — Errore lettura profilo" : " — Profile read error";
+            publishBar.style.display = "none";
+          });
+      };
+    }
+  };
 
-        const showPublishBar = () => {
-          ensurePublishBar();
-          const c = document.getElementById("plutooGalleryPendingCount");
-          if (c) c.textContent = `(${pendingFiles.length}/${maxPhotos - images.length})`;
-          publishBar.style.display = "flex";
-        };
+  const showPublishBar = () => {
+    ensurePublishBar();
+    const c = document.getElementById("plutooGalleryPendingCount");
+    if (c) c.textContent = `(${pendingFiles.length}/${maxPhotos - images.length})`;
+    publishBar.style.display = "flex";
+  };
 
-        // ===== Lightbox semplice (solo foto + X + tap fuori)
-        const openLightbox = (src) => {
-          if (!src) return;
+  const openLightbox = (src) => {
+    if (!src) return;
 
-          const old = document.querySelector(".lightbox");
-          if (old && old.parentNode) old.parentNode.removeChild(old);
+    const old = document.querySelector(".lightbox");
+    if (old && old.parentNode) old.parentNode.removeChild(old);
 
-          const lb = document.createElement("div");
-          lb.className = "lightbox";
-          lb.innerHTML = `
-            <button type="button" class="close" aria-label="Close">✕</button>
-            <img class="lightbox-img" src="${src}" alt="">
-          `;
-          document.body.appendChild(lb);
+    const lb = document.createElement("div");
+    lb.className = "lightbox";
+    lb.innerHTML = `
+      <button type="button" class="close" aria-label="Close">✕</button>
+      <img class="lightbox-img" src="${src}" alt="">
+    `;
+    document.body.appendChild(lb);
 
-          const closeBtn = qs(".close", lb);
-          if (closeBtn) closeBtn.onclick = () => lb.remove();
-          lb.addEventListener("click", (e) => { if (e.target === lb) lb.remove(); });
-        };
+    const closeBtn = qs(".close", lb);
+    if (closeBtn) closeBtn.onclick = () => lb.remove();
+    lb.addEventListener("click", (e) => { if (e.target === lb) lb.remove(); });
+  };
 
-        const renderGallery = () => {
-          // pulisco tutto
-          galleryBlock.innerHTML = "";
+  const renderGallery = () => {
+    galleryBlock.innerHTML = "";
 
-          // render immagini
-          const limit = Math.min(images.length, maxPhotos);
-          for (let i = 0; i < limit; i++) {
-            const src = images[i];
+    const limit = Math.min(images.length, maxPhotos);
+    for (let i = 0; i < limit; i++) {
+      const src = images[i];
 
-            const ph = document.createElement("div");
-            ph.className = "ph";
-            ph.dataset.upload = "1";
-            ph.style.position = "relative";
+      const ph = document.createElement("div");
+      ph.className = "ph";
+      ph.dataset.upload = "1";
+      ph.style.position = "relative";
 
-            const img = document.createElement("img");
-            img.src = src;
-            img.className = "pp-gallery-img";
-            img.style.width = "100%";
-            img.style.height = "100%";
-            img.style.objectFit = "cover";
-            img.style.objectPosition = "center";
-            img.style.display = "block";
-            img.style.cursor = "pointer";
-            img.onerror = () => { img.src = "./plutoo-icon-192.png"; };
+      const img = document.createElement("img");
+      img.src = src;
+      img.className = "pp-gallery-img";
+      img.style.width = "100%";
+      img.style.height = "100%";
+      img.style.objectFit = "cover";
+      img.style.objectPosition = "center";
+      img.style.display = "block";
+      img.style.cursor = "pointer";
+      img.onerror = () => { img.src = "./plutoo-icon-192.png"; };
 
-            // ✅ click apre lightbox (sempre)
-            img.onclick = (ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
-              openLightbox(img.getAttribute("src"));
-            };
+      img.onclick = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openLightbox(img.getAttribute("src"));
+      };
 
-            // ✅ rimuovi (🗑️) per singola foto
-            const del = document.createElement("button");
-            del.type = "button";
-            del.textContent = "🗑️";
-            del.setAttribute("aria-label", "Remove photo");
-            del.style.position = "absolute";
-            del.style.right = "10px";
-            del.style.bottom = "10px";
-            del.style.zIndex = "5";
-            del.style.border = "0";
-            del.style.borderRadius = "999px";
-            del.style.padding = "8px 10px";
-            del.style.background = "rgba(0,0,0,.55)";
-            del.style.color = "#fff";
+      const del = document.createElement("button");
+del.type = "button";
+del.textContent = "🗑️";
+del.setAttribute("aria-label", "Remove photo");
+del.style.position = "absolute";
+del.style.right = "10px";
+del.style.bottom = "10px";
+del.style.zIndex = "5";
+del.style.border = "0";
+del.style.borderRadius = "999px";
+del.style.padding = "8px 10px";
+del.style.background = "rgba(0,0,0,.55)";
+del.style.color = "#fff";
 
-            del.onclick = (ev) => {
-              ev.preventDefault();
-              ev.stopPropagation();
+del.onclick = (ev) => {
+  ev.preventDefault();
+  ev.stopPropagation();
 
-              images.splice(i, 1);
-              try { localStorage.setItem(storageKey, JSON.stringify(images)); } catch (err) {}
+  const modal = document.createElement("div");
+  modal.style.position = "fixed";
+  modal.style.inset = "0";
+  modal.style.zIndex = "99999";
+  modal.style.background = "rgba(0,0,0,.62)";
+  modal.style.display = "flex";
+  modal.style.alignItems = "center";
+  modal.style.justifyContent = "center";
+  modal.style.padding = "18px";
+
+  modal.innerHTML = `
+    <div style="width:min(92vw,360px);background:#171022;border:1px solid rgba(205,164,52,.45);border-radius:18px;padding:18px;box-shadow:0 18px 45px rgba(0,0,0,.45);color:#fff;">
+      <div style="font-weight:900;font-size:1.1rem;margin-bottom:8px;color:#CDA434;">Plutoo</div>
+      <div style="font-weight:700;margin-bottom:16px;">Vuoi eliminare questa foto?</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button type="button" id="plutooCancelDeletePhoto" class="btn ghost small">Annulla</button>
+        <button type="button" id="plutooConfirmDeletePhoto" class="btn accent small">Elimina</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const cancelBtn = modal.querySelector("#plutooCancelDeletePhoto");
+  const confirmBtn = modal.querySelector("#plutooConfirmDeletePhoto");
+
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      modal.remove();
+    };
+  }
+
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      modal.remove();
+
+      if (!window.db || !dogId) return;
+
+      const dogRef = window.db.collection("dogs").doc(String(dogId));
+
+      dogRef.get()
+        .then((dogSnap) => {
+          if (!dogSnap || !dogSnap.exists) return;
+
+          const data = dogSnap.data() || {};
+          const currentGallery = Array.isArray(data.gallery) ? data.gallery : [];
+          const itemToDelete = currentGallery[i] || null;
+          const nextGallery = currentGallery.filter((_, idx) => idx !== i);
+
+          const deleteStoragePromise =
+            itemToDelete && itemToDelete.storagePath && window.storage
+              ? window.storage
+                  .ref()
+                  .child(itemToDelete.storagePath)
+                  .delete()
+                  .catch(() => {})
+              : Promise.resolve();
+
+          return deleteStoragePromise
+            .then(() => {
+              return dogRef.set(
+                { gallery: nextGallery },
+                { merge: true }
+              );
+            })
+            .then(() => {
+              images = nextGallery
+                .map(x => x && x.url ? x.url : "")
+                .filter(Boolean)
+                .slice(0, maxPhotos);
+
               renderGallery();
-            };
+            });
+        })
+        .catch(() => {
+        });
+    };
+  }
+};
 
-            ph.appendChild(img);
-            ph.appendChild(del);
-            galleryBlock.appendChild(ph);
-          }
+      ph.appendChild(img);
+ph.appendChild(del);
+galleryBlock.appendChild(ph);
+    }
 
-          // slot ADD (sempre ultimo)
-          const addPh = document.createElement("div");
-          addPh.className = "ph";
+    const addPh = document.createElement("div");
+    addPh.className = "ph";
 
-          const addBtn = document.createElement("button");
-          addBtn.type = "button";
-          addBtn.className = "add-photo";
-          addBtn.textContent = "+ " + (state.lang === "it" ? "Aggiungi" : "Add");
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "add-photo";
+    addBtn.textContent = "+ " + (state.lang === "it" ? "Aggiungi" : "Add");
 
-          addBtn.disabled = images.length >= maxPhotos;
+    addBtn.disabled = images.length >= maxPhotos;
 
-          // ✅ evita duplicazioni: onclick (sostituisce)
-          addBtn.onclick = () => {
-            if (images.length >= maxPhotos) return;
-            input.value = "";
-            input.click();
-          };
+    addBtn.onclick = () => {
+      if (images.length >= maxPhotos) return;
+      input.value = "";
+      input.click();
+    };
 
-          addPh.appendChild(addBtn);
-          galleryBlock.appendChild(addPh);
-        };
+    addPh.appendChild(addBtn);
+    galleryBlock.appendChild(addPh);
+  };
 
-        input.onchange = () => {
-          const files = Array.from(input.files || []);
-          if (!files.length) return;
+  input.onchange = () => {
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
 
-          const remaining = maxPhotos - images.length;
-          const toQueue = files.slice(0, remaining);
-          if (!toQueue.length) return;
+    const remaining = maxPhotos - images.length;
+    const toQueue = files.slice(0, remaining);
+    if (!toQueue.length) return;
 
-          pendingFiles = toQueue;
-          showPublishBar();
-        };
+    pendingFiles = toQueue;
+    showPublishBar();
+  };
 
-        renderGallery();
-      })();
+  renderGallery();
+
+  try {
+    if (window.db) {
+      window.db.collection("dogs").doc(String(dogId)).get()
+        .then((dogSnap) => {
+          if (!dogSnap || !dogSnap.exists) return;
+
+          const data = dogSnap.data() || {};
+          const gallery = Array.isArray(data.gallery) ? data.gallery : [];
+
+          images = gallery
+            .map(x => x && x.url ? x.url : "")
+            .filter(Boolean)
+            .slice(0, maxPhotos);
+
+          renderGallery();
+        })
+        .catch(() => {});
+    }
+  } catch (_) {}
+})();
 
       // ✅ safe: update follower UI
       if (typeof updateFollowerUI === "function") updateFollowerUI(d);
@@ -4929,55 +5189,64 @@ if (btnSettings0) {
     card.style.overflow = "auto";
 
     const title = document.createElement("div");
-    title.style.fontWeight = "900";
-    title.style.fontSize = "1.05rem";
-    title.textContent = (state.lang === "it") ? "Impostazioni profilo" : "Profile settings";
+title.style.fontWeight = "900";
+title.style.fontSize = "1.28rem";
+title.style.textAlign = "center";
+title.style.textShadow = "0 0 14px rgba(205,164,52,.18)";
+title.style.marginBottom = "10px";
+title.style.color = "#CDA434";
+title.textContent = (state.lang === "it") ? "Impostazioni" : "Settings";
 
-    let selectedProfilePhotoFile = null;
-    let removeProfilePhoto = false;
+let selectedProfilePhotoFile = null;
+let removeProfilePhoto = false;
 
-    const photoLabel = document.createElement("div");
-    photoLabel.style.opacity = ".85";
-    photoLabel.style.fontWeight = "800";
-    photoLabel.textContent = (state.lang === "it") ? "Foto profilo" : "Profile photo";
+const photoLabel = document.createElement("div");
+photoLabel.style.opacity = ".85";
+photoLabel.style.fontWeight = "800";
+photoLabel.style.display = "none";
+photoLabel.style.color = "#CDA434";
+photoLabel.textContent = (state.lang === "it") ? "Foto" : "Photo";
 
-    const photoPreview = document.createElement("img");
-    photoPreview.src = String(d.img || d.photoUrl || "./plutoo-icon-192.png");
-    photoPreview.alt = "";
-    photoPreview.style.width = "100%";
-    photoPreview.style.height = "220px";
-    photoPreview.style.objectFit = "cover";
-    photoPreview.style.objectPosition = "center";
-    photoPreview.style.borderRadius = "18px";
-    photoPreview.style.border = "1px solid rgba(255,255,255,.12)";
-    photoPreview.style.background = "#0b0b0f";
-    photoPreview.onerror = () => { photoPreview.src = "./plutoo-icon-192.png"; };
+const photoPreview = document.createElement("img");
+photoPreview.src = String(d.img || d.photoUrl || "./plutoo-icon-192.png");
+photoPreview.alt = "";
+photoPreview.style.width = "100%";
+photoPreview.style.height = "150px";
+photoPreview.style.maxWidth = "220px";
+photoPreview.style.alignSelf = "center";
+photoPreview.style.boxShadow = "0 14px 34px rgba(0,0,0,.35)";
+photoPreview.style.objectFit = "cover";
+photoPreview.style.objectPosition = "center";
+photoPreview.style.borderRadius = "18px";
+photoPreview.style.border = "1px solid rgba(255,255,255,.12)";
+photoPreview.style.background = "#0b0b0f";
+photoPreview.onerror = () => { photoPreview.src = "./plutoo-icon-192.png"; };
 
-    const photoInput = document.createElement("input");
-    photoInput.type = "file";
-    photoInput.accept = "image/*";
-    photoInput.style.display = "none";
+const photoInput = document.createElement("input");
+photoInput.type = "file";
+photoInput.accept = "image/*";
+photoInput.style.display = "none";
 
-    const photoRow = document.createElement("div");
-    photoRow.style.display = "flex";
-    photoRow.style.gap = ".6rem";
+const photoRow = document.createElement("div");
+photoRow.style.display = "flex";
+photoRow.style.gap = ".6rem";
 
-    const btnChangePhoto = document.createElement("button");
-    btnChangePhoto.type = "button";
-    btnChangePhoto.className = "btn accent";
-    btnChangePhoto.style.flex = "1";
-    btnChangePhoto.textContent = (state.lang === "it") ? "Cambia foto" : "Change photo";
+const btnChangePhoto = document.createElement("button");
+btnChangePhoto.type = "button";
+btnChangePhoto.className = "btn accent";
+btnChangePhoto.style.flex = "1";
+btnChangePhoto.textContent = (state.lang === "it") ? "Cambia foto" : "Change photo";
 
-    const btnRemovePhoto = document.createElement("button");
-    btnRemovePhoto.type = "button";
-    btnRemovePhoto.className = "btn ghost";
-    btnRemovePhoto.style.flex = "1";
-    btnRemovePhoto.textContent = (state.lang === "it") ? "Rimuovi foto" : "Remove photo";
+const btnRemovePhoto = document.createElement("button");
+btnRemovePhoto.type = "button";
+btnRemovePhoto.className = "btn ghost";
+btnRemovePhoto.style.flex = "1";
+btnRemovePhoto.textContent = (state.lang === "it") ? "Rimuovi foto" : "Remove photo";
 
-    btnChangePhoto.addEventListener("click", () => {
-      photoInput.value = "";
-      photoInput.click();
-    });
+btnChangePhoto.addEventListener("click", () => {
+  photoInput.value = "";
+  photoInput.click();
+});
 
     photoInput.addEventListener("change", () => {
       const file = photoInput.files && photoInput.files[0] ? photoInput.files[0] : null;
@@ -5040,6 +5309,64 @@ if (btnSettings0) {
     breedInput.style.padding = "10px 12px";
     breedInput.style.color = "inherit";
 
+    const profileBreedsList = document.createElement("div");
+profileBreedsList.className = "breeds-list";
+profileBreedsList.style.display = "none";
+
+breedInput.addEventListener("input", () => {
+  const raw = (breedInput.value || "").trim();
+  const v = raw.toLowerCase();
+
+  profileBreedsList.innerHTML = "";
+  profileBreedsList.style.display = "none";
+  breedInput.dataset.canonical = "";
+
+  if (!v) return;
+
+  const mixedBreedLabel =
+    state.lang === "it" ? "Razza mista" : "Mixed Breed";
+
+  const ALIAS = state.lang === "it"
+    ? { "razza mista": { label: mixedBreedLabel, canonical: "Mixed Breed" } }
+    : { "mixed breed": { label: mixedBreedLabel, canonical: "Mixed Breed" } };
+
+  const aliasHit = ALIAS[v] || null;
+  const query = ((aliasHit ? aliasHit.canonical : raw) || "").toLowerCase();
+
+  let matches = state.breeds
+    .filter(b => (b || "").toLowerCase().startsWith(query))
+    .slice(0, 16);
+
+  if (aliasHit) matches = [aliasHit.canonical];
+
+  if (!matches.length) return;
+
+  profileBreedsList.innerHTML = matches.map(b => {
+    const canonical = b;
+    const label = aliasHit ? aliasHit.label : b;
+    return `<div class="item" data-label="${label}" data-canonical="${canonical}">${label}</div>`;
+  }).join("");
+
+  profileBreedsList.style.display = "block";
+
+  qa(".item", profileBreedsList).forEach(it => it.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    breedInput.value = it.getAttribute("data-label") || it.textContent;
+    breedInput.dataset.canonical = it.getAttribute("data-canonical") || it.textContent;
+
+    profileBreedsList.style.display = "none";
+    breedInput.blur();
+  }));
+});
+
+document.addEventListener("click", (e) => {
+  if (e.target !== breedInput && !profileBreedsList.contains(e.target)) {
+    profileBreedsList.style.display = "none";
+  }
+});
+
     const ageLabel = document.createElement("div");
     ageLabel.style.opacity = ".85";
     ageLabel.style.fontWeight = "800";
@@ -5091,10 +5418,65 @@ if (btnSettings0) {
     zoneInput.style.padding = "10px 12px";
     zoneInput.style.color = "inherit";
 
+    zoneInput.readOnly = true;
+zoneInput.style.cursor = "pointer";
+
+zoneInput.addEventListener("click", () => {
+  if (!navigator.geolocation) return;
+
+  zoneInput.value = state.lang === "it"
+    ? "Rilevamento posizione..."
+    : "Detecting location...";
+
+  navigator.geolocation.getCurrentPosition(
+    (p) => {
+      const lat = p.coords.latitude;
+      const lon = p.coords.longitude;
+
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&addressdetails=1&accept-language=${state.lang === "it" ? "it" : "en"}`)
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          const a = data && data.address ? data.address : {};
+
+          const city =
+            a.city ||
+            a.town ||
+            a.village ||
+            a.hamlet ||
+            "";
+
+          const region =
+            a.state ||
+            a.county ||
+            "";
+
+          const label = [city, region].filter(Boolean).join(", ");
+
+          zoneInput.value = label || (state.lang === "it" ? "Posizione trovata" : "Location found");
+        })
+        .catch(() => {
+          zoneInput.value = state.lang === "it"
+            ? "Posizione non trovata"
+            : "Location not found";
+        });
+    },
+    () => {
+      zoneInput.value = state.lang === "it"
+        ? "Permesso negato"
+        : "Permission denied";
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  );
+});
+
     const bioLabel = document.createElement("div");
     bioLabel.style.opacity = ".85";
     bioLabel.style.fontWeight = "800";
-    bioLabel.textContent = (state.lang === "it") ? "Bio del DOG" : "DOG bio";
+    bioLabel.textContent = "Bio";
 
     const bio = document.createElement("textarea");
     bio.rows = 5;
@@ -5140,7 +5522,9 @@ if (btnSettings0) {
     btnSave.addEventListener("click", async () => {
       const newBio = String(bio.value || "").trim();
       const newName = String(nameInput.value || "").trim();
-      const newBreed = String(breedInput.value || "").trim();
+      const newBreed = String(
+  breedInput.dataset.canonical || breedInput.value || ""
+).trim();
       const newAge = parseInt(String(ageInput.value || "0"), 10);
       const newSex = String(sexInput.value || "").trim();
       const newZone = String(zoneInput.value || "").trim();
@@ -5269,6 +5653,7 @@ if (typeof window.refreshCreateDogCTA === "function") {
     card.appendChild(nameInput);
     card.appendChild(breedLabel);
     card.appendChild(breedInput);
+    card.appendChild(profileBreedsList);
     card.appendChild(ageLabel);
     card.appendChild(ageInput);
     card.appendChild(sexLabel);
