@@ -457,7 +457,7 @@
   <div class="sheet-content">
     <div class="sheet-header">
       <span data-i18n="followers">Follower</span>
-      <button id="closeFollowers" class="btn small ghost">✕</button>
+      <button id="closeFollowers" class="btn small ghost sheet-close">✕</button>
     </div>
     <div id="followersList" class="sheet-list"></div>
   </div>
@@ -469,7 +469,7 @@
   <div class="sheet-content">
     <div class="sheet-header">
       <span data-i18n="following">Seguiti</span>
-      <button id="closeFollowing" class="btn small ghost">✕</button>
+      <button id="closeFollowing" class="btn small ghost sheet-close">✕</button>
     </div>
     <div id="followingList" class="sheet-list"></div>
   </div>
@@ -533,10 +533,13 @@
         <span id="storyTimestamp" class="story-timestamp"></span>
       </div>
     </div>
+    
     <div class="story-header-actions">
-      <button id="deleteStoryBtn" class="story-delete-btn hidden" type="button">🗑 Elimina</button>
-      <button id="closeStoryViewer" class="story-close-btn story-back-btn" type="button">← Indietro</button>
-    </div>
+  <button id="closeStoryViewer" class="story-close-btn story-back-btn" type="button">← Indietro</button>
+</div>
+
+<button id="deleteStoryBtn" class="story-delete-btn story-delete-floating hidden" type="button">🗑 Elimina</button>
+    
   </div>
   <div id="storyProgressBars" class="story-progress-bars"></div>
   <div id="storyContent" class="story-content"></div>
@@ -569,6 +572,10 @@
       <h2>✨ Personalizza</h2>
 
       <div class="story-editor">
+      <div id="storyPublishLoader" class="story-publish-loader hidden">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Pubblicazione...</div>
+        </div>
         <div class="upload-preview"></div>
 
         <textarea
