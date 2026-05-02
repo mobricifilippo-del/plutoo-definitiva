@@ -638,19 +638,28 @@ padding: 0 .5rem;
   position:fixed;inset:0;z-index:9999;
   background:#000;display:flex;flex-direction:column;
 }
+
 .story-header{
-  position:absolute;top:0;left:0;right:0;z-index:906;padding:.8rem 1rem;
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  z-index:906;
+  padding:.8rem 1rem;
   background:linear-gradient(180deg,rgba(0,0,0,.7) 0%,transparent 100%);
 }
+
 .story-progress-bars{display:flex;gap:4px;margin-bottom:.7rem}
 .story-progress-bar{
   flex:1;height:3px;background:rgba(255,255,255,.3);border-radius:2px;
   overflow:hidden;position:relative;
 }
+
 .story-progress-fill{
   position:absolute;left:0;top:0;height:100%;background:#fff;width:0%;
   transition:width .1s linear;
 }
+
 .story-progress-bar.active .story-progress-fill{
   animation:progressFill 15s linear forwards;
 }
@@ -685,6 +694,7 @@ padding: 0 .5rem;
   position:absolute;top:0;bottom:0;width:35%;background:transparent;
   border:0;cursor:pointer;z-index:904;outline:none;
 }
+
 .story-nav-prev{left:0}
 .story-nav-next{right:0}
 .story-privacy-badge{
@@ -693,6 +703,7 @@ padding: 0 .5rem;
   padding:.5rem .9rem;border-radius:20px;font-size:.85rem;color:#fff;
   border:1px solid rgba(138,123,255,.4);
 }
+
 .story-like-btn{
   position:absolute;
   bottom:1.4rem;
@@ -890,13 +901,50 @@ body.story-open #storiesBar {
  }
 
 .pp-head{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin:.4rem 0 .7rem 0}
+
 .pp-name{font-size:1.5rem;font-weight:900;color:var(--violet-glow);margin:0}
-.pp-badges{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap}
-.badge{
-  display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .5rem;
-  border-radius:10px;background:#24243a;border:1px solid rgba(138,123,255,.25);
-  font-size:.85rem;color:var(--text);
+
+.pp-badges{
+  display:flex;
+  gap:.55rem;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:10px;
 }
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  padding:.4rem .65rem;
+  border-radius:12px;
+  background:rgba(255,255,255,0.06);
+  border:1px solid rgba(205,164,52,0.25);
+  font-size:.85rem;
+  color:#fff;
+  font-weight:600;
+}
+
+.pp-bio-block{
+  margin-top:14px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:rgba(255,255,255,0.04);
+}
+
+.pp-bio-title{
+  font-size:13px;
+  font-weight:800;
+  color:#CDA434;
+  margin-bottom:6px;
+}
+
+.pp-bio-text{
+  font-size:14px;
+  line-height:1.45;
+  color:#fff;
+}
+
 .pp-meta{color:var(--muted);font-size:.98rem;margin:.15rem 0 .8rem 0}
 .pp-bio{margin:.5rem 0 1.2rem 0;line-height:1.5}
 
@@ -2161,6 +2209,7 @@ display: none !important;
   width:100%;
   max-width:520px;
   max-height:75vh;
+  min-height: 65vh;
   background:radial-gradient(circle at top,#181837 0%,#10101F 40%,#090910 100%);
   border-radius:18px 18px 0 0;
   border:1px solid rgba(180,160,255,.6);
@@ -2458,6 +2507,44 @@ display: none !important;
   max-height: 400px;
 }
 
+.story-publish-loader{
+  position:absolute;
+  inset:0;
+  z-index:12;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  background:rgba(0,0,0,.42);
+  border-radius:18px;
+  pointer-events:none;
+}
+
+.story-publish-loader.hidden{
+  display:none;
+}
+
+.loader-spinner{
+  width:34px;
+  height:34px;
+  border:3px solid rgba(255,255,255,.35);
+  border-top-color:#CDA434;
+  border-radius:50%;
+  animation:storyLoaderSpin .8s linear infinite;
+}
+
+.loader-text{
+  color:#fff;
+  font-size:14px;
+  font-weight:700;
+  text-shadow:0 2px 8px rgba(0,0,0,.75);
+}
+
+@keyframes storyLoaderSpin{
+  to{ transform:rotate(360deg); }
+}
+
 .story-text-input{
   position: absolute;
   left: 20px;
@@ -2715,6 +2802,9 @@ display: none !important;
   display:flex;
   align-items:center;
   gap:.55rem;
+  position:absolute;
+  top:22px;
+  right:18px;
 }
 
 .story-delete-btn{
@@ -2731,4 +2821,75 @@ display: none !important;
 
 .story-delete-btn.hidden{
   display:none;
+}
+
+.story-delete-floating{
+  position:absolute;
+  top:70px;
+  right:14px;
+  z-index:9999;
+}
+
+/* ===== PLUTOO CONFIRM MODAL ===== */
+#plutooConfirmModal{
+  position:fixed;
+  inset:0;
+  z-index:999999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.plutoo-confirm-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.55);
+}
+
+.plutoo-confirm-box{
+  position:relative;
+  z-index:2;
+  width:90%;
+  max-width:320px;
+  background:#1b1028;
+  border-radius:18px;
+  padding:18px 16px;
+  text-align:center;
+  box-shadow:0 12px 35px rgba(0,0,0,.4);
+}
+
+.plutoo-confirm-box h3{
+  margin:0 0 8px;
+  font-size:16px;
+  color:#CDA434;
+}
+
+.plutoo-confirm-box p{
+  margin:0 0 16px;
+  font-size:14px;
+  color:#fff;
+}
+
+.plutoo-confirm-actions{
+  display:flex;
+  gap:10px;
+  justify-content:center;
+}
+
+.plutoo-confirm-actions button{
+  flex:1;
+  padding:10px;
+  border-radius:12px;
+  font-weight:700;
+  border:none;
+}
+
+#plutooConfirmCancel{
+  background:#2a1b3d;
+  color:#fff;
+}
+
+#plutooConfirmOk{
+  background:#e54848;
+  color:#fff;
 }
