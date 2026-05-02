@@ -1307,10 +1307,7 @@ if (state.entered === true) {
 // ============ STORIES – Config & State ============
 const STORIES_CONFIG = {
     PHOTO_DURATION: 15000,
-    VIDEO_MAX_DURATION_FREE: 15,
-    VIDEO_MAX_DURATION_PLUS: 90,
     MAX_PHOTO_SIZE: 10 * 1024 * 1024,
-    MAX_VIDEO_SIZE: 50 * 1024 * 1024,
     STORY_LIFETIME: 24 * 60 * 60 * 1000,
     FREE_DAILY_LIMIT: 3,
     REWARD_VIDEO_DURATION: 15
@@ -1323,7 +1320,6 @@ const STORIES_CONFIG = {
     progressInterval: null,
     uploadedFile: null,
     selectedFilter: "none",
-    selectedMusic: "",
     openedFrom: null,
 
     loadStories() {
@@ -1336,7 +1332,98 @@ const STORIES_CONFIG = {
         this.saveStories();
       }
     },
+    
     saveStories() { localStorage.setItem("plutoo_stories", JSON.stringify(this.stories)); },
+
+   async loadStoriesFromFirestore() {
+  if (!window.db) return false;
+
+  const now = Date.now();
+
+  const snap = await window.db
+    .collection("stories")
+    .where("active", "==", true)
+    .limit(50)
+    .get();
+
+  const grouped = {};
+
+  for (const doc of snap.docs) {
+    const s = doc.data() || {};
+
+    // 👉 AUTO DELETE SCADUTE
+    if (!(Number(s.expiresAt || 0) > now)) {
+      try {
+        await deleteStoryFromFirebase(
+          String(s.storyId || doc.id || ""),
+          String(s.storagePath || "")
+        );
+      } catch (e) {
+        console.error("auto-delete error:", e);
+      }
+      continue;
+    }
+
+    const dogId = String(s.dogId || s.ownerUid || "");
+    if (!dogId) continue;
+
+    if (!grouped[dogId]) {
+      grouped[dogId] = {
+        userId: dogId,
+        dogId: dogId,
+        ownerUid: s.ownerUid || "",
+        userName: s.dogName || "DOG",
+        avatar: s.dogAvatar || "plutoo-icon-192.png",
+        verified: !!s.verified,
+        media: []
+      };
+    }
+
+    grouped[dogId].media.push({
+      id: s.storyId || doc.id,
+      type: "image",
+      url: s.url || "",
+      storagePath: s.storagePath || "",
+      timestamp: s.timestamp || 0,
+      expiresAt: s.expiresAt || 0,
+      text: s.text || "",
+      textColor: s.textColor || "#ffffff",
+      textX: Number.isFinite(Number(s.textX)) ? Number(s.textX) : 0.5,
+      textY: Number.isFinite(Number(s.textY)) ? Number(s.textY) : 0.8,
+      filter: "none",
+      viewed: false,
+      privacy: "public"
+    });
+  }
+
+  Object.values(grouped).forEach((story) => {
+    story.media.sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
+  });
+
+  let realStories = Object.values(grouped);
+
+  // 👉 DEMO SE FEED POVERO
+  const DEMO_MIN = 5;
+
+  if (realStories.length < DEMO_MIN) {
+    const demos = (typeof this.generateMockStories === "function")
+      ? this.generateMockStories()
+      : [];
+
+    const existingIds = new Set(realStories.map(s => String(s.userId)));
+
+    const filteredDemos = demos.filter(d => {
+      const id = String(d.userId || d.dogId || "");
+      return id && !existingIds.has(id);
+    });
+
+    realStories = realStories.concat(filteredDemos);
+  }
+
+  this.stories = realStories;
+  return true;
+},
+    
     cleanExpiredStories() {
   const now = Date.now();
 
@@ -1360,25 +1447,47 @@ const STORIES_CONFIG = {
       if (!userStory) return 0;
       return userStory.media.filter(m => new Date(m.timestamp).toDateString() === today).length;
     },
-    canUploadStory() { 
-  return !!state.plus; 
-    },
+    
+    canUploadStory() {
+  if (state.plus) return true;
+
+  const now = Date.now();
+  const uid = window.PLUTOO_DOG_ID || window.PLUTOO_UID || "currentUser";
+
+  const myStory = this.stories.find((s) => {
+    return String(s.userId) === String(uid) || String(s.dogId) === String(uid);
+  });
+
+  if (!myStory || !Array.isArray(myStory.media)) return true;
+
+  return !myStory.media.some((m) => {
+    const ts = Number(m.timestamp || 0);
+    const exp = Number(m.expiresAt || 0);
+
+    if (exp && exp > now) return true;
+    if (ts && (now - ts) < STORIES_CONFIG.STORY_LIFETIME) return true;
+
+    return false;
+  });
+},
+    
     generateMockStories() {
       return [
        { userId:"d1", userName:"Luna", avatar:"dog1.jpg", verified:true, isDemo:true,
-         media:[{id:"m1",type:"image",url:"dog1.jpg",timestamp:Date.now()-3600000,filter:"none",music:"",viewed:false,privacy:"public"}] },
+         media:[{id:"m1",type:"image",url:"dog1.jpg",timestamp:Date.now()-3600000,filter:"none",viewed:false,privacy:"public"}] },
         
         { userId:"d2", userName:"Rex", avatar:"dog2.jpg", verified:true,
           media:[
-            {id:"m2",type:"image",url:"dog2.jpg",timestamp:Date.now()-7200000,filter:"warm",music:"happy",viewed:false,privacy:"public"},
-            {id:"m3",type:"image",url:"dog3.jpg",timestamp:Date.now()-5400000,filter:"sepia",music:"",viewed:false,privacy:"private"}
+            {id:"m2",type:"image",url:"dog2.jpg",timestamp:Date.now()-7200000,filter:"warm",viewed:false,privacy:"public"},
+            {id:"m3",type:"image",url:"dog3.jpg",timestamp:Date.now()-5400000,filter:"sepia",viewed:false,privacy:"private"}
           ]},
         
         { userId:"d3", userName:"Maya", avatar:"dog3.jpg", verified:false,
-          media:[{id:"m4",type:"image",url:"dog4.jpg",timestamp:Date.now()-10800000,filter:"grayscale",music:"",viewed:false,privacy:"public"}] }
+          media:[{id:"m4",type:"image",url:"dog4.jpg",timestamp:Date.now()-10800000,filter:"grayscale",viewed:false,privacy:"public"}] }
       ];
     }
   };
+  
   
   window.StoriesState = StoriesState;
 
@@ -2538,7 +2647,9 @@ function setActiveView(name){
 
   // 🔄 Mantieni allineato lo stato delle Stories
   try {
-    StoriesState.loadStories();
+    if (!Array.isArray(StoriesState.stories) || StoriesState.stories.length === 0) {
+      StoriesState.loadStories();
+    }
   } catch (e) {}
 
   [viewNearby, viewLove, viewPlay, viewMessages, document.getElementById("viewDogBoard"), profilePage].forEach(v => {
@@ -3567,6 +3678,12 @@ _db.collection("notifications").doc(notifId).delete().catch((e) => {
   }
 
   followersOverlay?.addEventListener("click", (e) => {
+    followingOverlay?.addEventListener("click", (e) => {
+  if (e.target === followingOverlay || e.target.classList.contains("sheet-close")) {
+    closeFollowingOverlay();
+  }
+});
+    
     if (e.target === followersOverlay || e.target.classList.contains("sheet-close")) {
       closeFollowersOverlay();
     }
@@ -3860,13 +3977,15 @@ setActiveView("profile");
   isCreate
     ? ``
     : `
-      <span class="pp-follow-stats">
+
+    <span class="pp-follow-stats">
         <button type="button" id="followersCount" class="pp-follow-count">0 follower</button>
         <span class="pp-follow-dot">·</span>
         <button type="button" id="followingCount" class="pp-follow-count">0 seguiti</button>
       </span>
     `
-}
+    }
+    
 
   </div>${ isCreate ? ` <div class="pp-badges pp-create-inline" style="margin-top:.75rem"> <span class="badge create-req" data-req="1" data-label="${state.lang === "it" ? "Nome DOG" : "DOG name"}" style="padding:.45rem .55rem;flex:1;min-width:42%"> <input id="createDogName" type="text" value="" placeholder="${state.lang === "it" ? "Nome DOG *" : "DOG name *"}" style="background:transparent;border:0;outline:none;color:inherit;width:100%"> </span>
 
@@ -3916,9 +4035,16 @@ setActiveView("profile");
       <span class="badge">${d.sex === "M" ? (state.lang === "it" ? "Maschio" : "Male") : (state.lang === "it" ? "Femmina" : "Female")}</span>
     </div>
 
-    ${d.bio || ""}
+    ${d.bio ? `
+  <div class="pp-bio-block">
+    <div class="pp-bio-title">${state.lang === "it" ? "Bio" : "Bio"}</div>
+    <div class="pp-bio-text">${d.bio}</div>
+  </div>
+` : ""}
 
     ${""}
+
+    <div id="dogStorySlot"></div>
 
     <h3 class="section-title">${state.lang === "it" ? "Galleria" : "Gallery"}</h3>
     <div class="gallery" id="dogGallery"></div>
@@ -3998,6 +4124,35 @@ setActiveView("profile");
         `
     }
   `;
+
+  const slot = document.getElementById("dogStorySlot");
+if (slot && window.StoriesState && Array.isArray(StoriesState.stories)) {
+
+  const story = StoriesState.stories.find(s => String(s.userId) === String(d.id));
+
+  if (story && Array.isArray(story.media) && story.media.length > 0) {
+
+    const last = story.media[0]; // già ordinato desc
+
+    slot.innerHTML = `
+      <button class="story-circle" type="button" style="margin:10px 0;">
+        <div class="story-avatar">
+          <img src="${last.url}" alt="" />
+        </div>
+      </button>
+    `;
+
+    const btn = slot.querySelector(".story-circle");
+if (btn && typeof openStoryViewerFromBar === "function") {
+  btn.onclick = function () {
+    openStoryViewerFromBar(story.userId);
+  };
+}
+
+  } else {
+    slot.innerHTML = "";
+  }
+}
 
   // ✅ ATTACH LOGICA CARICAMENTO FOTO PROFILO (solo in modalità CREATE)
 if (isCreate) {
@@ -5034,6 +5189,32 @@ galleryBlock.appendChild(ph);
 
       // ✅ safe: update follower UI
       if (typeof updateFollowerUI === "function") updateFollowerUI(d);
+
+      // 🔎 DEBUG FOLLOW BTN
+try {
+  const stats = document.getElementById("followersCount")?.closest(".pp-follow-stats");
+  const existingBtn = document.getElementById("followBtn");
+
+  alert(
+    "FOLLOW DEBUG\n\n" +
+    "isCreate: " + isCreate + "\n" +
+    "CURRENT_USER_DOG_ID: " + CURRENT_USER_DOG_ID + "\n" +
+    "d.id: " + (d && d.id) + "\n" +
+    "stats trovato: " + (!!stats) + "\n" +
+    "followBtn già presente: " + (!!existingBtn)
+  );
+} catch(e) {
+  alert("FOLLOW DEBUG ERROR: " + e.message);
+}
+
+      // ✅ restore minimo CURRENT_USER_DOG_ID da cache esistente
+if (!(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)) {
+  const cachedDogId = localStorage.getItem("plutoo_dog_id") || "";
+  if (cachedDogId) {
+    window.CURRENT_USER_DOG_ID = cachedDogId;
+    CURRENT_USER_DOG_ID = cachedDogId;
+  }
+}
 
       const followBtn = $("followBtn");
       if (followBtn) {
@@ -6948,10 +7129,29 @@ async function init(){
   });
   }
 
-  function initStories() {
+  async function initStories() {
+  let loaded = false;
+
+  try {
+    const ok = await StoriesState.loadStoriesFromFirestore();
+
+    if (
+      ok === true &&
+      Array.isArray(StoriesState.stories) &&
+      StoriesState.stories.length > 0
+    ) {
+      loaded = true;
+    }
+  } catch (e) {
+    loaded = false;
+  }
+
+  if (!loaded) {
     StoriesState.loadStories();
-    renderStoriesBar();
-    setupStoriesEvents();
+  }
+
+  renderStoriesBar();
+  setupStoriesEvents();
   }
 
   // ===== STORIES — eventi, bar, viewer, navigazione =====
@@ -6991,8 +7191,6 @@ async function init(){
     $("nextToCustomize")?.addEventListener("click", showCustomizeStep);
     $("backToUpload")?.addEventListener("click", showUploadStep);
     $("publishStory")?.addEventListener("click", publishStory);
-
-    setupFiltersGrid();
   }
 
   function renderStoriesBar() {
@@ -7010,12 +7208,19 @@ async function init(){
       const circle = document.createElement("button");
       circle.className = `story-circle ${allViewed ? "viewed" : ""}`;
       circle.type = "button";
-      circle.innerHTML = `
-        <div class="story-avatar">
-          <img src="${story.avatar}" alt="${story.userName}" />
-        </div>
-        <span class="story-name">${story.userName}</span>
-      `;
+      
+      const previewSrc =
+  (visibleMedia[visibleMedia.length - 1] &&
+   visibleMedia[visibleMedia.length - 1].url)
+    ? visibleMedia[visibleMedia.length - 1].url
+    : story.avatar;
+
+circle.innerHTML = `
+      <div class="story-avatar">
+        <img src="${previewSrc}" alt="${story.userName}" />
+      </div>
+      <span class="story-name">${story.userName}</span>
+    `;
 
       circle.addEventListener("click", (e) => {
         e.preventDefault();
@@ -7077,14 +7282,25 @@ async function init(){
 
   // ✅ mostra "Elimina" solo sui tuoi aggiornamenti
   const deleteBtn = $("deleteStoryBtn");
+    
   if (deleteBtn) {
-    if (story.userId === "currentUser") {
-      deleteBtn.classList.remove("hidden");
-      deleteBtn.onclick = deleteCurrentStoryMedia;
-    } else {
-      deleteBtn.classList.add("hidden");
-      deleteBtn.onclick = null;
-    }
+  const currentUid =
+    (window.auth &&
+      window.auth.currentUser &&
+      window.auth.currentUser.uid)
+      ? String(window.auth.currentUser.uid)
+      : String(window.PLUTOO_UID || "");
+
+  const isOwner =
+    String(story.ownerUid || "") === currentUid;
+
+  if (isOwner) {
+    deleteBtn.classList.remove("hidden");
+    deleteBtn.onclick = deleteCurrentStoryMedia;
+  } else {
+    deleteBtn.classList.add("hidden");
+    deleteBtn.onclick = null;
+  }
   }
 
   renderProgressBars(visibleMedia.length);
@@ -7149,22 +7365,12 @@ if (media.text && media.text.trim() !== "") {
 
   content.appendChild(text);
 }
-    } else if (media.type === "video") {
-      const video = document.createElement("video");
-      video.src = media.url;
-      video.autoplay = true;
-      video.muted = false;
-      video.className = `filter-${media.filter}`;
-      video.addEventListener("ended", nextStoryMedia);
-      content.appendChild(video);
     }
 
     if (storyLikeBtn && media.id) {
       storyLikeBtn.onclick = () => toggleStoryLike(media.id);
       updateStoryLikeUI(media.id);
     }
-
-    if (media.music) playStoryMusic(media.music);
   }
 
   function startStoryProgress() {
@@ -7259,8 +7465,34 @@ if (media.text && media.text.trim() !== "") {
     renderStoriesBar();
   }
 
-function deleteCurrentStoryMedia() {
-  const story = StoriesState.stories.find(
+async function deleteStoryFromFirebase(storyId, storagePath) {
+  if (window.db && storyId) {
+    const storyRef = window.db.collection("stories").doc(storyId);
+
+    try {
+      const likesSnap = await storyRef.collection("likes").get();
+      const batch = window.db.batch();
+
+      likesSnap.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
+      batch.delete(storyRef);
+      await batch.commit();
+    } catch (e) {
+      await storyRef.delete();
+    }
+  }
+
+  if (window.storage && storagePath) {
+    try {
+      await window.storage.ref().child(storagePath).delete();
+    } catch (e) {}
+  }
+}
+
+  async function deleteCurrentStoryMedia() {
+    const story = StoriesState.stories.find(
     (s) => s.userId === StoriesState.currentStoryUserId
   );
   if (!story) return;
@@ -7269,17 +7501,32 @@ function deleteCurrentStoryMedia() {
   const currentMedia = visibleMedia[StoriesState.currentMediaIndex];
   if (!currentMedia) return;
 
-  const ok = confirm(
-    state.lang === "it"
-      ? "Vuoi eliminare questo aggiornamento?"
-      : "Do you want to delete this update?"
-  );
-  if (!ok) return;
+  const ok = await plutooConfirmDelete(
+  state.lang === "it"
+    ? "Vuoi eliminare questo aggiornamento?"
+    : "Do you want to delete this update?"
+);
+if (!ok) return;
 
-  // rimuove il media corrente usando l'id
+  const storyId = String(currentMedia.id || "");
+  const storagePath = String(currentMedia.storagePath || "");
+
+  try {
+    await deleteStoryFromFirebase(storyId, storagePath);
+  } catch (e) {
+    if (typeof showToast === "function") {
+      showToast(
+        state.lang === "it"
+          ? "Errore eliminazione aggiornamento. Riprova."
+          : "Update delete error. Please retry.",
+        "error"
+      );
+    }
+    return;
+  }
+
   story.media = (story.media || []).filter(m => m && m.id !== currentMedia.id);
 
-  // se non resta nulla, rimuove tutta la story dell'utente
   if (!story.media.length) {
     StoriesState.stories = StoriesState.stories.filter(
       s => s.userId !== StoriesState.currentStoryUserId
@@ -7290,7 +7537,6 @@ function deleteCurrentStoryMedia() {
     return;
   }
 
-  // se l'indice attuale supera il nuovo totale, torna all'ultimo valido
   const newVisible = getVisibleMediaList(story);
   if (StoriesState.currentMediaIndex >= newVisible.length) {
     StoriesState.currentMediaIndex = Math.max(0, newVisible.length - 1);
@@ -7299,7 +7545,7 @@ function deleteCurrentStoryMedia() {
   StoriesState.saveStories();
   renderStoryViewer();
   renderStoriesBar();
-}
+  }
 
   function getTimeAgo(timestamp) {
     const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -7399,7 +7645,6 @@ function resetUploadModalUI() {
   if (window.StoriesState) {
     StoriesState.uploadedFile = null;
     StoriesState.selectedFilter = StoriesState.selectedFilter || "none";
-    StoriesState.selectedMusic = StoriesState.selectedMusic || "";
     StoriesState.__publishing = false;
   }
 }
@@ -7719,18 +7964,18 @@ function showUploadStep() {
   step1.classList.add("active");
 }
 
-function setupFiltersGrid() {
-  // ✅ Rimane la chiamata (stessa struttura), ma non attiviamo nulla nel modello definitivo
-  // (Filtri/Musica verranno tolti dal markup quando decidi tu, in uno step dedicato)
-  const musicSelect = $("storyMusicSelect");
-  if (musicSelect) {
-    musicSelect.onchange = () => {
-      StoriesState.selectedMusic = musicSelect.value || "";
-    };
-  }
+async function publishStory() {
+
+  const publishBtn = document.getElementById("publishStory");
+if (publishBtn) {
+  publishBtn.disabled = true;
+  publishBtn.dataset.oldText = publishBtn.textContent;
+  publishBtn.textContent = state.lang === "it" ? "Pubblicazione..." : "Publishing...";
 }
 
-async function publishStory() {
+  const loader = document.getElementById("storyPublishLoader");
+if (loader) loader.classList.remove("hidden");
+  
   // 🔒 VETRINA: blocca pubblicazione story
   if (window.PLUTOO_READONLY) {
     const msg = state.lang === "it"
@@ -7872,7 +8117,6 @@ async function publishStory() {
       textY: Number.isFinite(textY) ? textY : 0.8,
 
       filter: "none",
-      music: "",
       viewed: false,
       privacy: "public",
       active: true
@@ -7886,12 +8130,15 @@ async function publishStory() {
 
     if (!userStory) {
       userStory = {
-        userId: uid,
-        userName: dogName,
-        avatar: dogAvatar,
-        verified: false,
-        media: []
-      };
+  userId: uid,
+  dogId: uid,
+  ownerUid: uid,
+  userName: dogName,
+  avatar: dogAvatar,
+  verified: false,
+  media: []
+};
+      
       StoriesState.stories.unshift(userStory);
     }
 
@@ -7916,7 +8163,6 @@ async function publishStory() {
       textY: Number.isFinite(textY) ? textY : 0.8,
 
       filter: "none",
-      music: "",
       viewed: false,
       privacy: "public"
     };
@@ -7928,7 +8174,6 @@ async function publishStory() {
 
     StoriesState.uploadedFile = null;
     StoriesState.selectedFilter = "none";
-    StoriesState.selectedMusic = "";
 
     if (storyTextEl) {
       storyTextEl.value = "";
@@ -7960,8 +8205,61 @@ async function publishStory() {
     else alert(msg);
 
   } finally {
-    StoriesState.__publishing = false;
+  StoriesState.__publishing = false;
+
+    const loader = document.getElementById("storyPublishLoader");
+if (loader) loader.classList.add("hidden");
+
+  const publishBtn = document.getElementById("publishStory");
+  if (publishBtn) {
+    publishBtn.disabled = false;
+    publishBtn.textContent = publishBtn.dataset.oldText || "Pubblica 🚀";
   }
+  }
+  }
+
+function plutooConfirmDelete(message) {
+  return new Promise((resolve) => {
+    const modal = document.createElement("div");
+    modal.style.position = "fixed";
+    modal.style.inset = "0";
+    modal.style.zIndex = "99999";
+    modal.style.background = "rgba(0,0,0,.62)";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+    modal.style.padding = "18px";
+
+    modal.innerHTML = `
+      <div style="width:min(92vw,360px);background:#171022;border:1px solid rgba(205,164,52,.45);border-radius:18px;padding:18px;box-shadow:0 18px 45px rgba(0,0,0,.45);color:#fff;">
+        <div style="font-weight:900;font-size:1.1rem;margin-bottom:8px;color:#CDA434;">Plutoo</div>
+        <div style="font-weight:700;margin-bottom:16px;">${message}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" id="plutooCancelDelete" class="btn ghost small">Annulla</button>
+          <button type="button" id="plutooConfirmDelete" class="btn accent small">Elimina</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const cancelBtn = modal.querySelector("#plutooCancelDelete");
+    const confirmBtn = modal.querySelector("#plutooConfirmDelete");
+
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        modal.remove();
+        resolve(false);
+      };
+    }
+
+    if (confirmBtn) {
+      confirmBtn.onclick = () => {
+        modal.remove();
+        resolve(true);
+      };
+    }
+  });
 }
 
 function showToast(message, type = "success") {
