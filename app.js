@@ -768,7 +768,9 @@ const dogName = hasDog ? String(data.name || "").trim() : "";
 
 // Stato globale (runtime)  
 window.PLUTOO_HAS_DOG = hasDog;  
-window.PLUTOO_DOG_ID = dogId;  
+window.PLUTOO_DOG_ID = dogId;
+window.CURRENT_USER_DOG_ID = dogId || "";
+CURRENT_USER_DOG_ID = dogId || "";
 window.PLUTOO_DOG_NAME = dogName;  
 
 // ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)  
@@ -949,6 +951,8 @@ const linkRegister = document.getElementById("linkRegister");
     }
 
     runPresenceAfterAuth();
+
+    if (typeof rebuildFollowersStateFromFirestore === "function") rebuildFollowersStateFromFirestore();
 
     if (!window.__booted) {
       window.__booted = true;
@@ -3402,6 +3406,36 @@ function generateSocialSection(d) {
 }
 
   // ============ FOLLOW / SEGUI TI (mock locale) ============
+async function rebuildFollowersStateFromFirestore() {
+  if (!db) return;
+
+  state.followersByDog = {};
+  state.followingByDog = {};
+
+  const snap = await db.collection("followers").get();
+
+  snap.forEach((doc) => {
+    const data = doc.data() || {};
+    const followerDogId = String(data.followerDogId || "");
+    const targetDogId = String(data.targetDogId || "");
+
+    if (!followerDogId || !targetDogId) return;
+
+    if (!state.followingByDog[followerDogId]) state.followingByDog[followerDogId] = [];
+    if (!state.followersByDog[targetDogId]) state.followersByDog[targetDogId] = [];
+
+    if (!state.followingByDog[followerDogId].includes(targetDogId)) {
+      state.followingByDog[followerDogId].push(targetDogId);
+    }
+
+    if (!state.followersByDog[targetDogId].includes(followerDogId)) {
+      state.followersByDog[targetDogId].push(followerDogId);
+    }
+  });
+
+  persistFollowState();
+}
+
   function persistFollowState() {
     localStorage.setItem("followersByDog", JSON.stringify(state.followersByDog || {}));
     localStorage.setItem("followingByDog", JSON.stringify(state.followingByDog || {}));
@@ -3493,7 +3527,7 @@ _db.collection("notifications").doc(notifId).set({
 }, { merge: true }).catch((e) => {
   console.error("followDog notification Firestore:", e);
 });
-  if (typeof showToast === "function") showToast("FOLLOW: salvato su Firestore ✅");
+  if (typeof showToast === "function") showToast("Hai iniziato a seguire 🐕");
 })
 .catch((e) => {
   console.error("followDog Firestore:", e);
@@ -3603,66 +3637,137 @@ _db.collection("notifications").doc(notifId).delete().catch((e) => {
     }
   }
 
-  function openFollowersList(dogOrId) {
-    const dog = targetDogDogOrId(dogOrId);
-    if (!dog || !followersOverlay || !followersList) return;
+  async function openFollowersList(dogOrId) {
+  const dog = targetDogDogOrId(dogOrId);
+  if (!dog || !followersOverlay || !followersList) return;
 
-    const dogId = (typeof dog === "string") ? dog : dog.id;
-    if (!dogId) return;
+  const dogId = (typeof dog === "string") ? dog : dog.id;
+  if (!dogId) return;
 
-    const followers = getFollowers(dogId);
+  followersOverlay.classList.remove("hidden");
+  requestAnimationFrame(() => followersOverlay.classList.add("show"));
 
-    if (!followers.length) {
-      followersList.innerHTML = `<p class="sheet-empty">${state.lang === "it" ? "Nessun follower" : "No followers yet"}</p>`;
-    } else {
-      followersList.innerHTML = followers.map(id => {
-        const fDog = DOGS.find(x => x.id === id);
-        if (!fDog) return "";
-        return `
-          <div class="sheet-item">
-            <img class="sheet-avatar" src="${fDog.img}" alt="${fDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
-            <div class="sheet-info">
-              <div class="sheet-name">${fDog.name} ${fDog.verified ? "✅" : ""}</div>
-              <div class="sheet-meta">${fDog.breed || ""}</div>
-            </div>
-          </div>
-        `;
-      }).join("");
-    }
+  const snap = await db.collection("followers")
+    .where("targetDogId", "==", String(dogId))
+    .get();
 
-    followersOverlay.classList.remove("hidden");
-    requestAnimationFrame(() => followersOverlay.classList.add("show"));
+  followersList.innerHTML = "";
+
+  if (snap.empty) {
+    followersList.innerHTML = `<p class="sheet-empty">${state.lang === "it" ? "Nessun follower" : "No followers yet"}</p>`;
+    return;
   }
 
-  function openFollowingList(dogOrId) {
-    const dog = targetDogDogOrId(dogOrId);
-    if (!dog || !followingOverlay || !followingList) return;
+  for (const doc of snap.docs) {
+    const data = doc.data() || {};
+    const followerDogId = String(data.followerDogId || "");
+    if (!followerDogId) continue;
 
-    const dogId = (typeof dog === "string") ? dog : dog.id;
-    if (!dogId) return;
+    const dogSnap = await db.collection("dogs").doc(followerDogId).get();
+    if (!dogSnap.exists) continue;
 
-    const following = getFollowing(dogId);
+    const dogData = dogSnap.data() || {};
 
-    if (!following.length) {
-      followingList.innerHTML = `<p class="sheet-empty">${state.lang === "it" ? "Nessun DOG seguito" : "No following yet"}</p>`;
-    } else {
-      followingList.innerHTML = following.map(id => {
-        const fDog = DOGS.find(x => x.id === id);
-        if (!fDog) return "";
-        return `
-          <div class="sheet-item">
-            <img class="sheet-avatar" src="${fDog.img}" alt="${fDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
-            <div class="sheet-info">
-              <div class="sheet-name">${fDog.name} ${fDog.verified ? "✅" : ""}</div>
-              <div class="sheet-meta">${fDog.breed || ""}</div>
-            </div>
-          </div>
-        `;
-      }).join("");
-    }
+    const realDog = {
+      id: followerDogId,
+      name: String(dogData.name || "DOG"),
+      img: String(dogData.photoUrl || dogData.img || "./plutoo-icon-192.png"),
+      avatar: String(dogData.photoUrl || dogData.img || "./plutoo-icon-192.png"),
+      breed: String(dogData.breed || ""),
+      verified: !!dogData.verified,
+      ownerUid: String(dogData.ownerUid || "")
+    };
 
-    followingOverlay.classList.remove("hidden");
-    requestAnimationFrame(() => followingOverlay.classList.add("show"));
+    const row = document.createElement("div");
+    row.className = "sheet-item";
+    row.innerHTML = `
+      <img class="sheet-avatar" src="${realDog.img}" alt="${realDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+      <div class="sheet-info">
+        <div class="sheet-name">${realDog.name} ${realDog.verified ? "✅" : ""}</div>
+        <div class="sheet-meta">${realDog.breed}</div>
+      </div>
+    `;
+
+    row.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeFollowersOverlay();
+      openProfilePage(realDog);
+    });
+
+    followersList.appendChild(row);
+  }
+
+  if (!followersList.children.length) {
+    followersList.innerHTML = `<p class="sheet-empty">${state.lang === "it" ? "Nessun follower" : "No followers yet"}</p>`;
+  }
+  }
+
+  async function openFollowingList(dogOrId) {
+  const dog = targetDogDogOrId(dogOrId);
+  if (!dog || !followingOverlay || !followingList) return;
+
+  const dogId = (typeof dog === "string") ? dog : dog.id;
+  if (!dogId) return;
+
+  followingOverlay.classList.remove("hidden");
+  requestAnimationFrame(() => followingOverlay.classList.add("show"));
+
+  const snap = await db.collection("followers")
+    .where("followerDogId", "==", String(dogId))
+    .get();
+
+  followingList.innerHTML = "";
+
+  if (snap.empty) {
+    followingList.innerHTML = `<p class="sheet-empty">${state.lang === "it" ? "Nessun DOG seguito" : "No following yet"}</p>`;
+    return;
+  }
+
+  for (const doc of snap.docs) {
+    const data = doc.data() || {};
+    const targetDogId = String(data.targetDogId || "");
+    if (!targetDogId) continue;
+
+    const dogSnap = await db.collection("dogs").doc(targetDogId).get();
+    if (!dogSnap.exists) continue;
+
+    const dogData = dogSnap.data() || {};
+
+    const realDog = {
+      id: targetDogId,
+      name: String(dogData.name || "DOG"),
+      img: String(dogData.photoUrl || dogData.img || "./plutoo-icon-192.png"),
+      avatar: String(dogData.photoUrl || dogData.img || "./plutoo-icon-192.png"),
+      breed: String(dogData.breed || ""),
+      verified: !!dogData.verified,
+      ownerUid: String(dogData.ownerUid || "")
+    };
+
+    const row = document.createElement("div");
+    row.className = "sheet-item";
+    row.innerHTML = `
+      <img class="sheet-avatar" src="${realDog.img}" alt="${realDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+      <div class="sheet-info">
+        <div class="sheet-name">${realDog.name} ${realDog.verified ? "✅" : ""}</div>
+        <div class="sheet-meta">${realDog.breed}</div>
+      </div>
+    `;
+
+    row.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeFollowingOverlay();
+      state._previousProfileDog = state.currentDogProfile;
+      openProfilePage(realDog);
+    });
+
+    followingList.appendChild(row);
+  }
+
+  if (!followingList.children.length) {
+    followingList.innerHTML = `<p class="sheet-empty">${state.lang === "it" ? "Nessun DOG seguito" : "No following yet"}</p>`;
+  }
   }
 
   function closeFollowersOverlay() {
@@ -3678,16 +3783,16 @@ _db.collection("notifications").doc(notifId).delete().catch((e) => {
   }
 
   followersOverlay?.addEventListener("click", (e) => {
-    followingOverlay?.addEventListener("click", (e) => {
+  if (e.target === followersOverlay || e.target.classList.contains("sheet-close")) {
+    closeFollowersOverlay();
+  }
+});
+
+followingOverlay?.addEventListener("click", (e) => {
   if (e.target === followingOverlay || e.target.classList.contains("sheet-close")) {
     closeFollowingOverlay();
   }
 });
-    
-    if (e.target === followersOverlay || e.target.classList.contains("sheet-close")) {
-      closeFollowersOverlay();
-    }
-  });
 
   // ============ LIKE FOTO PROFILO ============
   function isDogPhotoLiked(dogId) {
@@ -5188,70 +5293,56 @@ galleryBlock.appendChild(ph);
 })();
 
       // ✅ safe: update follower UI
-      if (typeof updateFollowerUI === "function") updateFollowerUI(d);
+if (typeof updateFollowerUI === "function") updateFollowerUI(d);
 
-      // 🔎 DEBUG FOLLOW BTN
-try {
-  const stats = document.getElementById("followersCount")?.closest(".pp-follow-stats");
-  const existingBtn = document.getElementById("followBtn");
+// ✅ crea followBtn dopo il render profilo, senza toccare template string
+if (!isCreate && d && d.id && CURRENT_USER_DOG_ID && CURRENT_USER_DOG_ID !== d.id) {
+  const followStatsEl = document.getElementById("followersCount")?.closest(".pp-follow-stats");
 
-  alert(
-    "FOLLOW DEBUG\n\n" +
-    "isCreate: " + isCreate + "\n" +
-    "CURRENT_USER_DOG_ID: " + CURRENT_USER_DOG_ID + "\n" +
-    "d.id: " + (d && d.id) + "\n" +
-    "stats trovato: " + (!!stats) + "\n" +
-    "followBtn già presente: " + (!!existingBtn)
-  );
-} catch(e) {
-  alert("FOLLOW DEBUG ERROR: " + e.message);
-}
-
-      // ✅ restore minimo CURRENT_USER_DOG_ID da cache esistente
-if (!(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)) {
-  const cachedDogId = localStorage.getItem("plutoo_dog_id") || "";
-  if (cachedDogId) {
-    window.CURRENT_USER_DOG_ID = cachedDogId;
-    CURRENT_USER_DOG_ID = cachedDogId;
+  if (followStatsEl && !document.getElementById("followBtn")) {
+    const followWrap = document.createElement("div");
+    followWrap.className = "pp-follow-action";
+    followWrap.innerHTML = '<button type="button" id="followBtn" class="btn primary small">Segui 🐕🐾</button>';
+    followStatsEl.insertAdjacentElement("afterend", followWrap);
   }
 }
 
-      const followBtn = $("followBtn");
-      if (followBtn) {
-        const refreshFollowBtn = () => {
-          const myFollowing =
-            (typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)
-              ? getFollowing(CURRENT_USER_DOG_ID)
-              : [];
-          const isFollowing = myFollowing.includes(d.id);
+const followBtn = $("followBtn");
+if (followBtn) {
+  const refreshFollowBtn = () => {
+    const myFollowing =
+      (typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)
+        ? getFollowing(CURRENT_USER_DOG_ID)
+        : [];
+    const isFollowing = myFollowing.includes(d.id);
 
-          if (state.lang === "it") {
-            followBtn.textContent = isFollowing ? "Seguito 🐕🐾" : "Segui 🐕🐾";
-          } else {
-            followBtn.textContent = isFollowing ? "Following 🐕🐾" : "Follow 🐕🐾";
-          }
-          followBtn.classList.toggle("is-following", isFollowing);
-          followBtn.disabled = !(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID);
-        };
+    if (state.lang === "it") {
+      followBtn.textContent = isFollowing ? "Seguito 🐕🐾" : "Segui 🐕🐾";
+    } else {
+      followBtn.textContent = isFollowing ? "Following 🐕🐾" : "Follow 🐕🐾";
+    }
+    followBtn.classList.toggle("is-following", isFollowing);
+    followBtn.disabled = !(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID);
+  };
 
-        followBtn.onclick = () => {
-          if (!(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)) {
-            console.error("FOLLOW blocked: CURRENT_USER_DOG_ID mancante");
-            refreshFollowBtn();
-            return;
-          }
+  followBtn.onclick = () => {
+    if (!(typeof CURRENT_USER_DOG_ID === "string" && CURRENT_USER_DOG_ID)) {
+      console.error("FOLLOW blocked: CURRENT_USER_DOG_ID mancante");
+      refreshFollowBtn();
+      return;
+    }
 
-          const myFollowing = getFollowing(CURRENT_USER_DOG_ID);
-          const isFollowing = myFollowing.includes(d.id);
+    const myFollowing = getFollowing(CURRENT_USER_DOG_ID);
+    const isFollowing = myFollowing.includes(d.id);
 
-          if (isFollowing) unfollowDog(d.id);
-          else followDog(d.id);
+    if (isFollowing) unfollowDog(d.id);
+    else followDog(d.id);
 
-          refreshFollowBtn();
-        };
+    refreshFollowBtn();
+  };
 
-        refreshFollowBtn();
-      }
+  refreshFollowBtn();
+}
 
       const followersCountEl = $("followersCount");
       const followingCountEl = $("followingCount");
@@ -6145,11 +6236,18 @@ if (typeof window.refreshCreateDogCTA === "function") {
   if (profileClose) profileClose.onclick = () => closeProfilePage();
 
   window.closeProfilePage = () => {
-    profilePage.classList.add("hidden");
-    const previousView = state.viewHistory.pop() || "nearby";
-    setActiveView(previousView);
-    state.currentDogProfile = null;
-  };
+  if (state._previousProfileDog) {
+    const previousDog = state._previousProfileDog;
+    state._previousProfileDog = null;
+    openProfilePage(previousDog);
+    return;
+  }
+
+  profilePage.classList.add("hidden");
+  const previousView = state.viewHistory.pop() || "nearby";
+  setActiveView(previousView);
+  state.currentDogProfile = null;
+};
 
   function isSelfieUnlocked(id) {
     return Date.now() < (state.selfieUntilByDog[id] || 0);
@@ -8283,6 +8381,7 @@ function showToast(message, type = "success") {
     toast.style.boxShadow = "0 8px 25px rgba(0,0,0,0.25)";
     toast.style.opacity = "0";
     toast.style.transition = "opacity 0.25s ease";
+    toast.style.pointerEvents = "none";
 
     document.body.appendChild(toast);
   }
