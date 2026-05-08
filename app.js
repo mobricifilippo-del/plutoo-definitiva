@@ -646,48 +646,93 @@ const clickHandler = async (ev) => {
   }  
 
   // ✅ se hai già un DOG: apri "Il mio profilo"  
-  if (window.PLUTOO_HAS_DOG === true && window.PLUTOO_DOG_ID) {  
-    const myId = String(window.PLUTOO_DOG_ID);  
+  if (window.PLUTOO_HAS_DOG === true && window.PLUTOO_DOG_ID) {
+  const myId = String(window.PLUTOO_DOG_ID);
 
-    // 1) prova da state/local  
-    let dogs = [];  
-    try { dogs = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : []; } catch (_) {}  
-    if (!dogs.length) {  
-      try { dogs = JSON.parse(localStorage.getItem("dogs") || "[]"); } catch (_) { dogs = []; }  
-    }  
-    let myDog = (Array.isArray(dogs) ? dogs : []).find(x => x && String(x.id) === myId) || null;  
+  // 1) base locale immediata (fallback)
+  let dogs = [];
+  try {
+    dogs = (window.state && Array.isArray(window.state.dogs))
+      ? window.state.dogs
+      : [];
+  } catch (_) {}
 
-    // 2) fallback Firestore se manca  
-    if (!myDog && window.db) {  
-      try {  
-        const doc = await window.db.collection("dogs").doc(myId).get();  
-        if (doc && doc.exists) {  
-          const data = doc.data() || {};  
-          myDog = {  
-            id: doc.id,  
-            name: (data.name || ""),  
-            breed: (data.breed || ""),  
-            age: (data.age || ""),  
-            sex: (data.sex || ""),  
-            bio: (data.bio || ""),  
-            km: (data.km || 0),  
-            img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),  
-            verified: !!data.verified  
-          };  
-          // memorizza nome per CTA  
-          try { window.PLUTOO_DOG_NAME = (myDog.name || "").trim(); } catch (_) {}  
-        }  
-      } catch (_) {}  
-    }  
+  if (!dogs.length) {
+    try {
+      dogs = JSON.parse(localStorage.getItem("dogs") || "[]");
+    } catch (_) {
+      dogs = [];
+    }
+  }
 
-    if (typeof window.openProfilePage === "function") {  
-      window.openProfilePage(myDog || { id: myId });  
-    }  
+  let myDog =
+    (Array.isArray(dogs) ? dogs : []).find(
+      x => x && String(x.id) === myId
+    ) || null;
 
-    // riallineo CTA (sicurezza)  
-    if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
-    return;  
-  }  
+  // 2) 🔥 Firestore SEMPRE (source of truth)
+  if (window.db) {
+    try {
+      const doc = await window.db.collection("dogs").doc(myId).get();
+
+      if (doc && doc.exists) {
+        const data = doc.data() || {};
+
+        myDog = {
+          id: doc.id,
+          name: String(data.name || ""),
+          breed: String(data.breed || ""),
+          age: Number(data.age || 0),
+          sex: String(data.sex || ""),
+          bio: String(data.bio || ""),
+          km: Number(data.km || 0),
+          img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
+          verified: !!data.verified,
+
+          // ✅ campi mancanti reali
+          dogDocs: (data.dogDocs && typeof data.dogDocs === "object")
+            ? data.dogDocs
+            : {},
+
+          ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object")
+            ? data.ownerSocial
+            : {},
+
+          selfieUrl: String(data.selfieUrl || "")
+        };
+
+        // aggiorna cache runtime
+        try {
+          if (!Array.isArray(state.dogs)) state.dogs = [];
+
+          state.dogs = state.dogs.filter(
+            x => !(x && String(x.id) === myId)
+          );
+
+          state.dogs.push(myDog);
+
+          localStorage.setItem("dogs", JSON.stringify(state.dogs));
+        } catch (_) {}
+
+        // memorizza nome CTA
+        try {
+          window.PLUTOO_DOG_NAME = (myDog.name || "").trim();
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  if (typeof window.openProfilePage === "function") {
+    window.openProfilePage(myDog || { id: myId });
+  }
+
+  // riallineo CTA
+  if (typeof window.refreshCreateDogCTA === "function") {
+    window.refreshCreateDogCTA();
+  }
+
+  return;
+}
 
   // ✅ se NON hai un DOG: apri create
   localStorage.setItem("currentView", "profile");
@@ -806,7 +851,10 @@ try {
     height: Number(data.height || 0),
     pedigree: !!data.pedigree,
     breeding: !!data.breeding,
-    size: String(data.size || "")
+    size: String(data.size || ""),
+    dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
+    ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
+    selfieUrl: String(data.selfieUrl || "")
   });
  }
   
@@ -1770,89 +1818,107 @@ if (state.entered) {
 
   } else {
 
-        const dog = DOGS.find(d => d.id == savedId);
+  const dog = DOGS.find(d => d.id == savedId);
 
-        if (dog && window.openProfilePage) {
+if (dog && window.openProfilePage) {
 
-  setTimeout(() => {
-    if (typeof window.openProfilePage === "function") {
-      window.openProfilePage(dog);
-    }
-  }, 0);
+setTimeout(() => {
+if (typeof window.openFreshDogProfile === "function") {
+window.openFreshDogProfile(savedId, dog);
+} else if (typeof window.openProfilePage === "function") {
+window.openProfilePage(dog);
+}
+}, 0);
 
 } else {
 
-        // ramo DOG vetrina ELIMINATO dal restore:
+// ramo DOG vetrina ELIMINATO dal restore:
+
 // i DOG demo restano nella lista, ma non sono più profili persistenti al refresh
 
-          // ✅ se NON è un DOG demo, provo cache locale e poi Firestore
-          let myDog = null;
+// ✅ se NON è un DOG demo, provo cache locale e poi Firestore  
+      let myDog = null;  
 
-          // 1) prova state/local
-          try {
-            const dogsLocal = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : [];
-            myDog = dogsLocal.find(x => x && String(x.id) === String(savedId)) || null;
-          } catch (_) {}
+      // 1) prova state/local  
+      try {  
+        const dogsLocal = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : [];  
+        myDog = dogsLocal.find(x => x && String(x.id) === String(savedId)) || null;  
+      } catch (_) {}  
 
-          // 2) fallback localStorage "dogs"
-          if (!myDog) {
-            try {
-              const dogsLS = JSON.parse(localStorage.getItem("dogs") || "[]");
-              myDog = (Array.isArray(dogsLS) ? dogsLS : []).find(x => x && String(x.id) === String(savedId)) || null;
-            } catch (_) { myDog = null; }
-          }
+      // 2) fallback localStorage "dogs"  
+      if (!myDog) {  
+        try {  
+          const dogsLS = JSON.parse(localStorage.getItem("dogs") || "[]");  
+          myDog = (Array.isArray(dogsLS) ? dogsLS : []).find(x => x && String(x.id) === String(savedId)) || null;  
+        } catch (_) { myDog = null; }  
+      }  
 
-          // 3) se ho già dati → apro profilo
-          if (myDog && window.openProfilePage) {
+      // 3) se ho già dati → apro profilo  
+      if (myDog && window.openProfilePage) {  
 
-            window.openProfilePage(myDog);
-
-          } else if (window.db) {
-
-            // 4) Firestore (no await)
-            try {
-              window.db.collection("dogs").doc(String(savedId)).get()
-                .then((doc) => {
-                  if (doc && doc.exists && window.openProfilePage) {
-                    const data = doc.data() || {};
-                    window.openProfilePage({
-                      id: doc.id,
-                      name: (data.name || ""),
-                      breed: (data.breed || ""),
-                      age: (data.age || ""),
-                      sex: (data.sex || ""),
-                      bio: (data.bio || ""),
-                      km: (data.km || 0),
-                      img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),
-                      verified: !!data.verified
-                    });
-                  } else {
-                    setActiveView("nearby");
-                  }
-                })
-              .catch(() => {
-                setActiveView("nearby");
-              });  
-              
-            } catch (_) {
-              setActiveView("nearby");
-            }
-
-          } else {
-            setActiveView("nearby");
-          }
+        if (typeof window.openFreshDogProfile === "function") {
+          window.openFreshDogProfile(savedId, myDog);
+        } else {
+          window.openProfilePage(myDog);
         }
-      }
 
-   } else {
-  setActiveView("nearby");
-    }
+      } else if (window.db) {  
 
-  } else {
-    setActiveView(viewToRestore);
+        // 4) Firestore (no await)  
+        try {  
+          window.db.collection("dogs").doc(String(savedId)).get()  
+            .then((doc) => {  
+              if (doc && doc.exists && window.openProfilePage) {  
+                const data = doc.data() || {};  
+
+                const freshDog = {
+                  id: doc.id,
+                  name: (data.name || ""),
+                  breed: (data.breed || ""),
+                  age: (data.age || ""),
+                  sex: (data.sex || ""),
+                  bio: (data.bio || ""),
+                  km: (data.km || 0),
+                  img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),
+                  verified: !!data.verified,
+                  ownerSocial: (data.ownerSocial || {}),
+                  dogDocs: (data.dogDocs || {}),
+                  selfieUrl: (data.selfieUrl || "")
+                };
+
+                if (typeof window.openFreshDogProfile === "function") {
+                  window.openFreshDogProfile(savedId, freshDog);
+                } else {
+                  window.openProfilePage(freshDog);
+                }
+
+              } else {  
+                setActiveView("nearby");  
+              }  
+            })  
+          .catch(() => {  
+            setActiveView("nearby");  
+          });    
+            
+        } catch (_) {  
+          setActiveView("nearby");  
+        }  
+
+      } else {  
+        setActiveView("nearby");  
+      }  
+    }  
   }
 
-  showAdBanner();
+} else {
+setActiveView("nearby");
+}
+
+} else {
+setActiveView(viewToRestore);
+}
+
+showAdBanner();
 }
 
   function openSponsor(){
@@ -2528,7 +2594,7 @@ if (!snap || snap.empty) {
       ownerUid: otherUid
     };
 
-    openProfilePage(dog);
+    window.openFreshDogProfile(dog.id, dog);
   });
 
   matchesList.appendChild(cleanRow);
@@ -2840,7 +2906,7 @@ if(!d) return;
           card.classList.add("flash-violet");
           setTimeout(()=>{
             card.classList.remove("flash-violet");
-            openProfilePage(d);
+            window.openFreshDogProfile(d.id, d);
           }, 500);
         });
       });
@@ -3073,7 +3139,7 @@ function attachSwipeWithClick(card, dogData, onSwipe){
       card.classList.add("flash-violet");
       setTimeout(()=>{
         card.classList.remove("flash-violet");
-        openProfilePage(dogData);
+        window.openFreshDogProfile(dogData.id, dogData);
       }, 500);
       resetCard(card);
       return;
@@ -3337,7 +3403,7 @@ qa(".item",breedsList).forEach(it=>it.addEventListener("click",(e)=>{
   // ============ Sezione Social nel profilo ============
 function generateSocialSection(d) {
 
-  const saved = state.ownerSocialByDog?.[d.id] || {};
+  const saved = (d && d.ownerSocial) ? d.ownerSocial : (state.ownerSocialByDog?.[d.id] || {});
 
   const links = {
     facebook: saved.facebook && saved.facebook.trim() ? saved.facebook.trim() : null,
@@ -3360,7 +3426,7 @@ function generateSocialSection(d) {
   }
 
   return `
-    <div class="pp-social-section">
+   <div class="pp-social-section">
       <h4 class="section-title" style="margin-top:0;font-size:1rem">
         ${state.lang==="it" ? "📱 Social Proprietario" : "📱 Owner's Social"}
       </h4>
@@ -3370,7 +3436,7 @@ function generateSocialSection(d) {
         ${links.facebook ? `
           <a class="social-btn social-fb" href="${links.facebook}" target="_blank">
             <div class="social-icon">
-              <svg class="social-svg" viewBox="0 0 24 24">
+              <svg class="social-svg" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
             </div>
@@ -3381,8 +3447,20 @@ function generateSocialSection(d) {
         ${links.instagram ? `
           <a class="social-btn social-ig" href="${links.instagram}" target="_blank">
             <div class="social-icon">
-              <svg class="social-svg" viewBox="0 0 24 24">
-                <path fill="#E4405F" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z"/>
+              <svg class="social-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <defs>
+                  <radialGradient id="igGradient_${d.id}" cx="30%" cy="107%" r="120%">
+                    <stop offset="0%" stop-color="#FEDA75"/>
+                    <stop offset="25%" stop-color="#FA7E1E"/>
+                    <stop offset="50%" stop-color="#D62976"/>
+                    <stop offset="75%" stop-color="#962FBF"/>
+                    <stop offset="100%" stop-color="#4F5BD5"/>
+                  </radialGradient>
+                </defs>
+                <rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igGradient_${d.id})"/>
+                <rect x="6.4" y="6.4" width="11.2" height="11.2" rx="3.2" fill="none" stroke="#fff" stroke-width="1.9"/>
+                <circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.9"/>
+                <circle cx="16.35" cy="7.65" r="1.15" fill="#fff"/>
               </svg>
             </div>
             <span>Instagram</span>
@@ -3392,8 +3470,10 @@ function generateSocialSection(d) {
         ${links.tiktok ? `
           <a class="social-btn social-tt" href="${links.tiktok}" target="_blank">
             <div class="social-icon">
-              <svg class="social-svg" viewBox="0 0 24 24">
-                <path fill="#FFFFFF" d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+              <svg class="social-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#25F4EE" d="M16.1 2.2c.3 2.35 1.65 3.75 3.9 3.9v3.15c-1.3.05-2.45-.3-3.55-1.05v6.05c0 3.15-2.15 5.55-5.6 5.55-3.05 0-5.1-2.05-5.1-4.75 0-3.1 2.65-5.1 5.85-4.6v3.25c-1.35-.4-2.5.25-2.5 1.45 0 .95.75 1.6 1.75 1.6 1.2 0 1.9-.75 1.9-2.2V2.2h3.35z"/>
+                <path fill="#FE2C55" d="M15.25 2.2c.3 2.35 1.65 3.75 3.9 3.9v3.15c-1.3.05-2.45-.3-3.55-1.05v6.05c0 3.15-2.15 5.55-5.6 5.55-3.05 0-5.1-2.05-5.1-4.75 0-3.1 2.65-5.1 5.85-4.6v3.25c-1.35-.4-2.5.25-2.5 1.45 0 .95.75 1.6 1.75 1.6 1.2 0 1.9-.75 1.9-2.2V2.2h3.35z"/>
+                <path fill="#fff" d="M15.68 2.2c.3 2.35 1.65 3.75 3.9 3.9v3.15c-1.3.05-2.45-.3-3.55-1.05v6.05c0 3.15-2.15 5.55-5.6 5.55-3.05 0-5.1-2.05-5.1-4.75 0-3.1 2.65-5.1 5.85-4.6v3.25c-1.35-.4-2.5.25-2.5 1.45 0 .95.75 1.6 1.75 1.6 1.2 0 1.9-.75 1.9-2.2V2.2h3.35z"/>
               </svg>
             </div>
             <span>TikTok</span>
@@ -3689,11 +3769,12 @@ _db.collection("notifications").doc(notifId).delete().catch((e) => {
     `;
 
     row.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      closeFollowersOverlay();
-      openProfilePage(realDog);
-    });
+  e.preventDefault();
+  e.stopPropagation();
+  closeFollowersOverlay();
+  state._previousProfileDog = state.currentDogProfile;
+  window.openFreshDogProfile(realDog.id, realDog);
+});
 
     followersList.appendChild(row);
   }
@@ -3759,7 +3840,7 @@ _db.collection("notifications").doc(notifId).delete().catch((e) => {
       e.stopPropagation();
       closeFollowingOverlay();
       state._previousProfileDog = state.currentDogProfile;
-      openProfilePage(realDog);
+      window.openFreshDogProfile(realDog.id, realDog);
     });
 
     followingList.appendChild(row);
@@ -3947,6 +4028,53 @@ followingOverlay?.addEventListener("click", (e) => {
   }
 
   // ========== Profilo DOG (con Stories + Social + Follow + Like foto) ============
+
+window.openFreshDogProfile = function openFreshDogProfile(dogId, fallbackDog) {
+  const id = String(dogId || "").trim();
+  const fallback = (fallbackDog && typeof fallbackDog === "object") ? fallbackDog : {};
+
+  if (!id) return;
+
+  const openFallback = () => {
+    if (typeof window.openProfilePage === "function") {
+      window.openProfilePage({ ...fallback, id });
+    }
+  };
+
+  if (!window.db) {
+    openFallback();
+    return;
+  }
+
+  window.db.collection("dogs").doc(id).get()
+    .then((snap) => {
+      if (!snap || !snap.exists) {
+        openFallback();
+        return;
+      }
+
+      const data = snap.data() || {};
+
+      const freshDog = {
+        ...fallback,
+        ...data,
+        id: snap.id,
+        img: String(data.photoUrl || data.img || fallback.img || "./plutoo-icon-192.png"),
+        avatar: String(data.photoUrl || data.img || fallback.avatar || fallback.img || "./plutoo-icon-192.png"),
+        dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
+        ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
+        selfieUrl: String(data.selfieUrl || "")
+      };
+
+      if (typeof window.openProfilePage === "function") {
+        window.openProfilePage(freshDog);
+      }
+    })
+    .catch(() => {
+      openFallback();
+    });
+};
+
 window.openProfilePage = (d) => {
 
   // ✅ GUARD-RAIL (anti crash da notifiche/fallback)
@@ -3987,12 +4115,11 @@ setActiveView("profile");
 
   const selfieUnlocked = isSelfieUnlocked(d.id);
   if (!state.selfieUntilByDog || typeof state.selfieUntilByDog !== "object") state.selfieUntilByDog = {};
-  const ownerDocs = state.ownerDocsUploaded[d.id] || {};
-  const dogDocs = state.dogDocsUploaded[d.id] || {};
 
-  const selfieKey = `selfieImage_${d.id}`;
-  const selfieStored = localStorage.getItem(selfieKey);
-  const selfieSrc = selfieStored || "./plutoo-icon-192.png";
+  const ownerDocs = d.ownerDocs || {};
+const dogDocs = d.dogDocs || {};
+
+  const selfieSrc = d.selfieUrl || "./plutoo-icon-192.png";
 
   const dogStories =
     (window.StoriesState && Array.isArray(window.StoriesState.stories))
@@ -4029,7 +4156,7 @@ setActiveView("profile");
   const isCreate = (d && d.isCreate === true) || (d && d.id === "__create__");
   const heroImg = isCreate ? "" : (d.img || "./plutoo-icon-192.png");
 
- profileContent.innerHTML = `
+profileContent.innerHTML = `
 
   <div class="pp-hero">
     ${
@@ -4042,31 +4169,33 @@ setActiveView("profile");
         />
 
         <div id="createDogPhotoEmpty" style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1.2rem">
-          <div style="font-weight:900;font-size:1.05rem;margin-bottom:.35rem">
-            ${state.lang === "it" ? "Carica la foto del tuo DOG" : "Upload your DOG photo"}
-          </div>
+  <div style="font-weight:900;font-size:1.05rem;margin-bottom:.35rem">
+    ${state.lang === "it" ? "Carica la foto del tuo DOG" : "Upload your DOG photo"}
+  </div>
 
-          <button id="btnPickCreateDogPhoto" type="button" class="btn accent" style="width:100%;justify-content:center">
-            ${state.lang === "it" ? "📸 Carica foto profilo" : "📸 Upload profile photo"}
-          </button>
+  <div style="font-size:1rem;font-weight:800;margin-bottom:.6rem;color:#fff;">
+    ${state.lang === "it" ? "Solo foto DOG. No persone." : "Only dog photos. No people."}
+  </div>
 
-          <button id="btnRemoveCreateDogPhoto" type="button" class="btn ghost" style="width:100%;justify-content:center;margin-top:.6rem;display:none">
-            🗑️ ${state.lang === "it" ? "Rimuovi foto profilo" : "Remove profile photo"}
-          </button>
+  <button id="btnPickCreateDogPhoto" type="button" class="btn accent" style="width:100%;justify-content:center">
+    ${state.lang === "it" ? "📸 Carica foto profilo" : "📸 Upload profile photo"}
+  </button>
 
-          <input type="file" id="createDogPhotoInput" accept="image/*" style="display:none" />
+  <button id="btnRemoveCreateDogPhoto" type="button" class="btn ghost" style="width:100%;justify-content:center;margin-top:.6rem;display:none">
+    🗑️ ${state.lang === "it" ? "Rimuovi foto profilo" : "Remove profile photo"}
+  </button>
 
-          <div style="font-size:.9rem;opacity:.7;margin-top:.35rem">
-            ${state.lang === "it" ? "Solo foto DOG. No persone." : "Only dog photos. No people."}
-          </div>
+  <input type="file" id="createDogPhotoInput" accept="image/*" style="display:none" />
 
-          <div id="createDogPhotoFeedback" style="display:none;margin-top:.35rem;font-size:.9rem;color:var(--gold,#CDA434);font-weight:800;">
-            ${state.lang === "it" ? "Foto caricata ✅" : "Photo uploaded ✅"}
-          </div>
-        </div>
+  <div id="createDogPhotoFeedback" style="display:none;margin-top:.35rem;font-size:.9rem;color:var(--gold,#CDA434);font-weight:800;">
+    ${state.lang === "it" ? "Foto caricata ✅" : "Photo uploaded ✅"}
+  </div>
+</div>
         `
         : `
+
         <img src="${heroImg}" alt="${d.name}" loading="eager" fetchpriority="high" decoding="sync" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer;">
+
         `
     }
   </div>
@@ -4155,52 +4284,51 @@ setActiveView("profile");
     <div class="gallery" id="dogGallery"></div>
 
     <h3 class="section-title">Selfie</h3>
+    <p style="font-size:.9rem;color:var(--muted);margin:.25rem 0 .6rem;font-weight:700;">
+      ${state.lang === "it" ? "Il selfie deve includere DOG e proprietario" : "The selfie must include DOG and owner"}
+    </p>
     <div class="selfie ${selfieUnlocked ? "unlocked" : ""}">
       <img class="img" src="${selfieSrc || "./plutoo-icon-192.png"}" alt="Selfie" style="cursor:pointer;">
       <input type="file" id="selfieFileInput" accept="image/*" style="display:none" />
       <div class="over">
-        <button id="unlockSelfie" class="btn pill">${state.lang === "it" ? "Sblocca selfie" : "Unlock selfie"}</button>
-        <button id="uploadSelfie" class="btn pill ghost">${state.lang === "it" ? "Carica selfie" : "Upload selfie"}</button>
-      </div>
+  <button id="unlockSelfie" class="btn pill">${state.lang === "it" ? "Sblocca selfie" : "Unlock selfie"}</button>
+  <button id="uploadSelfie" class="btn pill ghost">${state.lang === "it" ? "Carica selfie" : "Upload selfie"}</button>
+  ${d.selfieUrl ? `<button id="deleteSelfie" class="btn pill danger">${state.lang === "it" ? "Elimina selfie" : "Delete selfie"}</button>` : ``}
+</div>
+
+</div>
+
+<div id="selfieFeedback" style="
+  display:none;
+  margin-top:8px;
+  font-size:.9rem;
+  font-weight:600;
+  color:#CDA434;
+"></div>
+
+<div class="pp-docs-section" style="margin-top:1.2rem">
+  <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang === "it" ? "Documenti DOG" : "DOG Documents"}</h4>
+  <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang === "it" ? "Facoltativi (vaccini, pedigree, microchip)" : "Optional (vaccines, pedigree, microchip)"}</p>
+  <div class="pp-docs-grid">
+    <div class="doc-item" data-doc="dog-vaccines" data-type="dog">
+      <div class="doc-icon">💉</div>
+      <div class="doc-label">${state.lang === "it" ? "Vaccini" : "Vaccines"}</div>
+      <div class="doc-status ${dogDocs.vaccines && dogDocs.vaccines.url ? "uploaded" : "pending"}">${dogDocs.vaccines && dogDocs.vaccines.url ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
     </div>
 
-    <h3 class="section-title">${state.lang === "it" ? "Documenti" : "Documents"}</h3>
-
-    <div class="pp-docs-section">
-      <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang === "it" ? "Documenti Proprietario DOG" : "DOG Owner Documents"}</h4>
-      <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang === "it" ? "Obbligatorio per ottenere il badge verificato ✅" : "Required to get verified badge ✅"}</p>
-      <div class="pp-docs-grid">
-        <div class="doc-item" data-doc="owner-identity" data-type="owner">
-          <div class="doc-icon">🪪</div>
-          <div class="doc-label">${state.lang === "it" ? "Carta d'identità" : "Identity Card"}</div>
-          <div class="doc-status ${ownerDocs.identity ? "uploaded" : "pending"}">${ownerDocs.identity ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
-        </div>
-      </div>
+    <div class="doc-item" data-doc="dog-pedigree" data-type="dog">
+      <div class="doc-icon">📜</div>
+      <div class="doc-label">${state.lang === "it" ? "Pedigree" : "Pedigree"}</div>
+      <div class="doc-status ${dogDocs.pedigree && dogDocs.pedigree.url ? "uploaded" : "pending"}">${dogDocs.pedigree && dogDocs.pedigree.url ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
     </div>
 
-    <div class="pp-docs-section" style="margin-top:1.2rem">
-      <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang === "it" ? "Documenti DOG" : "DOG Documents"}</h4>
-      <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang === "it" ? "Facoltativi (vaccini, pedigree, microchip)" : "Optional (vaccines, pedigree, microchip)"}</p>
-      <div class="pp-docs-grid">
-        <div class="doc-item" data-doc="dog-vaccines" data-type="dog">
-          <div class="doc-icon">💉</div>
-          <div class="doc-label">${state.lang === "it" ? "Vaccini" : "Vaccines"}</div>
-          <div class="doc-status ${dogDocs.vaccines ? "uploaded" : "pending"}">${dogDocs.vaccines ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
-        </div>
-
-        <div class="doc-item" data-doc="dog-pedigree" data-type="dog">
-          <div class="doc-icon">📜</div>
-          <div class="doc-label">${state.lang === "it" ? "Pedigree" : "Pedigree"}</div>
-          <div class="doc-status ${dogDocs.pedigree ? "uploaded" : "pending"}">${dogDocs.pedigree ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
-        </div>
-
-        <div class="doc-item" data-doc="dog-microchip" data-type="dog">
-          <div class="doc-icon">🔬</div>
-          <div class="doc-label">${state.lang === "it" ? "Microchip" : "Microchip"}</div>
-          <div class="doc-status ${dogDocs.microchip ? "uploaded" : "pending"}">${dogDocs.microchip ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
-        </div>
-      </div>
+    <div class="doc-item" data-doc="dog-microchip" data-type="dog">
+      <div class="doc-icon">🔬</div>
+      <div class="doc-label">${state.lang === "it" ? "Microchip" : "Microchip"}</div>
+      <div class="doc-status ${dogDocs.microchip && dogDocs.microchip.url ? "uploaded" : "pending"}">${dogDocs.microchip && dogDocs.microchip.url ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
     </div>
+  </div>
+</div>
 
           ${generateSocialSection(d)}
 
@@ -4481,15 +4609,30 @@ if (btnDel) {
         if (!uid || !user || !db) return Promise.resolve();  
 
         // a) elimina dogs dell'ownerUid  
-        const delDogs = db.collection("dogs").where("ownerUid", "==", uid).get()  
-          .then((snap) => {  
-            const jobs = [];  
-            snap.forEach((doc) => {  
-              jobs.push(doc.ref.delete().catch(() => {}));  
-            });  
-            return Promise.all(jobs);  
-          })  
-          .catch(() => {});  
+        const delDogs = db.collection("dogs").where("ownerUid", "==", uid).get()
+.then((snap) => {
+const jobs = [];
+snap.forEach((doc) => {
+const dogId = doc.id;
+jobs.push(db.collection("followers").where("targetDogId", "==", dogId).get().then((fsnap) => {
+const followerJobs = [];
+fsnap.forEach((fdoc) => {
+followerJobs.push(fdoc.ref.delete().catch(() => {}));
+});
+return Promise.all(followerJobs);
+}).catch(() => {}));
+jobs.push(db.collection("followers").where("followerDogId", "==", dogId).get().then((fsnap) => {
+const followerJobs = [];
+fsnap.forEach((fdoc) => {
+followerJobs.push(fdoc.ref.delete().catch(() => {}));
+});
+return Promise.all(followerJobs);
+}).catch(() => {}));
+jobs.push(doc.ref.delete().catch(() => {}));
+});
+return Promise.all(jobs);
+})
+.catch(() => {});
 
         // b) elimina users/{uid}  
         const delUserDoc = db.collection("users").doc(uid).delete().catch(() => {});  
@@ -4926,7 +5069,8 @@ localStorage.setItem("dogs", JSON.stringify(state.dogs));
   const maxPhotos = 5;
   const dogId = d.id;
 
-  let images = [];
+  const _existingGallery = Array.isArray(d.gallery) ? d.gallery : [];
+let images = _existingGallery.map(x => x && x.url ? x.url : "").filter(Boolean);
 
   const input = document.createElement("input");
   input.type = "file";
@@ -5015,23 +5159,62 @@ localStorage.setItem("dogs", JSON.stringify(state.dogs));
             const stamp = Date.now();
 
             const uploads = toAdd.map((file, index) => {
-              const ext = (file.type && file.type.includes("png")) ? "png" : "jpg";
-              const fileName = "gallery_" + stamp + "_" + index + "." + ext;
-              const storagePath = `dogs/${dogId}/gallery/${fileName}`;
-              const storageRef = window.storage.ref().child(storagePath);
+  const ext = (file.type && file.type.includes("png")) ? "png" : "jpg";
+  const fileName = "gallery_" + stamp + "_" + index + "." + ext;
+  const storagePath = `dogs/${dogId}/gallery/${fileName}`;
+  const storageRef = window.storage.ref().child(storagePath);
 
-              return storageRef.put(file, { contentType: file.type || "image/jpeg" })
-                .then(() => storageRef.getDownloadURL())
-                .then((downloadUrl) => ({
-                  index: index,
-                  item: {
-                    url: downloadUrl,
-                    storagePath: storagePath,
-                    createdAt: new Date().toISOString()
-                  }
-                }))
-                .catch(() => null);
-            });
+  const optimizeImage = (file) => new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const maxSide = 1280;
+      let w = img.width;
+      let h = img.height;
+
+      if (w > h && w > maxSide) {
+        h = Math.round(h * maxSide / w);
+        w = maxSide;
+      } else if (h > maxSide) {
+        w = Math.round(w * maxSide / h);
+        h = maxSide;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        resolve(blob || file);
+      }, "image/jpeg", 0.82);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+
+    img.src = url;
+  });
+
+  return optimizeImage(file)
+    .then((optimizedFile) => storageRef.put(optimizedFile, { contentType: "image/jpeg" }))
+    .then(() => storageRef.getDownloadURL())
+    .then((downloadUrl) => ({
+      index: index,
+      item: {
+        url: downloadUrl,
+        storagePath: storagePath,
+        createdAt: new Date().toISOString()
+      }
+    }))
+    .catch(() => null);
+});
 
             Promise.all(uploads)
               .then((results) => {
@@ -5118,7 +5301,8 @@ localStorage.setItem("dogs", JSON.stringify(state.dogs));
       ph.style.position = "relative";
 
       const img = document.createElement("img");
-      img.src = src;
+
+img.src = src;
       img.className = "pp-gallery-img";
       img.style.width = "100%";
       img.style.height = "100%";
@@ -5901,7 +6085,11 @@ if (typeof window.refreshCreateDogCTA === "function") {
 
         setTimeout(() => {
           closeExisting("plutooProfileSettingsView");
-          if (typeof window.openProfilePage === "function") window.openProfilePage(d);
+          if (typeof window.openFreshDogProfile === "function") {
+  window.openFreshDogProfile(d.id, d);
+} else if (typeof window.openProfilePage === "function") {
+  window.openProfilePage(d);
+          }
         }, 450);
 
       } catch (e) {
@@ -5953,7 +6141,9 @@ if (typeof window.refreshCreateDogCTA === "function") {
       btnSocial.addEventListener("click", () => {
         closeExisting("plutooEditSocialSheet");
 
-        const saved = (state.ownerSocialByDog && state.ownerSocialByDog[d.id]) ? state.ownerSocialByDog[d.id] : {};
+        const saved = (d && d.ownerSocial && typeof d.ownerSocial === "object")
+  ? d.ownerSocial
+  : ((state.ownerSocialByDog && state.ownerSocialByDog[d.id]) ? state.ownerSocialByDog[d.id] : {});
 
         const wrap = document.createElement("div");
         wrap.id = "plutooEditSocialSheet";
@@ -6027,21 +6217,51 @@ if (typeof window.refreshCreateDogCTA === "function") {
               tiktok:    normalizeUrl(ttEl ? ttEl.value : "")
             };
 
-            state.ownerSocialByDog[d.id] = next;
-            try { localStorage.setItem("ownerSocialByDog", JSON.stringify(state.ownerSocialByDog)); } catch (_) {}
+            saveBtn.disabled = true;
 
             if (fbk) {
               fbk.style.display = "block";
-              fbk.style.border = "1px solid rgba(60,200,120,.45)";
-              fbk.style.background = "rgba(60,200,120,.10)";
-              fbk.style.color = "#bff7d6";
-              fbk.textContent = (state.lang === "it") ? "✅ Social salvati" : "✅ Social saved";
+              fbk.style.border = "1px solid rgba(255,255,255,.16)";
+              fbk.style.background = "rgba(255,255,255,.08)";
+              fbk.style.color = "#fff";
+              fbk.textContent = (state.lang === "it") ? "⏳ Salvataggio..." : "⏳ Saving...";
             }
 
-            setTimeout(() => {
-              closeExisting("plutooEditSocialSheet");
-              if (typeof window.openProfilePage === "function") window.openProfilePage(d);
-            }, 450);
+            window.db.collection("dogs").doc(d.id).set({
+              ownerSocial: next
+            }, { merge: true })
+              .then(() => window.db.collection("dogs").doc(d.id).get())
+              .then((snap) => {
+
+               const freshDog = snap.exists ? { id: snap.id, ...snap.data() } : { ...d, ownerSocial: next };
+freshDog.img = String(freshDog.photoUrl || freshDog.img || d.img || "./plutoo-icon-192.png"); 
+
+                state.ownerSocialByDog[d.id] = next;
+
+                if (fbk) {
+                  fbk.style.border = "1px solid rgba(60,200,120,.45)";
+                  fbk.style.background = "rgba(60,200,120,.10)";
+                  fbk.style.color = "#bff7d6";
+                  fbk.textContent = (state.lang === "it") ? "✅ Social salvati" : "✅ Social saved";
+                }
+
+                setTimeout(() => {
+                  closeExisting("plutooEditSocialSheet");
+                  if (typeof window.openProfilePage === "function") window.openProfilePage(freshDog);
+                }, 450);
+              })
+              .catch((err) => {
+                console.error("save ownerSocial error:", err);
+                saveBtn.disabled = false;
+
+                if (fbk) {
+                  fbk.style.display = "block";
+                  fbk.style.border = "1px solid rgba(255,80,80,.45)";
+                  fbk.style.background = "rgba(255,80,80,.10)";
+                  fbk.style.color = "#ffd0d0";
+                  fbk.textContent = (state.lang === "it") ? "❌ Errore salvataggio social" : "❌ Social save error";
+                }
+              });
           };
         }
       });
@@ -6070,45 +6290,155 @@ if (typeof window.refreshCreateDogCTA === "function") {
         if (item.dataset) item.dataset.docBound = "1";
 
         item.addEventListener("click", (e) => {
-          if (window.PLUTOO_READONLY && d.id !== "__create__") {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            const msg = state.lang === "it"
-              ? "🔒 Crea il profilo DOG per caricare i documenti"
-              : "🔒 Create your DOG profile to upload documents";
-            if (typeof showToast === "function") showToast(msg);
-            return;
+  const statusEl = item.querySelector(".doc-status");
+
+  if (window.PLUTOO_READONLY && d.id !== "__create__") {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const msg = state.lang === "it"
+      ? "🔒 Crea il profilo DOG per caricare i documenti"
+      : "🔒 Create your DOG profile to upload documents";
+    if (typeof showToast === "function") showToast(msg);
+    return;
+  }
+
+  const docType = item.getAttribute("data-doc");
+  const docCategory = item.getAttribute("data-type");
+
+  if (docCategory === "dog") {
+    const dogId = d.id;
+    const docName = docType.replace("dog-", "");
+    const existingDoc = d.dogDocs && d.dogDocs[docName] && d.dogDocs[docName].url;
+
+  // 👉 DOCUMENTO ESISTE → ELIMINA
+if (existingDoc) {
+
+  showPlutooConfirm("Vuoi eliminare questo documento DOG?", {
+    confirmText: "Elimina",
+    cancelText: "Annulla",
+    danger: false
+  }).then((ok) => {
+
+    if (!ok) return;
+
+    const storagePath = d.dogDocs[docName].storagePath;
+
+    if (statusEl) {
+      statusEl.textContent = "⏳ Eliminazione...";
+      statusEl.classList.remove("uploaded");
+      statusEl.classList.add("pending");
+    }
+
+    const deleteStorage = storagePath
+      ? window.storage.ref().child(storagePath).delete().catch(() => null)
+      : Promise.resolve();
+
+    deleteStorage
+      .then(() => {
+        return window.db.collection("dogs").doc(dogId).set({
+          dogDocs: {
+            [docName]: firebase.firestore.FieldValue.delete()
+          }
+        }, { merge: true });
+      })
+      .then(() => {
+        if (typeof showToast === "function") {
+          showToast("✅ Documento DOG eliminato");
+        }
+
+        return window.db.collection("dogs").doc(dogId).get();
+      })
+      .then((snap) => {
+        const fresh = snap && snap.exists ? { id: snap.id, ...(snap.data() || {}) } : d;
+        fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
+        openProfilePage(fresh);
+      })
+      .catch((err) => {
+        console.error("dog document delete error:", err);
+
+        if (typeof showToast === "function") {
+          showToast("❌ Errore eliminazione documento DOG");
+        }
+      });
+
+  });
+
+  return;
+}
+  }
+
+  // 👉 UPLOAD (documento NON esiste)
+  docFileInput.onchange = () => {
+    const file = docFileInput.files && docFileInput.files[0];
+    if (!file) return;
+
+    if (docCategory === "dog") {
+      const dogId = d.id;
+      const docName = docType.replace("dog-", "");
+      const storagePath = `dogs/${dogId}/dogDocs/${docName}`;
+      const storageRef = window.storage.ref().child(storagePath);
+
+      if (statusEl) {
+        statusEl.textContent = "⏳ Caricamento...";
+        statusEl.classList.remove("uploaded");
+        statusEl.classList.add("pending");
+      }
+
+      storageRef.put(file)
+        .then(() => storageRef.getDownloadURL())
+        .then((url) => {
+          return window.db.collection("dogs").doc(dogId).set({
+            dogDocs: {
+              [docName]: {
+                url,
+                storagePath,
+                uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+              }
+            },
+            dogDocsStatus: "uploaded"
+          }, { merge: true });
+        })
+        .then(() => {
+          if (statusEl) {
+            statusEl.textContent = "✓ Caricato";
+            statusEl.classList.remove("pending");
+            statusEl.classList.add("uploaded");
           }
 
-          const docType = item.getAttribute("data-doc");
-          const docCategory = item.getAttribute("data-type");
+          if (typeof showToast === "function") {
+            showToast("✅ Documento DOG caricato");
+          }
 
-          docFileInput.onchange = () => {
-            const file = docFileInput.files && docFileInput.files[0];
-            if (!file) return;
+          return window.db.collection("dogs").doc(dogId).get();
+        })
+        .then((snap) => {
+          const fresh = snap && snap.exists ? { id: snap.id, ...(snap.data() || {}) } : d;
+fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
+openProfilePage(fresh);
+        })
+        .catch((err) => {
+          console.error("dog document upload error:", err);
 
-            if (docCategory === "owner") {
-              if (!state.ownerDocsUploaded[d.id]) state.ownerDocsUploaded[d.id] = {};
-              state.ownerDocsUploaded[d.id].identity = true;
-              localStorage.setItem("ownerDocsUploaded", JSON.stringify(state.ownerDocsUploaded));
+          if (statusEl) {
+            statusEl.textContent = "❌ Errore caricamento";
+            statusEl.classList.remove("uploaded");
+            statusEl.classList.add("pending");
+          }
 
-              if (!d.verified) {
-                d.verified = true;
-                alert(state.lang === "it" ? "Badge verificato ottenuto! ✅" : "Verified badge obtained! ✅");
-              }
-            } else if (docCategory === "dog") {
-              if (!state.dogDocsUploaded[d.id]) state.dogDocsUploaded[d.id] = {};
-              const docName = docType.replace("dog-", "");
-              state.dogDocsUploaded[d.id][docName] = true;
-              localStorage.setItem("dogDocsUploaded", JSON.stringify(state.dogDocsUploaded));
-            }
-
-            openProfilePage(d);
-          };
-
-          docFileInput.click();
+          if (typeof showToast === "function") {
+            showToast("❌ Errore caricamento documento DOG");
+          }
         });
+
+      return;
+    }
+
+    window.openFreshDogProfile(d.id, d);
+  };
+
+  docFileInput.click();
+});
       });
 
       qa(".social-btn", profileContent).forEach(btn => {
@@ -6116,25 +6446,16 @@ if (typeof window.refreshCreateDogCTA === "function") {
         if (btn.dataset && btn.dataset.socialBound === "1") return;
         if (btn.dataset) btn.dataset.socialBound = "1";
 
-        btn.addEventListener("click", () => {
-          const baseUrl   = btn.getAttribute("data-url");
-          const dogId     = btn.getAttribute("data-dog-id");
-          const socialKey = btn.getAttribute("data-social");
+        btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+         const finalUrl = btn.getAttribute("href");
 
-          let finalUrl = baseUrl;
+         if (!finalUrl) return; 
 
-          if (dogId && state.ownerSocialByDog && state.ownerSocialByDog[dogId]) {
-            const ownerSocial = state.ownerSocialByDog[dogId];
-            if (socialKey === "social-fb" && ownerSocial.facebook) finalUrl = ownerSocial.facebook;
-            else if (socialKey === "social-ig" && ownerSocial.instagram) finalUrl = ownerSocial.instagram;
-            else if (socialKey === "social-tt" && ownerSocial.tiktok) finalUrl = ownerSocial.tiktok;
-          }
-
-          if (!finalUrl) return;
-
-          const rewardKey = `${dogId}_${socialKey}`;
+          const rewardKey = finalUrl;
           if (state.plus || state.socialRewardViewed[rewardKey]) {
-            window.open(finalUrl, "_blank", "noopener");
+           window.location.href = finalUrl;
             return;
           }
           if (state.rewardOpen) return;
@@ -6144,7 +6465,7 @@ if (typeof window.refreshCreateDogCTA === "function") {
             state.rewardOpen = false;
             state.socialRewardViewed[rewardKey] = true;
             localStorage.setItem("socialRewardViewed", JSON.stringify(state.socialRewardViewed));
-            window.open(finalUrl, "_blank", "noopener");
+            window.location.href = finalUrl;
           });
         });
       });
@@ -6202,15 +6523,52 @@ if (typeof window.refreshCreateDogCTA === "function") {
       if (!file) return;
 
       const reader = new FileReader();
+      
       reader.onload = e => {
-        const dataUrl   = e.target.result;
-        const selfieKey = `selfieImage_${d.id}`;
+  const dataUrl   = e.target.result;
+  const selfieFeedback = qs("#selfieFeedback", profileContent);
 
-        localStorage.setItem(selfieKey, dataUrl);
+  if (selfieFeedback) {
+    selfieFeedback.textContent = state.lang === "it" ? "Caricamento in corso..." : "Uploading...";
+    selfieFeedback.style.display = "block";
+  }
 
-        const img = qs(".selfie .img", profileContent);
-        if (img) img.src = dataUrl;
-      };
+  const parts = String(dataUrl || "").split(",");
+  const meta = parts[0] || "";
+  const b64 = parts[1] || "";
+  const mimeMatch = meta.match(/data:([^;]+);base64/i);
+  const mime = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : "image/jpeg";
+  const bin = atob(b64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+
+  const blob = new Blob([bytes], { type: mime });
+  const storageRef = window.storage.ref().child(`dogs/${d.id}/selfie/selfie.jpg`);
+
+  storageRef.put(blob, { contentType: mime })
+    .then(() => storageRef.getDownloadURL())
+    .then((url) => {
+      return window.db.collection("dogs").doc(d.id).set({
+        selfieUrl: url
+      }, { merge: true }).then(() => url);
+    })
+    .then((url) => {
+      d.selfieUrl = url;
+      const img = qs(".selfie .img", profileContent);
+      if (img) img.src = url;
+      if (selfieFeedback) {
+        selfieFeedback.textContent = state.lang === "it" ? "Selfie pubblicato con successo" : "Selfie uploaded successfully";
+        selfieFeedback.style.display = "block";
+      }
+    })
+    .catch(() => {
+      if (selfieFeedback) {
+        selfieFeedback.textContent = state.lang === "it" ? "Errore caricamento selfie" : "Selfie upload error";
+        selfieFeedback.style.display = "block";
+      }
+    });
+};
 
       reader.readAsDataURL(file);
     };
@@ -6218,13 +6576,48 @@ if (typeof window.refreshCreateDogCTA === "function") {
     fileInput.click();
   };
 
+  const deleteSelfieBtn = $("deleteSelfie");
+if (deleteSelfieBtn) deleteSelfieBtn.onclick = () => {
+const d = state.currentDogProfile;
+if (!d) return;
+
+showPlutooConfirm(
+  state.lang === "it" ? "Eliminare il selfie?" : "Delete selfie?",
+  {
+    confirmText: state.lang === "it" ? "Elimina" : "Delete",
+    cancelText: state.lang === "it" ? "Annulla" : "Cancel",
+    danger: false
+  }
+).then((ok) => {
+if (!ok) return;
+
+const storageRef = window.storage.ref().child(`dogs/${d.id}/selfie/selfie.jpg`);  
+
+storageRef.delete()  
+  .catch(() => {})  
+  .then(() => {  
+    return window.db.collection("dogs").doc(d.id).set({  
+      selfieUrl: firebase.firestore.FieldValue.delete()  
+    }, { merge: true });  
+  })  
+  .then(() => {  
+    d.selfieUrl = "";  
+    const img = qs(".selfie .img", profileContent);  
+    if (img) img.src = "./plutoo-icon-192.png";  
+    deleteSelfieBtn.style.display = "none";  
+  })  
+  .catch(() => {});
+});
+
+};
+
   const unlockSelfieBtn = $("unlockSelfie");
   if (unlockSelfieBtn) unlockSelfieBtn.onclick = () => {
     if (!isSelfieUnlocked(d.id)) {
       const unlock = () => {
         state.selfieUntilByDog[d.id] = Date.now() + 24 * 60 * 60 * 1000;
         localStorage.setItem("selfieUntilByDog", JSON.stringify(state.selfieUntilByDog));
-        openProfilePage(d);
+        window.openFreshDogProfile(d.id, d);
       };
       if (!state.plus) showRewardVideoMock("selfie", unlock);
       else unlock();
@@ -6239,7 +6632,7 @@ if (typeof window.refreshCreateDogCTA === "function") {
   if (state._previousProfileDog) {
     const previousDog = state._previousProfileDog;
     state._previousProfileDog = null;
-    openProfilePage(previousDog);
+    window.openFreshDogProfile(previousDog.id, previousDog);
     return;
   }
 
@@ -7175,20 +7568,22 @@ async function init(){
   id: doc.id,
   ownerUid: String(data.ownerUid || ""),
   name: name,
-          breed: String(data.breed || ""),
-          age: Number(data.age || 0),
-          sex: String(data.sex || ""),
-          img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
-          verified: !!data.verified,
-          bio: String(data.bio || ""),
-          zone: String(data.zone || ""),
-          km: Number(data.km || 0),
-          weight: Number(data.weight || 0),
-          height: Number(data.height || 0),
-          pedigree: !!data.pedigree,
-          breeding: !!data.breeding,
-          size: String(data.size || "")
-        });
+  breed: String(data.breed || ""),
+  age: Number(data.age || 0),
+  sex: String(data.sex || ""),
+  img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
+  selfieUrl: String(data.selfieUrl || ""),
+gallery: Array.isArray(data.gallery) ? data.gallery : [],
+  verified: !!data.verified,
+  bio: String(data.bio || ""),
+  zone: String(data.zone || ""),
+  km: Number(data.km || 0),
+  weight: Number(data.weight || 0),
+  height: Number(data.height || 0),
+  pedigree: !!data.pedigree,
+  breeding: !!data.breeding,
+  size: String(data.size || "")
+});
       });
 
       state.dogs = realDogs;
