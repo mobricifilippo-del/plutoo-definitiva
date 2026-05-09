@@ -813,6 +813,47 @@ body.story-open #storiesBar {
   100%{box-shadow:0 8px 20px rgba(0,0,0,.4), inset 0 0 0 1px rgba(138,123,255,.15)}
 }
 
+.swipe-empty-state{
+  min-height:260px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  gap:.65rem;
+  padding:1.4rem 1rem;
+}
+
+.swipe-empty-logo{
+  width:86px;
+  height:86px;
+  border-radius:22px;
+  object-fit:contain;
+  filter:drop-shadow(0 0 18px rgba(205,164,52,.35));
+  margin-bottom:.35rem;
+}
+
+.swipe-empty-title{
+  color:#CDA434;
+  font-weight:900;
+  font-size:1.08rem;
+  line-height:1.25;
+}
+
+.swipe-empty-subtitle{
+  color:rgba(255,255,255,.72);
+  font-weight:700;
+  font-size:.9rem;
+  line-height:1.35;
+}
+
+.swipe-disabled{
+  opacity:.28 !important;
+  filter:grayscale(1) !important;
+  box-shadow:none !important;
+  pointer-events:none !important;
+}
+
 .card.swipe{
   margin:0 auto;max-width:420px;touch-action:pan-x;user-select:none;position:relative;
 }
@@ -2570,6 +2611,28 @@ display: none !important;
 }
 
 /* === MATCH FLASH – STILE COME ENTRA MA GIALLO === */
+
+.small-like-overlay{
+  position:fixed;
+  inset:0;
+  z-index:8999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+}
+
+.small-like-heart{
+  font-size:64px;
+  animation:smallLikePop .65s ease-out forwards;
+  filter:drop-shadow(0 8px 22px rgba(205,164,52,.62));
+}
+
+@keyframes smallLikePop{
+  0%{opacity:0;transform:scale(.55)}
+  35%{opacity:1;transform:scale(1)}
+  100%{opacity:0;transform:translateY(-18px) scale(.9)}
+}
 
 .match-overlay{
   position: fixed;
