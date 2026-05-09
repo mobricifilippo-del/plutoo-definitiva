@@ -963,6 +963,8 @@ const linkRegister = document.getElementById("linkRegister");
 
     window.PLUTOO_UID = user.uid;
 
+    if (typeof initMessagesBadge === "function") initMessagesBadge();
+
     if (linkLogin) {
       linkLogin.removeAttribute("data-i18n");
       linkLogin.textContent = "Logout";
@@ -2984,14 +2986,40 @@ return d.size === f.size;
 });
   }
 
-  // ============ Swipe ============
-  function renderSwipe(mode){
-  const deck = DOGS.filter(d=>d.mode===mode);
-  if(!deck.length) return;
+// ============ Swipe ============
+  async function renderSwipe(mode){
+  const realDogs = Array.isArray(state.dogs) ? state.dogs : [];
+  const myDogId = String(window.PLUTOO_DOG_ID || "");
+  const myUid = String(window.PLUTOO_UID || "");
 
-  const idx = (mode==="love"?state.currentLoveIdx:state.currentPlayIdx) % deck.length;
-  const d = deck[idx];
-  if(!d) return;
+  let swipedIds = [];
+
+  if (mode === "love" && myDogId && db) {
+    try {
+      const snap = await db
+        .collection("swipes")
+        .where("fromDogId", "==", myDogId)
+        .get();
+
+      snap.forEach(doc => {
+        const x = doc.data() || {};
+        if (x.toDogId) swipedIds.push(String(x.toDogId));
+      });
+    } catch (e) {
+      console.error("load swipes Firestore error:", e);
+    }
+  }
+
+  const deck = realDogs
+    .filter(d=>mode==="love" ? true : d.mode===mode)
+    .filter(d=>{
+      if (!d) return false;
+      if (myDogId && String(d.id || "") === myDogId) return false;
+      if (myUid && String(d.ownerUid || "") === myUid) return false;
+      if (swipedIds.includes(String(d.id || ""))) return false;
+      
+      return true;
+    });
 
   const img   = mode==="love" ? loveImg : playImg;
   const title = mode==="love" ? loveTitleTxt : playTitleTxt;
@@ -3003,10 +3031,68 @@ return d.size === f.size;
 
   if(!img || !title || !meta || !bio || !card) return;
 
+  if(!deck.length){
+  img.removeAttribute("src");
+  img.removeAttribute("alt");
+  img.style.display = "none";
+
+  title.innerHTML = `
+    <div class="swipe-empty-state">
+      <img src="plutoo-icon-192.png" alt="Plutoo" class="swipe-empty-logo">
+      <div class="swipe-empty-title">Non ci sono DOG nelle vicinanze</div>
+      <div class="swipe-empty-subtitle">Torna più tardi per scoprire nuovi DOG</div>
+    </div>
+  `;
+
+  meta.textContent = "";
+  bio.textContent = "";
+
+  if(yesBtn) {
+    yesBtn.onclick = null;
+    yesBtn.disabled = true;
+    yesBtn.classList.add("swipe-disabled");
+  }
+
+  if(noBtn) {
+    noBtn.onclick = null;
+    noBtn.disabled = true;
+    noBtn.classList.add("swipe-disabled");
+  }
+
+  if(card._cleanup) card._cleanup();
+  resetCard(card);
+  return;
+  }
+
+  if(yesBtn) yesBtn.disabled = false;
+  if(noBtn) noBtn.disabled = false;
+
+  const idx = (mode==="love"?state.currentLoveIdx:state.currentPlayIdx) % deck.length;
+  const d = deck[idx];
+  if(!d) return;
+
+    img.style.display = "";
+
+if(yesBtn) {
+  yesBtn.disabled = false;
+  yesBtn.classList.remove("swipe-disabled");
+}
+
+if(noBtn) {
+  noBtn.disabled = false;
+  noBtn.classList.remove("swipe-disabled");
+}
+
   img.src = d.img;
   title.textContent = `${d.name} ${d.verified?"✅":""}`;
-  meta.textContent  = `${d.breed} · ${d.age} ${t("years")} · ${fmtKm(d.km)}`;
-  bio.textContent   = d.bio || "";
+
+  const metaParts = [
+    d.breed ? String(d.breed) : "",
+    d.age ? `${d.age} ${t("years")}` : ""
+  ].filter(Boolean);
+
+  meta.textContent = metaParts.join(" · ");
+  bio.textContent = "";
 
   if(yesBtn) yesBtn.onclick = null;
   if(noBtn) noBtn.onclick = null;
@@ -3018,31 +3104,78 @@ return d.size === f.size;
     if(state.processingSwipe) return;
     state.processingSwipe = true;
 
+    const action = direction === "right" ? "like" : "skip";
+
+    try {
+      const fromDogId = String(window.PLUTOO_DOG_ID || (typeof CURRENT_USER_DOG_ID !== "undefined" ? CURRENT_USER_DOG_ID : "") || "");
+      const toDogId = String(d.id || "");
+      const fromUid = String(window.PLUTOO_UID || "");
+      const toUid = String(d.ownerUid || "");
+
+      if (fromDogId && toDogId && fromUid && toUid && db) {
+        const swipeId = `${fromDogId}_${toDogId}`;
+
+        await db.collection("swipes").doc(swipeId).set({
+          fromDogId,
+          toDogId,
+          fromUid,
+          toUid,
+          action,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
+    } catch (e) {
+      console.error("save swipe Firestore error:", e);
+    }
+
     if (direction === "right"){
-      const dogId = d.id;
-      
-      // Salva match locale
       if (mode === "love") {
-        state.matches[dogId] = true;
-        localStorage.setItem("matches", JSON.stringify(state.matches));
-    // ✅ CONSOLIDA MATCH SU FIRESTORE (PRIMA di tutto)
-if (typeof ensureChatForMatch === "function") {
-  try {
+        try {
+          const fromDogId = String(window.PLUTOO_DOG_ID || (typeof CURRENT_USER_DOG_ID !== "undefined" ? CURRENT_USER_DOG_ID : "") || "");
+          const toDogId = String(d.id || "");
+          const fromUid = String(window.PLUTOO_UID || "");
+          const toUid = String(d.ownerUid || "");
+
+          if (fromDogId && toDogId && fromUid && toUid && db) {
+            const likeId = `${fromDogId}_${toDogId}`;
+
+            await db.collection("likes").doc(likeId).set({
+              fromDogId,
+              toDogId,
+              fromUid,
+              toUid,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            const inverseLike = await db.collection("likes").doc(`${toDogId}_${fromDogId}`).get();
+
+if (inverseLike && inverseLike.exists) {
+  const matchId = [fromDogId, toDogId].sort().join("_");
+
+  await db.collection("matches").doc(matchId).set({
+    dogIds: [fromDogId, toDogId].sort(),
+    uids: [fromUid, toUid].sort(),
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    status: "matched"
+  }, { merge: true });
+
+  if (typeof ensureChatForMatch === "function") {
     await ensureChatForMatch(d);
-  } catch (e) {
-    console.error("ensureChatForMatch FALLITA:", e);
   }
+
+  showMatchAnimation(d.name, nextMatchColor);
+
+} else {
+  showSmallLikeAnimation(card);
 }
+          }
+        } catch (e) {
+          console.error("save like Firestore error:", e);
+        }
       } else {
-        state.friendships[dogId] = true;
+        state.friendships[d.id] = true;
         localStorage.setItem("friendships", JSON.stringify(state.friendships));
       }
-
-      // Animazione match
-      showMatchAnimation(d.name, nextMatchColor);
-      state.matchCount++;
-      localStorage.setItem("matchCount", String(state.matchCount));
-      nextMatchColor = ["💙","💚","💛","🧡","💜","💗","💝","💖","💞","❤️"][state.matchCount % 10];
     }
 
     if (mode==="love") state.currentLoveIdx++; else state.currentPlayIdx++;
@@ -3067,7 +3200,7 @@ if (typeof ensureChatForMatch === "function") {
         state.processingSwipe = false;
         renderSwipe(mode);
       }
-    }, 600);
+    }, 800);
   }
 
   if (yesBtn) {
@@ -3089,7 +3222,7 @@ if (typeof ensureChatForMatch === "function") {
   // ✅ FIX: Passa l'oggetto DOG CORRENTE, non una closure
   attachSwipeWithClick(card, d, handleSwipeComplete);
   }
-
+  
 function attachSwipeWithClick(card, dogData, onSwipe){
   let startX = 0;
   let startY = 0;
@@ -3202,6 +3335,21 @@ function attachSwipeWithClick(card, dogData, onSwipe){
     if(card._cleanup) card._cleanup();
   }
 
+function showSmallLikeAnimation(card) {
+  const old = document.querySelector(".small-like-overlay");
+  if (old) old.remove();
+
+  const overlay = document.createElement("div");
+  overlay.className = "small-like-overlay";
+  overlay.innerHTML = `<div class="small-like-heart">💛</div>`;
+
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    overlay.remove();
+  }, 700);
+}
+
 function showMatchAnimation(dogName, color) {
   const overlay = document.getElementById("matchOverlay") || document.querySelector(".match-overlay");
   if (!overlay) return;
@@ -3235,7 +3383,7 @@ setTimeout(() => {
 }, 1700);
 }
 
-  // ✅ NUOVA FUNZIONE: Consolida match su Firestore (swipe + profilo)
+ // ✅ NUOVA FUNZIONE: Consolida match su Firestore (swipe + profilo)
 async function ensureChatForMatch(dog) {
   if (!dog || !dog.id) return;
 
@@ -3248,27 +3396,60 @@ async function ensureChatForMatch(dog) {
 
     if (!selfUid || !dogId || !otherUid) return;
 
+    let selfDogName = "";
+    let selfDogAvatar = "";
+    let selfDogId = selfUid;
+
+    try {
+      const selfDogSnap = await db.collection("dogs").doc(String(selfUid)).get();
+      const selfDogData = selfDogSnap && selfDogSnap.exists ? (selfDogSnap.data() || {}) : {};
+
+      selfDogName = selfDogData.name || "";
+      selfDogAvatar =
+        selfDogData.photoUrl ||
+        selfDogData.img ||
+        selfDogData.avatar ||
+        "";
+    } catch (e) {
+      console.error("ensureChatForMatch self dog read error:", e);
+    }
+
     // chatId condiviso tra i 2 partecipanti reali
     const pair = [selfUid, otherUid].sort();
     const chatId = `${pair[0]}__${pair[1]}`;
 
     const chatPayload = {
-  members: [selfUid, otherUid],
-  dogId,
-  dogName,
-  dogAvatar,
-  match: true,
-  status: "accepted", // ← AGGIUNTA
-  lastMessageText: "",
-  lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-  updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-};
+      members: [selfUid, otherUid],
+      dogId,
+      dogName,
+      dogAvatar,
+      match: true,
+      status: "accepted",
+      lastMessageText: "",
+      lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+
+      names: {
+        [selfUid]: selfDogName,
+        [otherUid]: dogName
+      },
+
+      avatars: {
+        [selfUid]: selfDogAvatar,
+        [otherUid]: dogAvatar
+      },
+
+      dogIds: {
+        [selfUid]: selfDogId,
+        [otherUid]: dogId
+      }
+    };
 
     await db.collection("chats").doc(chatId).set(chatPayload, { merge: true });
   } catch (err) {
     console.error("Errore ensureChatForMatch:", err);
   }
-}
+} 
 
   // ============ Ricerca ============
   if (btnSearchPanel) {
@@ -6476,26 +6657,59 @@ openProfilePage(fresh);
   })();
 
   // Azioni nel profilo DOG (chat + like/match)
-  const openChatBtn = $("btnOpenChat");
-  if (openChatBtn) {
-    openChatBtn.onclick = () => openChat(d);
-  }
+ const openChatBtn = $("btnOpenChat");
+if (openChatBtn) {
+  openChatBtn.onclick = () => {
+    const otherUid = String(d && d.ownerUid ? d.ownerUid : "");
+    const selfUid = String(window.PLUTOO_UID || "");
+
+    if (!otherUid || !selfUid || otherUid === selfUid) {
+      if (typeof showToast === "function") {
+        showToast("Chat non disponibile per questo profilo");
+      }
+      return;
+    }
+
+    openChat(d);
+  };
+}
 
   const likeDogBtn = $("btnLikeDog");
-  if (likeDogBtn) {
-    // ✅ evita accumulo: onclick invece di addEventListener
-    likeDogBtn.onclick = async () => {
-      if (!d || !d.id) return;
+if (likeDogBtn) {
+  likeDogBtn.onclick = async () => {
+    if (!d || !d.id) return;
 
-      state.matches[d.id] = true;
-      localStorage.setItem("matches", JSON.stringify(state.matches));
+    const fromDogId = String(window.PLUTOO_DOG_ID || (typeof CURRENT_USER_DOG_ID !== "undefined" ? CURRENT_USER_DOG_ID : "") || "");
+    const toDogId = String(d.id || "");
+    const fromUid = String(window.PLUTOO_UID || "");
+    const toUid = String(d.ownerUid || "");
+
+    if (!fromDogId || !toDogId || !fromUid || !toUid || !db) return;
+
+    const likeId = `${fromDogId}_${toDogId}`;
+
+    await db.collection("likes").doc(likeId).set({
+      fromDogId,
+      toDogId,
+      fromUid,
+      toUid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    const inverseLike = await db.collection("likes").doc(`${toDogId}_${fromDogId}`).get();
+
+    if (inverseLike && inverseLike.exists) {
+      const matchId = [fromDogId, toDogId].sort().join("_");
+
+      await db.collection("matches").doc(matchId).set({
+        dogIds: [fromDogId, toDogId].sort(),
+        uids: [fromUid, toUid].sort(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "matched"
+      }, { merge: true });
 
       if (typeof ensureChatForMatch === "function") {
-        try {
-          await ensureChatForMatch(d);
-        } catch (e) {
-          console.error("ensureChatForMatch PROFILO FALLITA:", e);
-        }
+        await ensureChatForMatch(d);
       }
 
       const nameForMatch = d.name || (state.lang === "it" ? "Nuovo match" : "New match");
@@ -6505,8 +6719,11 @@ openProfilePage(fresh);
       localStorage.setItem("matchCount", String(state.matchCount));
 
       nextMatchColor = ["💙","💚","💛","🧡","💜","💗","💝","💖","💞","❤️"][state.matchCount % 10];
-    };
-  }
+    } else {
+      showSmallLikeAnimation();
+    }
+  };
+}
 
   // ✅ FIX CRASH: in create mode uploadSelfie/unlockSelfie non esistono
   const uploadSelfieBtn = $("uploadSelfie");
@@ -7005,7 +7222,11 @@ try {
 
   lastMessageText: text,
   lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-  lastSenderUid: selfUid
+  lastSenderUid: selfUid,
+
+  match: hasMatch === true,
+  status: hasMatch === true ? "accepted" : "pending",
+  folder: hasMatch === true ? "inbox" : "requests"
 
 }, { merge: true });
 
