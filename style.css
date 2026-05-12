@@ -1223,6 +1223,11 @@ body.story-open #storiesBar {
   filter:blur(16px) brightness(.7);
 }
 
+.selfie .img.placeholder{
+object-fit:contain;
+padding:24px;
+}
+
 .selfie.unlocked .img{filter:none}
 .selfie .over{
   position:absolute;inset:auto 0 0 0;display:flex;gap:.7rem;justify-content:center;
