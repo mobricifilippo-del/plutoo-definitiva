@@ -2451,6 +2451,7 @@ if (!snap || snap.empty) {
   dogAvatar: data.dogAvatar || null,
   names: data.names || {},
   avatars: data.avatars || {},
+  dogIds: data.dogIds || {},
   status: data.status || null,
   match: data.match === true,
   folder: data.folder || null,
@@ -4294,7 +4295,9 @@ setActiveView("profile");
   history.pushState({ view: "profile", dogId: d.id }, "", "");
   profilePage.classList.remove("hidden");
 
-  const selfieUnlocked = isSelfieUnlocked(d.id);
+  const isOwner = d.id === (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id"));
+const selfieUnlocked = isOwner || isSelfieUnlocked(d.id);
+  
   if (!state.selfieUntilByDog || typeof state.selfieUntilByDog !== "object") state.selfieUntilByDog = {};
 
   const ownerDocs = d.ownerDocs || {};
@@ -4409,7 +4412,7 @@ profileContent.innerHTML = `
       </span>
 
  <span class="badge create-req" data-req="1" data-label="${state.lang === "it" ? "Zona" : "Area"}" style="padding:.45rem .55rem;flex:1;min-width:42%">
-  <input id="createDogZone" type="text" value="" placeholder="${state.lang === "it" ? "Zona *" : "Area *"}" style="background:transparent;border:0;outline:none;color:inherit;width:100%">
+  <input id="createDogZone" type="text" value="" readonly inputmode="none" placeholder="${state.lang === "it" ? "Zona *" : "Area *"}" style="background:transparent;border:0;outline:none;color:inherit;width:100%">
 </span>
 
       <span class="badge create-req" data-req="1" data-label="${state.lang === "it" ? "Età" : "Age"}" style="padding:.45rem .55rem;flex:1;min-width:42%">
@@ -4465,16 +4468,32 @@ profileContent.innerHTML = `
     <div class="gallery" id="dogGallery"></div>
 
     <h3 class="section-title">Selfie</h3>
+    
     <p style="font-size:.9rem;color:var(--muted);margin:.25rem 0 .6rem;font-weight:700;">
       ${state.lang === "it" ? "Il selfie deve includere DOG e proprietario" : "The selfie must include DOG and owner"}
     </p>
     <div class="selfie ${selfieUnlocked ? "unlocked" : ""}">
-      <img class="img" src="${selfieSrc || "./plutoo-icon-192.png"}" alt="Selfie" style="cursor:pointer;">
+     <img class="img ${!d.selfieUrl ? "placeholder" : ""}" src="${selfieSrc || "./plutoo-icon-192.png"}"  alt="Selfie" style="cursor:pointer;">
       <input type="file" id="selfieFileInput" accept="image/*" style="display:none" />
+
       <div class="over">
-  <button id="unlockSelfie" class="btn pill">${state.lang === "it" ? "Sblocca selfie" : "Unlock selfie"}</button>
-  <button id="uploadSelfie" class="btn pill ghost">${state.lang === "it" ? "Carica selfie" : "Upload selfie"}</button>
-  ${d.selfieUrl ? `<button id="deleteSelfie" class="btn pill danger">${state.lang === "it" ? "Elimina selfie" : "Delete selfie"}</button>` : ``}
+  ${
+   isOwner
+  ? `
+      <button id="uploadSelfie" class="btn pill ghost">
+        ${state.lang === "it" ? "Carica selfie" : "Upload selfie"}
+      </button>
+
+      <button id="deleteSelfie" class="btn pill danger" style="${d.selfieUrl ? "" : "display:none"}">
+        ${state.lang === "it" ? "Elimina selfie" : "Delete selfie"}
+      </button>
+    `
+      : (
+        !selfieUnlocked
+          ? `<button id="unlockSelfie" class="btn pill">${state.lang === "it" ? "Sblocca selfie" : "Unlock selfie"}</button>`
+          : ``
+      )
+  }
 </div>
 
 </div>
@@ -4773,11 +4792,20 @@ if (selfieEl) {
 // Elimina account (locale)  
 const btnDel = document.getElementById("btnDeleteAccount");  
 if (btnDel) {  
-  btnDel.addEventListener("click", () => {  
-    const ok = confirm(state.lang === "it"  
-      ? "Eliminare l'account? (Cancella profilo e dati da Firebase + TUTTI i dati Plutoo su questo dispositivo)"  
-      : "Delete account? (Deletes profile/data from Firebase + ALL Plutoo data on this device)");  
-    if (!ok) return;  
+  btnDel.addEventListener("click", async () => {  
+    const ok = await showPlutooConfirm(
+  state.lang === "it"
+    ? "Eliminare l'account?\nCancellerà profilo e tutti i dati del DOG dalla piattaforma."
+    : "Delete account?\nThis will remove the profile and all DOG data from the platform."
+  {
+    title: "Plutoo",
+    confirmText: state.lang === "it" ? "Elimina" : "Delete",
+    cancelText: state.lang === "it" ? "Annulla" : "Cancel",
+    danger: false
+  }
+);
+
+if (!ok) return;  
 
     try {  
       // ✅ 1) Cancellazione Firebase (NO await: solo Promise chain)  
@@ -4916,7 +4944,11 @@ return Promise.all(jobs);
 
 const code = (err && err.code) ? err.code : "";
 if (code === "auth/requires-recent-login") {
-alert("Per eliminare l’account serve un login recente. Ti disconnetto: rientra e riprova.");
+
+  showPlutooAlert("Per eliminare l’account serve un login recente. Ti disconnetto: rientra e riprova.", {
+  title: "Plutoo",
+  confirmText: "OK"
+});
 
 // ✅ forza ritorno HOME al reload
 try {
@@ -4931,7 +4963,10 @@ location.reload();
 return;
 }
 
-alert("Errore eliminazione account. Ti riporto alla Home senza bloccare l'app.");
+showPlutooAlert("Errore eliminazione account. Ti riporto alla Home senza bloccare l'app.", {
+  title: "Plutoo",
+  confirmText: "OK"
+});
 
 // ✅ forza ritorno HOME al reload
 try {
@@ -4956,6 +4991,9 @@ location.reload();
   const createDogZoneInput = document.getElementById("createDogZone");
 if (createDogZoneInput && isCreate) {
   createDogZoneInput.addEventListener("click", () => {
+
+    const zoneNodeId = Date.now();
+createDogZoneInput.dataset.geoTestId = String(zoneNodeId);
     if (!navigator.geolocation) {
       createDogZoneInput.value = state.lang === "it" ? "Geolocalizzazione non disponibile" : "Geolocation unavailable";
       return;
@@ -4986,14 +5024,28 @@ fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${state.geo
     if (label) {
       createDogZoneInput.value = label;
     }
+    
   })
   .catch(() => {});
         
       },
-      () => {
-        createDogZoneInput.value = "";
-      },
-      { enableHighAccuracy:true, timeout:5000, maximumAge:60000 }
+      
+      (err) => {
+
+        showPlutooAlert(
+  "GEO ERROR\n" +
+  "code: " + (err && err.code) + "\n" +
+  "message: " + (err && err.message),
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
+        
+  createDogZoneInput.value = "";
+},
+      
+      { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
     );
   });
 }
@@ -5024,6 +5076,7 @@ if (btnSaveDogDraft0 && isCreate) {
     if (!breed) errors.push(state.lang === "it" ? "Razza mancante" : "Breed missing");
     if (!age) errors.push(state.lang === "it" ? "Età mancante" : "Age missing");
     if (!sex) errors.push(state.lang === "it" ? "Sesso mancante" : "Sex missing");
+    if (!zone) errors.push(state.lang === "it" ? "Zona mancante" : "Zone missing");
     if (!state.createDogDraft || !state.createDogDraft.photoDataUrl) {
       errors.push(state.lang === "it" ? "Foto profilo mancante" : "Profile photo missing");
     }
@@ -5261,6 +5314,11 @@ let images = _existingGallery.map(x => x && x.url ? x.url : "").filter(Boolean);
   document.body.appendChild(input);
 
   let pendingFiles = [];
+
+  const isGalleryOwner =
+  ((window.PLUTOO_HAS_DOG === true || localStorage.getItem("plutoo_has_dog") === "1") &&
+  (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id")) === d.id);
+  
   let publishBar = null;
 
   const ensurePublishBar = () => {
@@ -5553,6 +5611,8 @@ del.onclick = (ev) => {
     confirmBtn.onclick = () => {
       modal.remove();
 
+      if (!isGalleryOwner) return;
+
       if (!window.db || !dogId) return;
 
       const dogRef = window.db.collection("dogs").doc(String(dogId));
@@ -5598,7 +5658,11 @@ del.onclick = (ev) => {
 };
 
       ph.appendChild(img);
-ph.appendChild(del);
+      
+if (isGalleryOwner) {
+  ph.appendChild(del);
+}
+      
 galleryBlock.appendChild(ph);
     }
 
@@ -6727,9 +6791,12 @@ if (likeDogBtn) {
 
   // ✅ FIX CRASH: in create mode uploadSelfie/unlockSelfie non esistono
   const uploadSelfieBtn = $("uploadSelfie");
-  if (uploadSelfieBtn) uploadSelfieBtn.onclick = () => {
+if (uploadSelfieBtn) uploadSelfieBtn.onclick = () => {
     const d = state.currentDogProfile;
     if (!d) return;
+
+    const isOwner = d.id === (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id"));
+    if (!isOwner) return;
 
     const fileInput = $("selfieFileInput");
     if (!fileInput) return;
@@ -6772,8 +6839,12 @@ if (likeDogBtn) {
     })
     .then((url) => {
       d.selfieUrl = url;
-      const img = qs(".selfie .img", profileContent);
-      if (img) img.src = url;
+const img = qs(".selfie .img", profileContent);
+if (img) img.src = url;
+const deleteSelfieBtn = $("deleteSelfie");
+if (deleteSelfieBtn && !!window.PLUTOO_UID && d.ownerUid === window.PLUTOO_UID) {
+  deleteSelfieBtn.style.display = "";
+}
       if (selfieFeedback) {
         selfieFeedback.textContent = state.lang === "it" ? "Selfie pubblicato con successo" : "Selfie uploaded successfully";
         selfieFeedback.style.display = "block";
@@ -6794,9 +6865,16 @@ if (likeDogBtn) {
   };
 
   const deleteSelfieBtn = $("deleteSelfie");
-if (deleteSelfieBtn) deleteSelfieBtn.onclick = () => {
+if (deleteSelfieBtn) {
+const d = state.currentDogProfile;
+const isOwner = !!d && d.id === (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id"));
+deleteSelfieBtn.style.display = isOwner && d.selfieUrl ? "" : "none";
+
+deleteSelfieBtn.onclick = () => {
 const d = state.currentDogProfile;
 if (!d) return;
+
+  if (d.id !== (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id"))) return;
 
 showPlutooConfirm(
   state.lang === "it" ? "Eliminare il selfie?" : "Delete selfie?",
@@ -6827,6 +6905,7 @@ storageRef.delete()
 });
 
 };
+}
 
   const unlockSelfieBtn = $("unlockSelfie");
   if (unlockSelfieBtn) unlockSelfieBtn.onclick = () => {
@@ -7131,6 +7210,7 @@ const otherUid =
   }
 
   const isShowcaseDog = !!DOGS.find(d => d && String(d.id) === String(safeDogId));
+    
   if (isShowcaseDog) {
     console.warn("sendChatMessage: DOG vetrina, niente persistenza chat");
     statusEl.textContent = "⚠️";
@@ -7746,7 +7826,7 @@ btnPublishDogBoard?.addEventListener("click", () => {
     };
     const text = (msg[state.lang] && msg[state.lang][type]) || (msg.it && msg.it[type]) || "Ad";
     alert(text);
-    if (onClose) onClose();
+if (onClose) onClose();
   }
 
   // ============ Init ============
@@ -8406,7 +8486,17 @@ function handleFileSelect(e) {
 
   // ✅ MODELLO DEFINITIVO: solo immagini (Aggiornamenti DOG)
   if (!isImage) {
-    alert(state.lang === "it" ? "Formato non supportato. Usa solo una FOTO." : "Unsupported format. Use PHOTO only.");
+
+    showPlutooAlert(
+  state.lang === "it"
+    ? "Formato non supportato. Usa solo una FOTO."
+    : "Unsupported format. Use only a PHOTO.",
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
+    
     return;
   }
 
@@ -8420,7 +8510,16 @@ function handleFileSelect(e) {
   reader.onload = function (event) {
     const dataUrl = event && event.target ? event.target.result : "";
     if (!dataUrl) {
-      alert(state.lang === "it" ? "Errore nel caricamento del file. Riprova." : "File load error. Retry.");
+
+      showPlutooAlert(
+  state.lang === "it"
+    ? "Errore nel caricamento del file. Riprova."
+    : "File load error. Retry.",
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
       return;
     }
 
@@ -8450,7 +8549,17 @@ function handleFileSelect(e) {
   };
 
   reader.onerror = function () {
-    alert(state.lang === "it" ? "Errore nel caricamento del file. Riprova." : "File load error. Retry.");
+
+    showPlutooAlert(
+  state.lang === "it"
+    ? "Errore nel caricamento del file. Riprova."
+    : "File load error. Retry.",
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
+    
     StoriesState.uploadedFile = null;
 
     preview.innerHTML = "";
@@ -8721,7 +8830,16 @@ if (loader) loader.classList.remove("hidden");
 
     // blocco se davvero non esiste media
     if (!StoriesState.uploadedFile) {
-      alert(state.lang === "it" ? "Seleziona prima una foto" : "Select a photo first");
+
+      showPlutooAlert(
+  state.lang === "it"
+    ? "Seleziona prima una foto"
+    : "Select a photo first",
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
       StoriesState.__publishing = false;
       return;
     }
