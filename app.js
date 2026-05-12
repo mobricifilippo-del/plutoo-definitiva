@@ -4796,7 +4796,7 @@ if (btnDel) {
     const ok = await showPlutooConfirm(
   state.lang === "it"
     ? "Eliminare l'account?\nCancellerà profilo e tutti i dati del DOG dalla piattaforma."
-    : "Delete account?\nThis will remove the profile and all DOG data from the platform."
+    : "Delete account?\nThis will remove the profile and all DOG data from the platform.",
   {
     title: "Plutoo",
     confirmText: state.lang === "it" ? "Elimina" : "Delete",
