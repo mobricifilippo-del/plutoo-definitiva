@@ -425,15 +425,16 @@
         <span data-i18n="plusTitle">Plutoo Plus</span>
       </div>
       <p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
+      
       <ul class="plus-features">
-        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature1">Nessuna pubblicità</span></li>
-        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature2">Swipe illimitati</span></li>
-        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature3">Messaggi illimitati</span></li>
-        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature4">Tutti i filtri Gold sbloccati</span></li>
-        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature5">Supporto prioritario</span></li>
-        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature6">Vedi tutte le Stories senza video</span></li>
-        <li><span class="check">✓</span><span class="label" data-i18n="plusFeature7">Stories video fino a 90 secondi</span></li>
+  <li><span class="check">✓</span><span class="label">Badge dorato Plus</span></li>
+  <li><span class="check">✓</span><span class="label">Zero pubblicità</span></li>
+  <li><span class="check">✓</span><span class="label">Swipe illimitati</span></li>
+  <li><span class="check">✓</span><span class="label">Bacheca DOG libera</span></li>
+  <li><span class="check">✓</span><span class="label">Ricerca personalizzata avanzata</span></li>
+  <li><span class="check">✓</span><span class="label">Esperienza premium totale</span></li>
       </ul>
+      
       <div class="plan-selector">
         <button id="planMonthly" class="plan-card active">
           <div class="plan-name" data-i18n="planMonthly">Mensile</div>
@@ -504,6 +505,23 @@
   </div>
 </div>
 
+  <!-- ==================== DOGBOARD VIEWER (MODALE SEPARATA) ==================== -->
+<div id="dogBoardViewerPane" class="chat-pane hidden">
+  <div class="chat-pane-inner">
+    <div class="chat-header">
+      <button id="closeDogBoardViewer" class="btn small ghost">←</button>
+      <span id="dogBoardViewerTitle">Annuncio</span>
+    </div>
+
+    <div id="dogBoardViewerContent" class="chat-list"></div>
+
+    <div class="chat-composer">
+      <input id="dogBoardViewerInput" type="text" placeholder="Rispondi all’annuncio">
+      <button id="dogBoardViewerSend" type="button" class="btn primary">Invia</button>
+    </div>
+  </div>
+</div>
+
 <!-- ==================== PROFILE PAGE ==================== -->
 <div id="profilePage" class="profile-page hidden">
   <div class="profile-header">
@@ -512,7 +530,6 @@
     <button id="profileClose" class="btn small ghost">✕</button>
   </div>
   <div id="profileContent" class="profile-content"></div>
-  <button id="profileLikeBtn" class="profile-like-btn">❤️</button>
 </div>
 
 <!-- ==================== MATCH OVERLAY ==================== -->
