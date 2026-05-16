@@ -630,6 +630,12 @@ window.__createDogBindDone = true;
     inlineBtn.dataset.mode = "create";
     inlineBtn.textContent = (lang === "it") ? "Crea profilo DOG" : "Create DOG profile";
   }
+
+    if (!hasDog || state.plus === true) {
+  inlineBtn.classList.add("cta-pulse");
+} else {
+  inlineBtn.classList.remove("cta-pulse");
+    }
 };
 
 // prima passata (stato corrente)  
@@ -678,6 +684,23 @@ const clickHandler = async (ev) => {
       if (doc && doc.exists) {
         const data = doc.data() || {};
 
+        const ownerUid = String(data.ownerUid || myId || "");
+let plus = false;
+let plusStatus = "";
+
+try {
+  if (ownerUid && window.db) {
+    const userSnap = await window.db.collection("users").doc(ownerUid).get();
+    const userData = userSnap && userSnap.exists ? (userSnap.data() || {}) : {};
+
+    plus = userData.plus === true;
+    plusStatus = String(userData.plusStatus || "");
+  }
+} catch (_) {
+  plus = false;
+  plusStatus = "";
+}
+
         myDog = {
           id: doc.id,
           name: String(data.name || ""),
@@ -698,7 +721,10 @@ const clickHandler = async (ev) => {
             ? data.ownerSocial
             : {},
 
-          selfieUrl: String(data.selfieUrl || "")
+          selfieUrl: String(data.selfieUrl || ""),
+          ownerUid,
+          plus,
+          plusStatus
         };
 
         // aggiorna cache runtime
@@ -835,9 +861,30 @@ try {
 
   state.dogs = state.dogs.filter(d => !(d && String(d.id) === String(uid)));
 
+  let dogPlus = false;
+let dogPlusStatus = "";
+
+try {
+  const ownerUid = String(data.ownerUid || uid || "");
+  if (ownerUid && window.db) {
+    const userSnap = await window.db.collection("users").doc(ownerUid).get();
+    const userData = userSnap && userSnap.exists ? (userSnap.data() || {}) : {};
+
+dogPlus = userData.plus === true && userData.plusStatus === "active";
+dogPlusStatus = String(userData.plusStatus || "");
+    
+  }
+} catch (_) {
+  dogPlus = false;
+  dogPlusStatus = "";
+}
+
  if (hasDog) {
   state.dogs.push({
     id: String(uid),
+    ownerUid: String(data.ownerUid || uid || ""),
+    plus: dogPlus,
+    plusStatus: dogPlusStatus,
     name: String(data.name || ""),
     breed: String(data.breed || ""),
     age: Number(data.age || 0),
@@ -983,6 +1030,19 @@ const linkRegister = document.getElementById("linkRegister");
         const uid = String(window.PLUTOO_UID);
         const ref = db.collection("users").doc(uid);
         const snap = await ref.get();
+
+const userData = snap && snap.exists ? (snap.data() || {}) : {};
+const userPlusActive = userData.plus === true && userData.plusStatus === "active";
+
+state.plus = userPlusActive;
+
+if (userData.plusPlan) {
+  state.plusPlan = String(userData.plusPlan);
+}
+
+if (typeof updatePlusUI === "function") {
+  updatePlusUI();
+}
 
         const base = {
           email: (user && user.email) ? String(user.email) : "",
@@ -1242,9 +1302,6 @@ const state = {
   followersByDog: JSON.parse(localStorage.getItem("followersByDog") || "{}"),
   followingByDog: JSON.parse(localStorage.getItem("followingByDog") || "{}"),
   ownerSocialByDog: JSON.parse(localStorage.getItem("ownerSocialByDog") || "{}"),
-
-  // Like foto profilo
-  photoLikesByDog: JSON.parse(localStorage.getItem("photoLikesByDog") || "{}"),
 
   // Like stories (per media id)
   storyLikesByMedia: JSON.parse(localStorage.getItem("storyLikesByMedia") || "{}"),
@@ -1960,48 +2017,193 @@ showAdBanner();
   ethicsButton?.addEventListener("click", ()=> openSheltersMaps() );
 
   // ============ PLUS ============
-  btnPlus?.addEventListener("click", ()=> openPlusModal() );
-  closePlus?.addEventListener("click", ()=> closePlusModal() );
-  cancelPlus?.addEventListener("click", ()=> closePlusModal() );
+btnPlus?.addEventListener("click", ()=> openPlusModal() );
+closePlus?.addEventListener("click", ()=> closePlusModal() );
+cancelPlus?.addEventListener("click", ()=> closePlusModal() );
 
-  planMonthly?.addEventListener("click", ()=>{
-    state.plusPlan = "monthly";
-    updatePlanSelector();
-  });
-  planYearly?.addEventListener("click", ()=>{
-    state.plusPlan = "yearly";
-    updatePlanSelector();
-  });
+planMonthly?.addEventListener("click", ()=>{
+  if (state.plus === true) return;
+  state.plusPlan = "monthly";
+  updatePlanSelector();
+});
 
-  function updatePlanSelector(){
-    if(planMonthly && planYearly){
-      planMonthly.classList.toggle("active", state.plusPlan === "monthly");
-      planYearly.classList.toggle("active", state.plusPlan === "yearly");
+planYearly?.addEventListener("click", ()=>{
+  if (state.plus === true) return;
+  state.plusPlan = "yearly";
+  updatePlanSelector();
+});
+
+function updatePlanSelector(){
+  if(planMonthly && planYearly){
+    planMonthly.classList.toggle("active", state.plusPlan === "monthly");
+    planYearly.classList.toggle("active", state.plusPlan === "yearly");
+  }
+}
+
+activatePlus?.addEventListener("click", async ()=> {
+  try {
+    const uid = window.PLUTOO_UID || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
+
+    if (!uid || !window.db) {
+      await showPlutooAlert("Login richiesto per gestire Plutoo Plus.", {
+        title: "Plutoo",
+        confirmText: "OK"
+      });
+      return;
     }
-  }
 
-  activatePlus?.addEventListener("click", ()=> {
+    const ref = window.db.collection("users").doc(String(uid));
+    const snap = await ref.get();
+    const data = snap && snap.exists ? (snap.data() || {}) : {};
+
+    if (state.plus === true) {
+      const ok = await showPlutooConfirm("Vuoi disattivare Plutoo Plus?", {
+        title: "Plutoo",
+        confirmText: "Disattiva",
+        cancelText: "Annulla"
+      });
+
+      if (!ok) return;
+
+      await ref.set({
+        plus: false,
+        plusStatus: "cancelled",
+        plusAutoRenewing: false,
+        plusUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      state.plus = false;
+
+      if (typeof window.refreshCreateDogCTA === "function") {
+  window.refreshCreateDogCTA();
+      }
+      
+      updatePlusUI();
+      closePlusModal();
+
+      await showPlutooAlert("Plutoo Plus disattivato.", {
+        title: "Plutoo",
+        confirmText: "OK"
+      });
+
+      return;
+    }
+
+    const plan = state.plusPlan || "monthly";
+    const price = plan === "yearly" ? "€40/anno" : "€4.99/mese";
+
+    const ok = await showPlutooConfirm(`Attivare Plutoo Plus?\nPiano scelto: ${price}`, {
+      title: "Plutoo",
+      confirmText: "Attiva",
+      cancelText: "Annulla"
+    });
+
+    if (!ok) return;
+
+    const payload = {
+      plus: true,
+      plusPlan: plan,
+      plusProvider: "manual_beta",
+      plusStatus: "active",
+      plusUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      plusExpireAt: null,
+      plusAutoRenewing: false
+    };
+
+    if (!data.plusSince) {
+      payload.plusSince = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    await ref.set(payload, { merge: true });
+
     state.plus = true;
-    localStorage.setItem("plutoo_plus", "yes");
-    localStorage.setItem("plusPlan", state.plusPlan);
-    closePlusModal();
+    
+    if (typeof window.refreshCreateDogCTA === "function") {
+  window.refreshCreateDogCTA();
+    }
+    
+    state.plusPlan = plan;
     updatePlusUI();
-    const price = state.plusPlan === "yearly" ? "€40/anno" : "€4.99/mese";
-    alert(
-      state.lang === "it"
-        ? `Plutoo Plus attivato! 💎\nPiano scelto: ${price}`
-        : `Plutoo Plus activated! 💎\nSelected plan: ${price}`
-    );
+    closePlusModal();
+
+    await showPlutooAlert(`Plutoo Plus attivato! 💎\nPiano scelto: ${price}`, {
+      title: "Plutoo",
+      confirmText: "OK"
+    });
+
+  } catch (e) {
+    await showPlutooAlert("Errore gestione Plutoo Plus.", {
+      title: "Plutoo",
+      confirmText: "OK"
+    });
+  }
+});
+
+function openPlusModal(){ 
+  plusModal?.classList.remove("hidden"); 
+  updatePlanSelector(); 
+  updatePlusUI();
+}
+
+function closePlusModal(){ 
+  plusModal?.classList.add("hidden"); 
+}
+
+function updatePlusUI(){
+  const goldInputs = [
+    onlyVerified,
+    ageMin,
+    ageMax,
+    weightInput,
+    heightInput,
+    pedigreeFilter,
+    breedingFilter,
+    sizeFilter
+  ];
+
+  goldInputs.forEach(inp => {
+    if (inp) inp.disabled = !state.plus;
   });
 
-  function openPlusModal(){ plusModal?.classList.remove("hidden"); updatePlanSelector(); }
-  function closePlusModal(){ plusModal?.classList.add("hidden"); }
-
-  function updatePlusUI(){
-    const goldInputs = [onlyVerified, ageMin, ageMax, weightInput, heightInput, pedigreeFilter, breedingFilter, sizeFilter];
-    goldInputs.forEach(inp => { if (inp) inp.disabled = !state.plus; });
-    if (adBanner) adBanner.style.display = state.plus ? "none" : "";
+  if (adBanner) {
+    adBanner.style.display = state.plus ? "none" : "";
   }
+
+  if (activatePlus) {
+    activatePlus.textContent = state.plus
+      ? "Disattiva Plus"
+      : "Attiva Plutoo Plus";
+  }
+
+  if (planMonthly && planYearly) {
+  const monthlyActive = state.plusPlan === "monthly";
+  const yearlyActive = state.plusPlan === "yearly";
+
+  planMonthly.classList.toggle(
+    "plus-active-plan",
+    state.plus === true && monthlyActive
+  );
+
+  planYearly.classList.toggle(
+    "plus-active-plan",
+    state.plus === true && yearlyActive
+  );
+
+  planMonthly.classList.toggle(
+    "plus-plan-disabled",
+    state.plus === true && !monthlyActive
+  );
+
+  planYearly.classList.toggle(
+    "plus-plan-disabled",
+    state.plus === true && !yearlyActive
+  );
+
+  planMonthly.disabled = state.plus === true;
+  planYearly.disabled = state.plus === true;
+  }
+  
+}
 
   // ============ Tabs ============
 tabNearby?.addEventListener("click", ()=>setActiveView("nearby"));
@@ -2747,6 +2949,10 @@ function setActiveView(name){
 
   el.classList.remove("hidden");
   el.classList.add("active");
+
+  if (typeof loadDogBoardPosts === "function") {
+    loadDogBoardPosts();
+  }
  }
 
   const storiesBar = $("storiesBar");
@@ -2921,7 +3127,7 @@ if(!d) return;
   const srcValue = rawImg.startsWith("http") ? rawImg : `./${rawImg}`;
 
   return `
-    <article class="card dog-card" data-id="${d.id}">
+    <article class="card dog-card ${d.plus === true && d.plusStatus === "active" ? "card-plus" : ""}" data-id="${d.id}">
       <img
         src="${srcValue}"
         alt="${d.name}"
@@ -2935,7 +3141,8 @@ if(!d) return;
       />
 
       <div class="card-info">
-        <h3>${d.name} ${d.verified?"✅":""}</h3>
+      <h3>${d.name}</h3>
+     ${d.plus === true && d.plusStatus === "active" ? `<div class="plus-badge-card">💎 Utente Plus</div>` : ""}
         <p class="meta">${d.breed} · ${d.age} ${t("years")} · ${d.zone || fmtKm(d.km)}</p>
         <p class="bio">${d.bio||""}</p>
       </div>
@@ -2961,6 +3168,7 @@ if (!Array.isArray(realDogs)) realDogs = [];
     const testDog = realDogs.find(x => x && x.name === "Filippo");
 
 const sourceDogs = [...realDogs, ...DOGS];
+    
 const myDogId = String(window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id") || "");
 
 return sourceDogs
@@ -2989,9 +3197,13 @@ return d.size === f.size;
 
 // ============ Swipe ============
   async function renderSwipe(mode){
-  const realDogs = Array.isArray(state.dogs) ? state.dogs : [];
-  const myDogId = String(window.PLUTOO_DOG_ID || "");
-  const myUid = String(window.PLUTOO_UID || "");
+
+    const realDogs = Array.isArray(state.dogs) ? state.dogs : [];
+const hasDog = window.PLUTOO_HAS_DOG === true && window.PLUTOO_DOG_ID;
+const swipeSourceDogs = hasDog && realDogs.length ? realDogs : DOGS;
+
+const myDogId = String(window.PLUTOO_DOG_ID || "");
+const myUid = String(window.PLUTOO_UID || "");
 
   let swipedIds = [];
 
@@ -3011,7 +3223,7 @@ return d.size === f.size;
     }
   }
 
-  const deck = realDogs
+   const deck = swipeSourceDogs
     .filter(d=>mode==="love" ? true : d.mode===mode)
     .filter(d=>{
       if (!d) return false;
@@ -3070,6 +3282,11 @@ return d.size === f.size;
 
   const idx = (mode==="love"?state.currentLoveIdx:state.currentPlayIdx) % deck.length;
   const d = deck[idx];
+
+    if (card) {
+  card.classList.toggle("card-plus", d.plus === true && d.plusStatus === "active");
+    }
+    
   if(!d) return;
 
     img.style.display = "";
@@ -3085,15 +3302,17 @@ if(noBtn) {
 }
 
   img.src = d.img;
-  title.textContent = `${d.name} ${d.verified?"✅":""}`;
+  title.textContent = `${d.name}`;
 
   const metaParts = [
     d.breed ? String(d.breed) : "",
-    d.age ? `${d.age} ${t("years")}` : ""
+    d.age ? `${d.age} ${t("years")}` : "",
+    d.zone ? String(d.zone) : fmtKm(d.km)
   ].filter(Boolean);
 
-  meta.textContent = metaParts.join(" · ");
-  bio.textContent = "";
+  meta.innerHTML =
+  `${d.plus === true && d.plusStatus === "active" ? '<span class="plus-badge-card">💎 Utente Plus</span><br>' : ""}` +
+  metaParts.join(" · ");
 
   if(yesBtn) yesBtn.onclick = null;
   if(noBtn) noBtn.onclick = null;
@@ -3112,6 +3331,11 @@ if(noBtn) {
       const toDogId = String(d.id || "");
       const fromUid = String(window.PLUTOO_UID || "");
       const toUid = String(d.ownerUid || "");
+      const isDemoDog = Array.isArray(DOGS) && DOGS.some(x => x && String(x.id) === toDogId);
+
+if (action === "like" && isDemoDog && typeof showSmallLikeAnimation === "function") {
+  showSmallLikeAnimation(card);
+}
 
       if (fromDogId && toDogId && fromUid && toUid && db) {
         const swipeId = `${fromDogId}_${toDogId}`;
@@ -3206,10 +3430,10 @@ if (inverseLike && inverseLike.exists) {
 
   if (yesBtn) {
     yesBtn.onclick = () => {
-      if (state.processingSwipe) return;
-      card.classList.add("swipe-out-right");
-    void handleSwipeComplete("right");
-    };
+  if (state.processingSwipe) return;
+  card.classList.add("swipe-out-right");
+  void handleSwipeComplete("right");
+};
   }
   
   if(noBtn){
@@ -3292,9 +3516,12 @@ function attachSwipeWithClick(card, dogData, onSwipe){
 
   // ✅ Handler nominati (necessari per removeEventListener)
   const onTouchStart = (e) => {
-    const touch = e.touches[0];
-    start(touch.clientX, touch.clientY);
-  };
+  const target = e && e.target;
+  if (target && target.closest && target.closest("button,.action-btn,.yes-btn,.no-btn")) return;
+
+  const touch = e.touches[0];
+  start(touch.clientX, touch.clientY);
+};
 
   const onTouchMove = (e) => {
     const touch = e.touches[0];
@@ -3303,7 +3530,13 @@ function attachSwipeWithClick(card, dogData, onSwipe){
 
   const onTouchEnd = () => end();
 
-  const onMouseDown = (e) => start(e.clientX, e.clientY);
+  const onMouseDown = (e) => {
+  const target = e && e.target;
+  if (target && target.closest && target.closest("button,.action-btn,.yes-btn,.no-btn")) return;
+
+  start(e.clientX, e.clientY);
+};
+  
   const handleMouseMove = (e) => move(e.clientX);
   const handleMouseUp = () => end();
 
@@ -3596,7 +3829,7 @@ function generateSocialSection(d) {
   // Nessun social → non mostrare niente
   if (!links.facebook && !links.instagram && !links.tiktok) {
     return `
-      <div class="pp-social-section">
+      <div class="pp-social-section ${d.plus === true && d.plusStatus === "active" ? "pp-social-plus" : ""}">
         <h4 class="section-title" style="margin-top:0;font-size:1rem">
           ${state.lang==="it" ? "📱 Social Proprietario" : "📱 Owner's Social"}
         </h4>
@@ -3608,7 +3841,7 @@ function generateSocialSection(d) {
   }
 
   return `
-   <div class="pp-social-section">
+   <div class="pp-social-section ${d.plus === true && d.plusStatus === "active" ? "pp-social-plus" : ""}">
       <h4 class="section-title" style="margin-top:0;font-size:1rem">
         ${state.lang==="it" ? "📱 Social Proprietario" : "📱 Owner's Social"}
       </h4>
@@ -3722,6 +3955,19 @@ async function rebuildFollowersStateFromFirestore() {
   if (!state.followersByDog || typeof state.followersByDog !== "object") state.followersByDog = {};
   if (!state.followingByDog || typeof state.followingByDog !== "object") state.followingByDog = {};
 
+    if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
+  showPlutooAlert(
+    state.lang === "it"
+      ? "Per seguire un DOG crea il tuo profilo DOG"
+      : "To follow a DOG, create your DOG profile",
+    {
+      title: "Plutoo",
+      confirmText: "OK"
+    }
+  );
+  return;
+    }
+
   const targetDog = targetDogDogOrId(targetDogOrId);
   const targetDogId = (targetDog && typeof targetDog === "object" && targetDog.id) ? targetDog.id : targetDog;
   if (!targetDogId) return;
@@ -3804,6 +4050,19 @@ function unfollowDog(targetDogOrId) {
   if (!state.followersByDog || typeof state.followersByDog !== "object") state.followersByDog = {};
   if (!state.followingByDog || typeof state.followingByDog !== "object") state.followingByDog = {};
 
+  if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
+    showPlutooAlert(
+      state.lang === "it"
+        ? "Per smettere di seguire un DOG crea il tuo profilo DOG"
+        : "To unfollow a DOG, create your DOG profile",
+      {
+        title: "Plutoo",
+        confirmText: "OK"
+      }
+    );
+    return;
+  }
+
   const targetDog = targetDogDogOrId(targetDogOrId);
   const targetDogId = (targetDog && typeof targetDog === "object" && targetDog.id) ? targetDog.id : targetDog;
   if (!targetDogId) return;
@@ -3843,15 +4102,16 @@ if (!selfDogId) {
     }
 
     const docId = `${String(selfDogId)}_${String(targetDogId)}`;
-    _db.collection("followers").doc(docId).delete().catch((e) => {
-      
-// ✅ NOTIFICA: rimuovi follow
 const notifId = `follow_${String(selfDogId)}_${String(targetDogId)}`;
-_db.collection("notifications").doc(notifId).delete().catch((e) => {
-  console.error("unfollowDog notification delete:", e);
-});
-      console.error("unfollowDog Firestore:", e);
-    });
+
+_db.collection("followers").doc(docId).delete()
+  .then(() => {
+    return _db.collection("notifications").doc(notifId).delete();
+  })
+  .catch((e) => {
+    console.error("unfollowDog Firestore:", e);
+  });
+    
   } catch (e) {
     console.error("unfollowDog Firestore:", e);
   }
@@ -4057,83 +4317,6 @@ followingOverlay?.addEventListener("click", (e) => {
   }
 });
 
-  // ============ LIKE FOTO PROFILO ============
-  function isDogPhotoLiked(dogId) {
-    if (!dogId) return false;
-    return !!(state.photoLikesByDog && state.photoLikesByDog[dogId]);
-  }
-
-  function persistPhotoLikes() {
-    localStorage.setItem("photoLikesByDog", JSON.stringify(state.photoLikesByDog || {}));
-  }
-
-  function updatePhotoLikeUI(dogId) {
-    if (!profileLikeBtn || !dogId) return;
-
-    const liked = isDogPhotoLiked(dogId);
-    const count = liked ? 1 : 0; // 0 se non likato, 1 se likato
-
-    profileLikeBtn.classList.toggle("liked", liked);
-
-    profileLikeBtn.classList.remove("heart-anim");
-    void profileLikeBtn.offsetWidth;
-    profileLikeBtn.classList.add("heart-anim");
-
-    profileLikeBtn.textContent = "❤️ " + count;
-  }
-
-  function togglePhotoLike(dogId) {
-    if (!dogId) return;
-    if (!state.photoLikesByDog) state.photoLikesByDog = {};
-
-    const wasLiked = isDogPhotoLiked(dogId);
-
-    if (wasLiked) {
-      delete state.photoLikesByDog[dogId];
-    } else {
-      state.photoLikesByDog[dogId] = true;
-    }
-
-    persistPhotoLikes();
-    updatePhotoLikeUI(dogId);
-
-    // ✅ FIRESTORE (PRODUCTION): salva like/unlike (robusto, non silenzioso)
-    try {
-      const uid = window.PLUTOO_UID;
-      const _db = (window.db || (typeof db !== "undefined" ? db : null));
-      if (!uid || !_db) return;
-
-      const hasFirebase =
-        (typeof firebase !== "undefined" && firebase && firebase.firestore && firebase.firestore.FieldValue);
-
-      const ts =
-        (hasFirebase && typeof firebase.firestore.FieldValue.serverTimestamp === "function")
-          ? firebase.firestore.FieldValue.serverTimestamp()
-          : new Date();
-
-      const ref = _db
-        .collection("dogs")
-        .doc(String(dogId))
-        .collection("photoLikes")
-        .doc(String(uid));
-
-      if (wasLiked) {
-        ref.delete().catch((e) => console.error("photoLike delete error:", e));
-      } else {
-        ref.set(
-          {
-            uid: String(uid),
-            dogId: String(dogId),
-            createdAt: ts
-          },
-          { merge: true }
-        ).catch((e) => console.error("photoLike set error:", e));
-      }
-    } catch (e) {
-      console.error("photoLike write fatal error:", e);
-    }
-  }
-
   // ============ LIKE STORIES ============
   function isStoryLiked(mediaId) {
     if (!mediaId) return false;
@@ -4159,6 +4342,20 @@ followingOverlay?.addEventListener("click", (e) => {
 
   function toggleStoryLike(mediaId) {
     if (!mediaId) return;
+
+    if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
+    showPlutooAlert(
+      state.lang === "it"
+        ? "Per mettere Mi Piace agli Aggiornamenti DOG crea il tuo profilo DOG"
+        : "To like DOG Updates, create your DOG profile",
+      {
+        title: "Plutoo",
+        confirmText: "OK"
+      }
+    );
+    return;
+    }
+    
     if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
 
     const wasLiked = isStoryLiked(mediaId);
@@ -4229,13 +4426,26 @@ window.openFreshDogProfile = function openFreshDogProfile(dogId, fallbackDog) {
   }
 
   window.db.collection("dogs").doc(id).get()
-    .then((snap) => {
+  .then(async (snap) => {
       if (!snap || !snap.exists) {
         openFallback();
         return;
       }
 
       const data = snap.data() || {};
+
+    const ownerUid = String(data.ownerUid || fallback.ownerUid || snap.id || "");
+let plus = false;
+let plusStatus = "";
+
+try {
+  if (ownerUid && window.db) {
+    const userSnap = await window.db.collection("users").doc(ownerUid).get();
+    const userData = userSnap && userSnap.exists ? (userSnap.data() || {}) : {};
+    plus = userData.plus === true;
+    plusStatus = String(userData.plusStatus || "");
+  }
+} catch (_) {}
 
       const freshDog = {
         ...fallback,
@@ -4245,7 +4455,10 @@ window.openFreshDogProfile = function openFreshDogProfile(dogId, fallbackDog) {
         avatar: String(data.photoUrl || data.img || fallback.avatar || fallback.img || "./plutoo-icon-192.png"),
         dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
         ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
-        selfieUrl: String(data.selfieUrl || "")
+        selfieUrl: String(data.selfieUrl || ""),
+ownerUid,
+plus,
+plusStatus
       };
 
       if (typeof window.openProfilePage === "function") {
@@ -4342,7 +4555,7 @@ const dogDocs = d.dogDocs || {};
 
 profileContent.innerHTML = `
 
-  <div class="pp-hero">
+  <div class="pp-hero ${d.plus === true && d.plusStatus === "active" ? "pp-hero-plus" : ""}">
     ${
       isCreate
         ? `
@@ -4384,12 +4597,12 @@ profileContent.innerHTML = `
     }
   </div>
   
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:.8rem">
-    <div style="font-weight:900;font-size:1.15rem;line-height:1.2">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem;margin-top:.8rem;flex-wrap:wrap">
+    <div style="font-weight:900;font-size:1.15rem;line-height:1.2;min-width:0;flex:1 1 180px;word-break:break-word">
       ${
         isCreate
           ? (state.lang === "it" ? "Nuovo profilo" : "New profile")
-          : `${d.name} ${d.verified ? "✅" : ""}`
+          : `${d.name} <span id="dogPlusBadge"></span> ${d.verified ? "✅" : ""}`
       }
     </div>${
   isCreate
@@ -4458,21 +4671,24 @@ profileContent.innerHTML = `
     <div class="pp-bio-title">${state.lang === "it" ? "Bio" : "Bio"}</div>
     <div class="pp-bio-text">${d.bio}</div>
   </div>
-` : ""}
-
-    ${""}
+` : `
+  <div class="pp-bio-block pp-bio-empty">
+    <div class="pp-bio-title">${state.lang === "it" ? "Bio" : "Bio"}</div>
+    <div class="pp-bio-text">${state.lang === "it" ? "Nessuna bio aggiunta" : "No bio added"}</div>
+  </div>
+`}
 
     <div id="dogStorySlot"></div>
 
     <h3 class="section-title">${state.lang === "it" ? "Galleria" : "Gallery"}</h3>
-    <div class="gallery" id="dogGallery"></div>
+    <div class="gallery ${d.plus === true && d.plusStatus === "active" ? "gallery-plus" : ""}" id="dogGallery"></div>
 
     <h3 class="section-title">Selfie</h3>
     
     <p style="font-size:.9rem;color:var(--muted);margin:.25rem 0 .6rem;font-weight:700;">
       ${state.lang === "it" ? "Il selfie deve includere DOG e proprietario" : "The selfie must include DOG and owner"}
     </p>
-    <div class="selfie ${selfieUnlocked ? "unlocked" : ""}">
+    <div class="selfie ${selfieUnlocked ? "unlocked" : ""} ${d.plus === true && d.plusStatus === "active" ? "selfie-plus" : ""}">
      <img class="img ${!d.selfieUrl ? "placeholder" : ""}" src="${selfieSrc || "./plutoo-icon-192.png"}"  alt="Selfie" style="cursor:pointer;">
       <input type="file" id="selfieFileInput" accept="image/*" style="display:none" />
 
@@ -4506,27 +4722,42 @@ profileContent.innerHTML = `
   color:#CDA434;
 "></div>
 
-<div class="pp-docs-section" style="margin-top:1.2rem">
+<div class="pp-docs-section ${d.plus === true && d.plusStatus === "active" ? "pp-docs-plus" : ""}" style="margin-top:1.2rem">
   <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang === "it" ? "Documenti DOG" : "DOG Documents"}</h4>
   <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang === "it" ? "Facoltativi (vaccini, pedigree, microchip)" : "Optional (vaccines, pedigree, microchip)"}</p>
+
   <div class="pp-docs-grid">
-    <div class="doc-item" data-doc="dog-vaccines" data-type="dog">
+
+    <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-vaccines" data-type="dog">
       <div class="doc-icon">💉</div>
       <div class="doc-label">${state.lang === "it" ? "Vaccini" : "Vaccines"}</div>
-      <div class="doc-status ${dogDocs.vaccines && dogDocs.vaccines.url ? "uploaded" : "pending"}">${dogDocs.vaccines && dogDocs.vaccines.url ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
+      <div class="doc-status ${dogDocs.vaccines && dogDocs.vaccines.url ? "uploaded" : "pending"}">
+        ${dogDocs.vaccines && dogDocs.vaccines.url
+          ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
+          : (state.lang === "it" ? "Da caricare" : "Upload")}
+      </div>
     </div>
 
-    <div class="doc-item" data-doc="dog-pedigree" data-type="dog">
+    <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-pedigree" data-type="dog">
       <div class="doc-icon">📜</div>
       <div class="doc-label">${state.lang === "it" ? "Pedigree" : "Pedigree"}</div>
-      <div class="doc-status ${dogDocs.pedigree && dogDocs.pedigree.url ? "uploaded" : "pending"}">${dogDocs.pedigree && dogDocs.pedigree.url ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
+      <div class="doc-status ${dogDocs.pedigree && dogDocs.pedigree.url ? "uploaded" : "pending"}">
+        ${dogDocs.pedigree && dogDocs.pedigree.url
+          ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
+          : (state.lang === "it" ? "Da caricare" : "Upload")}
+      </div>
     </div>
 
-    <div class="doc-item" data-doc="dog-microchip" data-type="dog">
+    <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-microchip" data-type="dog">
       <div class="doc-icon">🔬</div>
       <div class="doc-label">${state.lang === "it" ? "Microchip" : "Microchip"}</div>
-      <div class="doc-status ${dogDocs.microchip && dogDocs.microchip.url ? "uploaded" : "pending"}">${dogDocs.microchip && dogDocs.microchip.url ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded") : (state.lang === "it" ? "Da caricare" : "Upload")}</div>
+      <div class="doc-status ${dogDocs.microchip && dogDocs.microchip.url ? "uploaded" : "pending"}">
+        ${dogDocs.microchip && dogDocs.microchip.url
+          ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
+          : (state.lang === "it" ? "Da caricare" : "Upload")}
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -4536,13 +4767,13 @@ profileContent.innerHTML = `
   ${
     ((window.PLUTOO_HAS_DOG === true || localStorage.getItem("plutoo_has_dog") === "1") && (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id")) === d.id)
       ? `
-        <button id="btnProfileSettings" class="btn accent" style="position:relative;z-index:50;">
+        <button id="btnProfileSettings" class="btn accent ${d.plus === true && d.plusStatus === "active" ? "profile-action-plus" : ""}" style="position:relative;z-index:50;">
           ${state.lang === "it" ? "Impostazioni profilo" : "Profile settings"}
         </button>
-        <button id="btnEditSocial" class="btn outline" style="position:relative;z-index:50;">
+        <button id="btnEditSocial" class="btn outline ${d.plus === true && d.plusStatus === "active" ? "profile-outline-plus" : ""}" style="position:relative;z-index:50;">
           ${state.lang === "it" ? "Modifica social" : "Edit socials"}
         </button>
-        <button id="btnDeleteAccount" class="btn ghost" style="position:relative;z-index:50;">
+        <button id="btnDeleteAccount" class="btn ghost ${d.plus === true && d.plusStatus === "active" ? "profile-delete-plus" : "profile-delete-standard"}" style="position:relative;z-index:50;">
           ${state.lang === "it" ? "Elimina account" : "Delete account"}
         </button>
       `
@@ -4557,6 +4788,26 @@ profileContent.innerHTML = `
         `
     }
   `;
+
+  try {
+  const plusBadgeEl = document.getElementById("dogPlusBadge");
+  const ownerUid = String(d.ownerUid || d.id || "");
+
+  if (plusBadgeEl && ownerUid && window.db) {
+    window.db.collection("users").doc(ownerUid).get()
+      .then((snap) => {
+        const u = snap && snap.exists ? (snap.data() || {}) : {};
+        const isPlusDogOwner = u.plus === true && u.plusStatus === "active";
+
+        plusBadgeEl.textContent = isPlusDogOwner
+          ? " 💎 Utente Plus"
+          : "";
+      })
+      .catch(() => {
+        plusBadgeEl.textContent = "";
+      });
+  }
+} catch (_) {}
 
   const slot = document.getElementById("dogStorySlot");
 if (slot && window.StoriesState && Array.isArray(StoriesState.stories)) {
@@ -4813,45 +5064,118 @@ if (!ok) return;
       const user = (window.auth && window.auth.currentUser) ? window.auth.currentUser : null;  
       const db = window.db || null;  
 
-      const deleteFromFirebase = () => {  
-        // Se non ho auth/db, salto (non blocco mai l'app)  
-        if (!uid || !user || !db) return Promise.resolve();  
+      const deleteFromFirebase = () => {
+  if (!uid || !user || !db) return Promise.resolve();
 
-        // a) elimina dogs dell'ownerUid  
-        const delDogs = db.collection("dogs").where("ownerUid", "==", uid).get()
-.then((snap) => {
-const jobs = [];
-snap.forEach((doc) => {
-const dogId = doc.id;
-jobs.push(db.collection("followers").where("targetDogId", "==", dogId).get().then((fsnap) => {
-const followerJobs = [];
-fsnap.forEach((fdoc) => {
-followerJobs.push(fdoc.ref.delete().catch(() => {}));
-});
-return Promise.all(followerJobs);
-}).catch(() => {}));
-jobs.push(db.collection("followers").where("followerDogId", "==", dogId).get().then((fsnap) => {
-const followerJobs = [];
-fsnap.forEach((fdoc) => {
-followerJobs.push(fdoc.ref.delete().catch(() => {}));
-});
-return Promise.all(followerJobs);
-}).catch(() => {}));
-jobs.push(doc.ref.delete().catch(() => {}));
-});
-return Promise.all(jobs);
-})
-.catch(() => {});
+  const deleteQuery = (query) => {
+    return query.get()
+      .then((snap) => {
+        const jobs = [];
+        snap.forEach((doc) => {
+          jobs.push(doc.ref.delete().catch(() => {}));
+        });
+        return Promise.all(jobs);
+      })
+      .catch(() => {});
+  };
 
-        // b) elimina users/{uid}  
-        const delUserDoc = db.collection("users").doc(uid).delete().catch(() => {});  
+  const delDogs = db.collection("dogs").where("ownerUid", "==", uid).get()
+    .then((snap) => {
+      const dogIds = [];
+      const jobs = [];
 
-        // c) elimina Auth user (può richiedere recent login)  
-        const delAuth = user.delete();  
+      snap.forEach((doc) => {
+        const dogId = String(doc.id);
+        dogIds.push(dogId);
 
-        return Promise.all([delDogs, delUserDoc, delAuth]).then(() => {}).catch((err) => { throw err; });  
-      };  
+        jobs.push(deleteQuery(db.collection("followers").where("targetDogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("followers").where("followerDogId", "==", dogId)));
 
+        jobs.push(deleteQuery(db.collection("dogBoardPosts").where("dogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("dogBoardPosts").where("ownerUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("dogBoardPosts").where("uid", "==", uid)));
+
+        jobs.push(deleteQuery(db.collection("likes").where("fromDogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("likes").where("toDogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("likes").where("fromUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("likes").where("toUid", "==", uid)));
+
+        jobs.push(deleteQuery(db.collection("swipes").where("fromDogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("swipes").where("toDogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("swipes").where("fromUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("swipes").where("toUid", "==", uid)));
+
+        jobs.push(deleteQuery(db.collection("notifications").where("fromDogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("notifications").where("toDogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("notifications").where("fromUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("notifications").where("toUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("notifications").where("uid", "==", uid)));
+
+        jobs.push(deleteQuery(db.collection("stories").where("dogId", "==", dogId)));
+        jobs.push(deleteQuery(db.collection("stories").where("ownerUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("stories").where("uid", "==", uid)));
+
+        jobs.push(deleteQuery(db.collection("messages").where("senderUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("messages").where("receiverUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("messages").where("fromUid", "==", uid)));
+        jobs.push(deleteQuery(db.collection("messages").where("toUid", "==", uid)));
+
+        jobs.push(doc.ref.delete().catch(() => {}));
+      });
+
+      dogIds.forEach((dogId) => {
+        jobs.push(deleteQuery(db.collection("matches").where("dogIds", "array-contains", dogId)));
+      });
+
+      jobs.push(deleteQuery(db.collection("matches").where("uids", "array-contains", uid)));
+
+      jobs.push(
+        db.collection("chats").where("members", "array-contains", uid).get()
+          .then((csnap) => {
+            const chatJobs = [];
+
+            csnap.forEach((chatDoc) => {
+              const chatId = String(chatDoc.id);
+
+              chatJobs.push(
+                deleteQuery(db.collection("messages").where("chatId", "==", chatId))
+              );
+
+              chatJobs.push(
+                chatDoc.ref.delete().catch((err) => {
+                  showPlutooAlert(
+                    "CHAT DELETE ERROR\n" +
+                    "code: " + (err && err.code ? err.code : "") + "\n" +
+                    "message: " + (err && err.message ? err.message : ""),
+                    {
+                      title: "Plutoo",
+                      confirmText: "OK"
+                    }
+                  );
+
+                  return Promise.reject(err);
+                })
+              );
+            });
+
+            return Promise.all(chatJobs);
+          })
+      );
+
+      return Promise.all(jobs);
+    });
+
+  const delUserDoc = db.collection("users").doc(uid).delete().catch(() => {});
+
+  const delAuth = user.delete().catch((err) => {
+    return Promise.reject(err);
+  });
+
+  return Promise.all([delDogs, delUserDoc, delAuth])
+    .then(() => {})
+    .catch((err) => { throw err; });
+};
+      
       deleteFromFirebase()  
         .then(() => {  
           // ✅ wipe mirato: rimuovo tutte le chiavi Plutoo + per-dog (gallery_, selfieImage_, docs, stories, ecc.)  
@@ -5001,8 +5325,19 @@ createDogZoneInput.dataset.geoTestId = String(zoneNodeId);
 
     createDogZoneInput.value = state.lang === "it" ? "Rilevamento posizione..." : "Detecting location...";
 
-    navigator.geolocation.getCurrentPosition(
+    let geoWatchId = null;
+let geoDone = false;
+
+geoWatchId = navigator.geolocation.watchPosition(
       p => {
+
+        if (geoDone) return;
+        geoDone = true;
+
+        if (geoWatchId !== null) {
+          navigator.geolocation.clearWatch(geoWatchId);
+        }
+
         state.geo = {
           lat: p.coords.latitude,
           lon: p.coords.longitude
@@ -5032,20 +5367,20 @@ fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${state.geo
       
       (err) => {
 
-        showPlutooAlert(
-  "GEO ERROR\n" +
-  "code: " + (err && err.code) + "\n" +
-  "message: " + (err && err.message),
-  {
-    title: "Plutoo",
-    confirmText: "OK"
+  if (geoDone) return;
+  geoDone = true;
+
+  if (geoWatchId !== null) {
+    navigator.geolocation.clearWatch(geoWatchId);
   }
-);
-        
-  createDogZoneInput.value = "";
+
+  createDogZoneInput.value = state.lang === "it"
+  ? "Posizione non rilevata"
+  : "Location not detected";
 },
+
+      { enableHighAccuracy:true, timeout:20000, maximumAge:0 }
       
-      { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
     );
   });
 }
@@ -5779,10 +6114,11 @@ if (followBtn) {
       if (followingCountEl) followingCountEl.onclick = () => openFollowingList(d.id);
 
       // ✅ FIX: nessun ReferenceError (se non esiste, è null e basta)
-      const profileLikeBtn = $("profileLikeBtn");
       if (profileLikeBtn) {
-        profileLikeBtn.onclick = () => togglePhotoLike(d.id);
-        updatePhotoLikeUI(d.id);
+  profileLikeBtn.onclick = null;
+  profileLikeBtn.classList.remove("liked", "heart-anim");
+  profileLikeBtn.textContent = "";
+  profileLikeBtn.style.display = "none";
       }
 
       if (dogStories) {
@@ -6492,7 +6828,11 @@ freshDog.img = String(freshDog.photoUrl || freshDog.img || d.img || "./plutoo-ic
 
                 setTimeout(() => {
                   closeExisting("plutooEditSocialSheet");
-                  if (typeof window.openProfilePage === "function") window.openProfilePage(freshDog);
+                  if (typeof window.openFreshDogProfile === "function") {
+  window.openFreshDogProfile(d.id, freshDog);
+} else if (typeof window.openProfilePage === "function") {
+  window.openProfilePage(freshDog);
+                  }
                 }, 450);
               })
               .catch((err) => {
@@ -6747,6 +7087,8 @@ if (likeDogBtn) {
     const toDogId = String(d.id || "");
     const fromUid = String(window.PLUTOO_UID || "");
     const toUid = String(d.ownerUid || "");
+
+    const isDemoDog = !d.ownerUid;
 
     if (!fromDogId || !toDogId || !fromUid || !toUid || !db) return;
 
@@ -7151,6 +7493,19 @@ if (selfUid && otherUid) {
   const dogId = chatPane.dataset.dogId || "";
   if (!dogId) return;
 
+    if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
+    showPlutooAlert(
+      state.lang === "it"
+        ? "Per inviare messaggi crea il tuo profilo DOG"
+        : "To send messages, create your DOG profile",
+      {
+        title: "Plutoo",
+        confirmText: "OK"
+      }
+    );
+    return;
+    }
+
   const hasMatch = (chatPane.dataset.hasMatch === "1") || !!(state.matches && state.matches[dogId]);
   const msgCount = state.chatMessagesSent[dogId] || 0;
 
@@ -7164,10 +7519,18 @@ if (selfUid && otherUid) {
       });
       return;
     } else if (!hasMatch && msgCount >= 1) {
-      alert(state.lang === "it"
-        ? "Serve un match per continuare"
-        : "Match required to continue");
-      return;
+
+      showPlutooAlert(
+  state.lang === "it"
+    ? "Serve un match per continuare"
+    : "Match required to continue",
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
+return;
+      
     }
   }
 
@@ -7296,17 +7659,40 @@ try {
 }
 
 // 2) Meta chat: source of truth conversazione
-    
- await db.collection("chats").doc(chatId).set({
+
+let nextMatch = hasMatch === true;
+let nextStatus = hasMatch === true ? "accepted" : "pending";
+let nextFolder = hasMatch === true ? "inbox" : "requests";
+
+try {
+  const chatSnap = await db.collection("chats").doc(chatId).get();
+  const chatData = chatSnap && chatSnap.exists ? (chatSnap.data() || {}) : {};
+
+  const wasPendingRequest =
+    chatData.status === "pending" &&
+    chatData.folder === "requests" &&
+    chatData.lastSenderUid &&
+    chatData.lastSenderUid !== selfUid;
+
+  if (wasPendingRequest) {
+    nextMatch = true;
+    nextStatus = "accepted";
+    nextFolder = "inbox";
+  }
+} catch (e) {
+  console.error("read chat status failed:", e);
+}
+
+await db.collection("chats").doc(chatId).set({
   members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
 
   lastMessageText: text,
   lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
   lastSenderUid: selfUid,
 
-  match: hasMatch === true,
-  status: hasMatch === true ? "accepted" : "pending",
-  folder: hasMatch === true ? "inbox" : "requests"
+  match: nextMatch,
+  status: nextStatus,
+  folder: nextFolder
 
 }, { merge: true });
 
@@ -7378,29 +7764,27 @@ function openDogBoardViewer(post){
   try {
     if (!post || !post.dogId) return;
 
-    const dog = (state.dogs || []).find(d => String(d.id) === String(post.dogId)) || null;
+    const pane = document.getElementById("dogBoardViewerPane");
+    const title = document.getElementById("dogBoardViewerTitle");
+    const content = document.getElementById("dogBoardViewerContent");
+    const input = document.getElementById("dogBoardViewerInput");
+    const sendBtn = document.getElementById("dogBoardViewerSend");
+    const closeBtn = document.getElementById("closeDogBoardViewer");
 
-    const pane = document.getElementById("chatPane");
-    const list = document.getElementById("chatList");
-    const header = pane?.querySelector(".chat-header span");
+    if (!pane || !content) return;
 
-    if (!pane || !list) return;
+    if (title) title.textContent = String(post.dogName || "Annuncio");
 
-    if (header) header.textContent = String(post.dogName || "Annuncio");
+    const isOwner =
+      String(post.ownerUid || "") &&
+      String(post.ownerUid || "") === String(window.PLUTOO_UID || "");
 
     const photoUrls = Array.isArray(post.photos)
       ? post.photos.filter(p => typeof p === "string" && p.startsWith("http"))
       : [];
 
-    const mainPhoto = photoUrls[0] || String(post.dogAvatar || "./plutoo-icon-192.png");
-
-    list.innerHTML = `
+    content.innerHTML = `
       <div class="dogboard-viewer">
-
-        <div class="dogboard-viewer-avatar">
-          <img src="${mainPhoto.replace(/"/g, "&quot;")}"
-               onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
-        </div>
 
         <div class="dogboard-viewer-name">${String(post.dogName || "")}</div>
 
@@ -7422,7 +7806,7 @@ function openDogBoardViewer(post){
               .replace(/'/g, "&#39;")}</div>`
           : ""}
 
-        ${photoUrls.length > 1
+        ${photoUrls.length
           ? `<div class="dogboard-photos">
               ${photoUrls.map(url => `
                 <img
@@ -7435,20 +7819,123 @@ function openDogBoardViewer(post){
             </div>`
           : ""}
 
-        <button id="dogboardViewerReply" class="btn primary">
-          Rispondi
-        </button>
+        ${isOwner && String(post.id || "")
+          ? `<button id="dogboardDeletePost" class="btn danger small" type="button">
+              🗑️ Elimina
+            </button>`
+          : ""}
 
       </div>
     `;
 
+   const composerEl = input?.closest(".chat-composer");
+
+if (composerEl) {
+  composerEl.style.display = isOwner ? "none" : "";
+}
+
+if (input) {
+  input.value = "";
+  input.placeholder = "Rispondi all’annuncio";
+}
+
+if (sendBtn) {
+  sendBtn.style.display = isOwner ? "none" : "";
+  sendBtn.onclick = async () => {
+    try {
+      if (isOwner) return;
+      if (!input || !window.db) return;
+
+      const text = String(input.value || "").trim();
+      if (!text) return;
+
+      const selfUid = String(window.PLUTOO_UID || "");
+      const otherUid = String(post.ownerUid || "");
+      const dogId = String(post.dogId || "");
+
+      if (!selfUid || !otherUid || !dogId) return;
+
+      if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
+        await showPlutooAlert(
+          state.lang === "it"
+            ? "Per rispondere agli annunci crea il tuo profilo DOG"
+            : "To reply to ads, create your DOG profile",
+          {
+            title: "Plutoo",
+            confirmText: "OK"
+          }
+        );
+        return;
+      }
+
+      const pair = [selfUid, otherUid].sort();
+      const chatId = `${pair[0]}__${pair[1]}`;
+
+      await window.db.collection("messages").add({
+        chatId,
+        senderUid: selfUid,
+        text,
+        type: "text",
+        source: "dogboard",
+        dogBoardPostId: String(post.id || ""),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        isRead: false
+      });
+
+      await window.db.collection("chats").doc(chatId).set({
+        members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
+        lastMessageText: text,
+        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastSenderUid: selfUid,
+        match: false,
+        status: "pending",
+        folder: "requests",
+        source: "dogboard",
+        dogBoardPostId: String(post.id || "")
+      }, { merge: true });
+
+      input.value = "";
+      sendBtn.disabled = true;
+      sendBtn.textContent = "Inviato";
+
+      if (typeof loadMessagesLists === "function") loadMessagesLists();
+      await showPlutooAlert("Messaggio inviato", {
+  title: "Plutoo",
+  confirmText: "OK"
+});
+
+    } catch (e) {
+      console.error("DogBoard viewer send error:", e);
+    }
+  };
+}
+
+    const closeViewer = () => {
+      pane.classList.remove("show");
+      pane.classList.add("hidden");
+      if (input) input.value = "";
+    };
+
+    if (closeBtn) {
+      closeBtn.onclick = closeViewer;
+    }
+
     pane.classList.remove("hidden");
     pane.classList.add("show");
 
-    const replyBtn = document.getElementById("dogboardViewerReply");
-    if (replyBtn){
-      replyBtn.onclick = () => {
-        if (dog) openChat(dog);
+    const deleteBtn = document.getElementById("dogboardDeletePost");
+    if (deleteBtn){
+      deleteBtn.onclick = () => {
+        if (!post.id || !window.db) return;
+
+        window.db.collection("dogBoardPosts").doc(String(post.id)).delete()
+          .then(() => {
+            closeViewer();
+            if (typeof loadDogBoardPosts === "function") loadDogBoardPosts();
+          })
+          .catch((e) => {
+            console.error("DogBoard delete post error:", e);
+          });
       };
     }
 
@@ -7490,6 +7977,8 @@ function renderDogBoardItem(payload, nowValue, mode = "prepend"){
   <div class="dogboard-item"
      data-dog-id="${payload.dogId}"
      data-post="${encodeURIComponent(JSON.stringify({
+       id: String(payload.id || ""),
+       ownerUid: String(payload.ownerUid || ""),
        dogId: String(payload.dogId || ""),
        dogName: String(payload.dogName || ""),
        dogAvatar: String(payload.dogAvatar || "./plutoo-icon-192.png"),
@@ -7568,7 +8057,10 @@ async function loadDogBoardPosts(){
       .get();
 
     snap.forEach(doc => {
-      const post = doc.data() || {};
+      const post = {
+  id: doc.id,
+  ...(doc.data() || {})
+};
       const nowValue = post.createdAtClient || Date.now();
       renderDogBoardItem(post, nowValue, "append");
     });
@@ -7594,8 +8086,16 @@ if (!text && !hasPhotos) return;
     const dogId = String(window.PLUTOO_DOG_ID || "");
     const ownerUid = String(window.PLUTOO_UID || "");
 
-    if (!dogId || !ownerUid) {
-      alert(state.lang === "it" ? "Profilo DOG non pronto" : "DOG profile not ready");
+    if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID || !dogId || !ownerUid) {
+      showPlutooAlert(
+        state.lang === "it"
+          ? "Per pubblicare in Bacheca DOG crea il tuo profilo DOG"
+          : "To publish in DOG Board, create your DOG profile",
+        {
+          title: "Plutoo",
+          confirmText: "OK"
+        }
+      );
       return;
     }
 
@@ -7603,8 +8103,14 @@ if (!text && !hasPhotos) return;
       (Array.isArray(state.dogs) ? state.dogs : []).find(d => d && String(d.id) === dogId) || null;
 
     if (!currentDog || !String(currentDog.name || "").trim()) {
-      alert(state.lang === "it" ? "DOG corrente non trovato" : "Current DOG not found");
-      return;
+  showPlutooAlert(
+    state.lang === "it" ? "DOG corrente non trovato" : "Current DOG not found",
+    {
+      title: "Plutoo",
+      confirmText: "OK"
+    }
+  );
+  return;
     }
 
     btnPublishDogBoard.dataset.busy = "1";
@@ -7668,10 +8174,15 @@ if (!text && !hasPhotos) return;
   } catch (err) {
     console.error("publishDogBoardTextOnly error", err);
 
-    alert(
-      (state.lang === "it" ? "Errore durante la pubblicazione:\n" : "Publish failed:\n") +
-      String((err && (err.message || err.code)) || err || "errore sconosciuto")
-    );
+    showPlutooAlert(
+  (state.lang === "it" ? "Errore durante la pubblicazione:\n" : "Publish failed:\n") +
+  String((err && (err.message || err.code)) || err || "errore sconosciuto"),
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
+    
   } finally {
     if (btnPublishDogBoard) {
       btnPublishDogBoard.dataset.busy = "0";
@@ -7739,7 +8250,7 @@ function renderDogBoardPreview(){
 
 btnPublishDogBoard?.addEventListener("click", () => {
   try {
-    const isPlus = localStorage.getItem("plutoo_plus") === "yes";
+    const isPlus = !!state.plus;
 
     if (isPlus) {
       publishDogBoardTextOnly();
@@ -7860,32 +8371,57 @@ async function init(){
       const snap = await window.db.collection("dogs").get();
       const realDogs = [];
 
-      snap.forEach((doc) => {
-        const data = doc.data() || {};
-        const name = String(data.name || "").trim();
-        if (!name) return;
+      for (const doc of snap.docs) {
+  const data = doc.data() || {};
+  const name = String(data.name || "").trim();
+  if (!name) continue;
 
-        realDogs.push({
-  id: doc.id,
-  ownerUid: String(data.ownerUid || ""),
-  name: name,
-  breed: String(data.breed || ""),
-  age: Number(data.age || 0),
-  sex: String(data.sex || ""),
-  img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
-  selfieUrl: String(data.selfieUrl || ""),
-gallery: Array.isArray(data.gallery) ? data.gallery : [],
-  verified: !!data.verified,
-  bio: String(data.bio || ""),
-  zone: String(data.zone || ""),
-  km: Number(data.km || 0),
-  weight: Number(data.weight || 0),
-  height: Number(data.height || 0),
-  pedigree: !!data.pedigree,
-  breeding: !!data.breeding,
-  size: String(data.size || "")
-});
-      });
+  const ownerUid = String(data.ownerUid || "");
+
+  let dogPlus = false;
+  let dogPlusStatus = "";
+
+  try {
+    if (ownerUid && window.db) {
+      const userSnap = await window.db.collection("users").doc(ownerUid).get();
+      const userData = userSnap && userSnap.exists
+        ? (userSnap.data() || {})
+        : {};
+
+      dogPlus =
+        userData.plus === true &&
+        userData.plusStatus === "active";
+
+      dogPlusStatus = String(userData.plusStatus || "");
+    }
+  } catch (_) {
+    dogPlus = false;
+    dogPlusStatus = "";
+  }
+
+  realDogs.push({
+    id: doc.id,
+    ownerUid: ownerUid,
+    plus: dogPlus,
+    plusStatus: dogPlusStatus,
+    name: name,
+    breed: String(data.breed || ""),
+    age: Number(data.age || 0),
+    sex: String(data.sex || ""),
+    img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
+    selfieUrl: String(data.selfieUrl || ""),
+    gallery: Array.isArray(data.gallery) ? data.gallery : [],
+    verified: !!data.verified,
+    bio: String(data.bio || ""),
+    zone: String(data.zone || ""),
+    km: Number(data.km || 0),
+    weight: Number(data.weight || 0),
+    height: Number(data.height || 0),
+    pedigree: !!data.pedigree,
+    breeding: !!data.breeding,
+    size: String(data.size || "")
+  });
+      }
 
       state.dogs = realDogs;
       localStorage.setItem("dogs", JSON.stringify(realDogs));
@@ -8451,8 +8987,11 @@ function openUploadModal() {
     const msg = state.lang === "it"
       ? "Gli Aggiornamenti DOG sono disponibili con Plutoo Plus.\nAttiva Plus per pubblicare aggiornamenti del tuo DOG."
       : "DOG Updates are available with Plutoo Plus.\nActivate Plus to publish updates of your DOG.";
-    if (typeof showToast === "function") showToast(msg, "error");
-    else alert(msg);
+
+    showPlutooAlert(msg, {
+  title: "Plutoo",
+  confirmText: "OK"
+});
     return;
   }
 
@@ -8501,8 +9040,16 @@ function handleFileSelect(e) {
   }
 
   if (file.size > STORIES_CONFIG.MAX_PHOTO_SIZE) {
-    alert(state.lang === "it" ? "Foto troppo grande. Riduci la dimensione e riprova." : "Photo too large. Reduce size and retry.");
-    return;
+  showPlutooAlert(
+    state.lang === "it"
+      ? "Foto troppo grande. Riduci la dimensione e riprova."
+      : "Photo too large. Reduce size and retry.",
+    {
+      title: "Plutoo",
+      confirmText: "OK"
+    }
+  );
+  return;
   }
 
   const reader = new FileReader();
@@ -8805,7 +9352,24 @@ if (loader) loader.classList.remove("hidden");
       ? "🔒 Crea il profilo DOG per pubblicare un aggiornamento"
       : "🔒 Create your DOG profile to publish an update";
     if (typeof showToast === "function") showToast(msg, "error");
-    else alert(msg);
+
+    else showPlutooAlert(msg, {
+  title: "Plutoo",
+  confirmText: "OK"
+});
+    return;
+  }
+
+  if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
+    await showPlutooAlert(
+      state.lang === "it"
+        ? "Per pubblicare Aggiornamenti DOG crea il tuo profilo DOG"
+        : "To publish DOG Updates, create your DOG profile",
+      {
+        title: "Plutoo",
+        confirmText: "OK"
+      }
+    );
     return;
   }
 
@@ -8846,9 +9410,18 @@ if (loader) loader.classList.remove("hidden");
 
     // solo immagini
     if (StoriesState.uploadedFile.type !== "image") {
-      alert(state.lang === "it" ? "Formato non supportato. Usa solo una FOTO." : "Unsupported format. Use PHOTO only.");
-      StoriesState.__publishing = false;
-      return;
+      await showPlutooAlert(
+  state.lang === "it"
+    ? "Formato non supportato. Usa solo una FOTO."
+    : "Unsupported format. Use PHOTO only.",
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+);
+
+StoriesState.__publishing = false;
+return;
     }
 
     // ✅ Firebase pronto obbligatorio
@@ -8856,8 +9429,12 @@ if (loader) loader.classList.remove("hidden");
       const msg = state.lang === "it"
         ? "Firebase non pronto. Riprova tra un attimo."
         : "Firebase not ready. Please retry in a moment.";
-      if (typeof showToast === "function") showToast(msg, "error");
-      else alert(msg);
+
+      showPlutooAlert(msg, {
+  title: "Plutoo",
+  confirmText: "OK"
+});
+      
       StoriesState.__publishing = false;
       return;
     }
@@ -8868,8 +9445,12 @@ if (loader) loader.classList.remove("hidden");
       const msg = state.lang === "it"
         ? "Devi essere autenticato per pubblicare un aggiornamento."
         : "You must be logged in to publish an update.";
-      if (typeof showToast === "function") showToast(msg, "error");
-      else alert(msg);
+
+      showPlutooAlert(msg, {
+  title: "Plutoo",
+  confirmText: "OK"
+});
+      
       StoriesState.__publishing = false;
       return;
     }
@@ -9023,7 +9604,16 @@ if (loader) loader.classList.remove("hidden");
     if (typeof showToast === "function") {
       showToast(state.lang === "it" ? "Aggiornamento pubblicato ✓" : "Update published ✓");
     } else {
-      alert(state.lang === "it" ? "Aggiornamento pubblicato ✓" : "Update published ✓");
+
+     showPlutooAlert(
+  state.lang === "it"
+    ? "Aggiornamento pubblicato ✓"
+    : "Update published ✓",
+  {
+    title: "Plutoo",
+    confirmText: "OK"
+  }
+); 
     }
 
   } catch (err) {
@@ -9034,7 +9624,10 @@ if (loader) loader.classList.remove("hidden");
       : "Update publish error. Please retry.";
 
     if (typeof showToast === "function") showToast(msg, "error");
-    else alert(msg);
+    else showPlutooAlert(msg, {
+  title: "Plutoo",
+  confirmText: "OK"
+});
 
   } finally {
   StoriesState.__publishing = false;
