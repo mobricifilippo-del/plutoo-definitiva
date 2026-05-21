@@ -1434,17 +1434,13 @@ const STORIES_CONFIG = {
     openedFrom: null,
 
     loadStories() {
-      const saved = localStorage.getItem("plutoo_stories");
-      if (saved) {
-        this.stories = JSON.parse(saved);
-        this.cleanExpiredStories();
-      } else {
-        this.stories = this.generateMockStories();
-        this.saveStories();
-      }
-    },
-    
-    saveStories() { localStorage.setItem("plutoo_stories", JSON.stringify(this.stories)); },
+  this.stories = this.generateMockStories();
+},
+
+saveStories() {
+  // Firestore è la source-of-truth delle Stories reali.
+  // Nessuna persistenza localStorage per plutoo_stories.
+},
 
    async loadStoriesFromFirestore() {
   if (!window.db) return false;
@@ -1582,18 +1578,18 @@ const STORIES_CONFIG = {
   });
 },
     
-    generateMockStories() {
+  generateMockStories() {
       return [
        { userId:"d1", userName:"Luna", avatar:"dog1.jpg", verified:true, isDemo:true,
          media:[{id:"m1",type:"image",url:"dog1.jpg",timestamp:Date.now()-3600000,filter:"none",viewed:false,privacy:"public"}] },
         
-        { userId:"d2", userName:"Rex", avatar:"dog2.jpg", verified:true,
+        { userId:"d2", userName:"Rex", avatar:"dog2.jpg", verified:true, isDemo:true,
           media:[
             {id:"m2",type:"image",url:"dog2.jpg",timestamp:Date.now()-7200000,filter:"warm",viewed:false,privacy:"public"},
             {id:"m3",type:"image",url:"dog3.jpg",timestamp:Date.now()-5400000,filter:"sepia",viewed:false,privacy:"private"}
           ]},
         
-        { userId:"d3", userName:"Maya", avatar:"dog3.jpg", verified:false,
+        { userId:"d3", userName:"Maya", avatar:"dog3.jpg", verified:false, isDemo:true,
           media:[{id:"m4",type:"image",url:"dog4.jpg",timestamp:Date.now()-10800000,filter:"grayscale",viewed:false,privacy:"public"}] }
       ];
     }
@@ -1785,49 +1781,49 @@ $("langEN")?.addEventListener("click", ()=>{
 
   // ============ Dati mock DOGS ============
 const DOGS = [
-  { id:"d1", name:"Luna", age:2, breed:"Golden Retriever", km:1.2, img:"dog1.jpg",
+  { id:"d1", isDemo:true, name:"Luna", age:2, breed:"Golden Retriever", km:1.2, img:"dog1.jpg",
     bio:"Dolcissima e curiosa.", mode:"love", sex:"F", verified:true,
     weight:28, height:55, pedigree:true, breeding:false, size:"medium",
     social:{ facebook:{enabled:true,url:"https://facebook.com/"},
              instagram:{enabled:true,url:"https://instagram.com/"},
              tiktok:{enabled:false,url:""} } },
-  { id:"d2", name:"Rex", age:4, breed:"Pastore Tedesco", km:3.4, img:"dog2.jpg",
+  { id:"d2", isDemo:true, name:"Rex", age:4, breed:"Pastore Tedesco", km:3.4, img:"dog2.jpg",
     bio:"Fedele e giocherellone.", mode:"friendship", sex:"M", verified:true,
     weight:35, height:62, pedigree:true, breeding:true, size:"large",
     social:{ facebook:{enabled:false,url:""},
              instagram:{enabled:true,url:"https://instagram.com/"},
              tiktok:{enabled:true,url:"https://tiktok.com/"} } },
-  { id:"d3", name:"Maya", age:3, breed:"Bulldog Francese", km:2.1, img:"dog3.jpg",
+  { id:"d3", isDemo:true, name:"Maya", age:3, breed:"Bulldog Francese", km:2.1, img:"dog3.jpg",
     bio:"Coccole e passeggiate.", mode:"love", sex:"F", verified:false,
     weight:12, height:30, pedigree:false, breeding:false, size:"small",
     social:{ facebook:{enabled:true,url:"https://facebook.com/"},
              instagram:{enabled:true,url:"https://instagram.com/"},
              tiktok:{enabled:false,url:""} } },
-  { id:"d4", name:"Rocky", age:5, breed:"Beagle", km:4.0, img:"dog4.jpg",
+  { id:"d4", isDemo:true, name:"Rocky", age:5, breed:"Beagle", km:4.0, img:"dog4.jpg",
     bio:"Sempre in movimento.", mode:"friendship", sex:"M", verified:true,
     weight:15, height:38, pedigree:true, breeding:false, size:"medium",
     social:{ facebook:{enabled:false,url:""},
              instagram:{enabled:true,url:"https://instagram.com/"},
              tiktok:{enabled:true,url:"https://tiktok.com/"} } },
-  { id:"d5", name:"Chicco", age:1, breed:"Barboncino", km:0.8, img:"dog5.jpg",
+  { id:"d5", isDemo:true, name:"Chicco", age:1, breed:"Barboncino", km:0.8, img:"dog5.jpg",
     bio:"Piccolo fulmine.", mode:"love", sex:"M", verified:true,
     weight:8, height:28, pedigree:false, breeding:false, size:"small",
     social:{ facebook:{enabled:true,url:"https://facebook.com/"},
              instagram:{enabled:false,url:""},
              tiktok:{enabled:false,url:""} } },
-  { id:"d6", name:"Kira", age:6, breed:"Labrador", km:5.1, img:"dog6.jpg",
+  { id:"d6", isDemo:true, name:"Kira", age:6, breed:"Labrador", km:5.1, img:"dog6.jpg",
     bio:"Acqua e palla.", mode:"friendship", sex:"F", verified:true,
     weight:30, height:58, pedigree:true, breeding:true, size:"large",
     social:{ facebook:{enabled:true,url:"https://facebook.com/"},
              instagram:{enabled:true,url:"https://instagram.com/"},
              tiktok:{enabled:true,url:"https://tiktok.com/"} } },
-  { id:"d7", name:"Toby", age:2, breed:"Husky", km:2.8, img:"dog7.jpg",
+  { id:"d7", isDemo:true, name:"Toby", age:2, breed:"Husky", km:2.8, img:"dog7.jpg",
     bio:"Energia pura.", mode:"love", sex:"M", verified:true,
     weight:25, height:54, pedigree:true, breeding:true, size:"medium",
     social:{ facebook:{enabled:false,url:""},
              instagram:{enabled:true,url:"https://instagram.com/"},
              tiktok:{enabled:false,url:""} } },
-  { id:"d8", name:"Bella", age:4, breed:"Cocker Spaniel", km:1.5, img:"dog8.jpg",
+  { id:"d8", isDemo:true, name:"Bella", age:4, breed:"Cocker Spaniel", km:1.5, img:"dog8.jpg",
     bio:"Dolce compagna.", mode:"friendship", sex:"F", verified:false,
     weight:14, height:40, pedigree:false, breeding:false, size:"medium",
     social:{ facebook:{enabled:true,url:"https://facebook.com/"},
@@ -3064,7 +3060,7 @@ if (appScreen) {
   }
 }
 
-  window.scrollTo({ top:0, behavior:"smooth" });
+window.scrollTo({ top:0, behavior:"smooth" });
 }
 
   btnBack?.addEventListener("click", ()=> goBack() );
@@ -4463,6 +4459,36 @@ followingOverlay?.addEventListener("click", (e) => {
     );
     return;
     }
+
+    const currentStory =
+  (StoriesState.stories || []).find(story =>
+    Array.isArray(story.media) &&
+    story.media.some(m => String(m.id) === String(mediaId))
+  );
+
+const isDemoStory =
+  !!currentStory &&
+  currentStory.isDemo === true;
+
+if (isDemoStory) {
+  if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
+
+  if (state.storyLikesByMedia[mediaId]) {
+    delete state.storyLikesByMedia[mediaId];
+  } else {
+    state.storyLikesByMedia[mediaId] = true;
+  }
+
+  updateStoryLikeUI(mediaId);
+
+  if (storyLikeBtn) {
+    storyLikeBtn.classList.remove("heart-anim");
+    void storyLikeBtn.offsetWidth;
+    storyLikeBtn.classList.add("heart-anim");
+  }
+
+  return;
+}
     
     if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
 
@@ -8860,6 +8886,22 @@ if (media.text && media.text.trim() !== "") {
   const uid = String(window.PLUTOO_UID || "");
   const _db = (window.db || (typeof db !== "undefined" ? db : null));
 
+  const currentStory =
+  (StoriesState.stories || []).find(story =>
+    Array.isArray(story.media) &&
+    story.media.some(m => String(m.id) === String(mediaId))
+  );
+
+const isDemoStory =
+  !!currentStory &&
+  currentStory.isDemo === true;
+
+if (isDemoStory) {
+  if (state.storyLikesByMedia) delete state.storyLikesByMedia[mediaId];
+  updateStoryLikeUI(mediaId);
+  return;
+}
+
   if (!uid || !_db) {
     updateStoryLikeUI(mediaId);
   } else {
@@ -9749,9 +9791,6 @@ return;
     };
 
     userStory.media.push(newMedia);
-
-    if (typeof StoriesState.saveStories === "function")
-      StoriesState.saveStories();
 
     StoriesState.uploadedFile = null;
     StoriesState.selectedFilter = "none";
