@@ -512,7 +512,9 @@ a{color:inherit;text-decoration:none}
 }
 
 .topbar{
-  position:sticky;top:0;z-index:1000;
+  position:relative;
+  top:auto;
+  z-index:1000;
   display:grid;
   grid-template-columns:auto minmax(0,1fr) auto;
   align-items:start;
@@ -871,9 +873,23 @@ body.story-open #storiesBar {
 
 .grid-2{
   display:grid;
-  grid-template-columns:repeat(2,1fr);
+  grid-template-columns:repeat(2,minmax(0,1fr));
   gap:1rem;
-  padding-bottom: 96px;
+  padding-bottom:96px;
+  width:100%;
+  max-width:100%;
+}
+
+.grid-2 > *{
+  min-width:0;
+  width:100%;
+}
+
+@media (max-width:420px){
+  .grid-2{
+    gap:.65rem;
+    padding-bottom:80px;
+  }
 }
 
 .card{
