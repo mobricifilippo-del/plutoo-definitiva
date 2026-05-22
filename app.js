@@ -848,7 +848,11 @@ window.PLUTOO_DOG_NAME = dogName;
 window.PLUTOO_READONLY = !hasDog;  
 
 // UI CTA aggiornata (mai sparire)  
-if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();  
+if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
+
+  if (typeof initNotificationsFeed === "function") {
+  initNotificationsFeed();
+  }
 
 // Cache (non source of truth)  
 try {
@@ -1305,7 +1309,7 @@ const state = {
   ownerSocialByDog: JSON.parse(localStorage.getItem("ownerSocialByDog") || "{}"),
 
   // Like stories (per media id)
-  storyLikesByMedia: JSON.parse(localStorage.getItem("storyLikesByMedia") || "{}"),
+  storyLikesByMedia: {},
 };
 
 // ✅ FIX DEFINITIVO: una sola sorgente di verità per la lingua e per tutte le funzioni che usano window.state
@@ -4434,7 +4438,7 @@ followingOverlay?.addEventListener("click", (e) => {
   function updateStoryLikeUI(mediaId) {
     if (!storyLikeBtn || !mediaId) return;
 
-    const liked = isStoryLiked(mediaId);
+    const liked = arguments.length > 1 ? arguments[1] === true : isStoryLiked(mediaId);
     storyLikeBtn.classList.toggle("liked", liked);
 
     storyLikeBtn.classList.remove("heart-anim");
@@ -4499,8 +4503,7 @@ if (isDemoStory) {
     } else {
       state.storyLikesByMedia[mediaId] = true;
     }
-
-    persistStoryLikes();
+    
     updateStoryLikeUI(mediaId);
 
     // ✅ FIRESTORE (PRODUCTION): salva like/unlike (robusto, non silenzioso)
@@ -4541,32 +4544,28 @@ if (isDemoStory) {
     story.media.some(m => String(m.id) === String(mediaId))
   );
 
-const targetDogId = String(currentStory?.userId || "");
+  _db.collection("stories").doc(String(mediaId)).get()
+  .then((storySnap) => {
+    const storyData = (storySnap && storySnap.exists) ? (storySnap.data() || {}) : {};
+    const targetDogId = String(storyData.dogId || "");
 
-        const isDemoStory =
-  !!currentStory &&
-  (
-    currentStory.isDemo === true ||
-    String(currentStory.userId || "").startsWith("d")
-  );
+    if (!targetDogId || targetDogId === String(window.PLUTOO_DOG_ID || "")) return;
 
-if (isDemoStory) return;
+    const notifId =
+      `story_like_${String(mediaId)}_${String(window.PLUTOO_DOG_ID || "")}`;
 
-if (targetDogId && targetDogId !== String(window.PLUTOO_DOG_ID || "")) {
-
-  const notifId =
-    `story_like_${String(mediaId)}_${String(window.PLUTOO_DOG_ID || "")}`;
-
-  _db.collection("notifications").doc(notifId).set({
-    type: "story_like",
-    fromUid: String(uid),
-    fromDogId: String(window.PLUTOO_DOG_ID || ""),
-    toDogId: targetDogId,
-    mediaId: String(mediaId),
-    createdAt: ts,
-    read: false
-  }, { merge: true }).catch(() => {});
-}
+    _db.collection("notifications").doc(notifId).set({
+      type: "story_like",
+      fromUid: String(uid),
+      fromDogId: String(window.PLUTOO_DOG_ID || ""),
+      toDogId: targetDogId,
+      mediaId: String(mediaId),
+      createdAt: ts,
+      read: false
+    }, { merge: true }).catch(() => {});
+  })
+  .catch(() => {});
+        
       }
     } catch (e) {
       console.error("storyLike write fatal error:", e);
@@ -8914,13 +8913,16 @@ if (isDemoStory) {
       .then((snap) => {
         if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
 
-        if (snap && snap.exists) {
-          state.storyLikesByMedia[mediaId] = true;
-        } else {
-          delete state.storyLikesByMedia[mediaId];
-        }
+        const likedValue = !!(snap && snap.exists);
 
-        updateStoryLikeUI(mediaId);
+if (likedValue) {
+  state.storyLikesByMedia[mediaId] = true;
+} else {
+  delete state.storyLikesByMedia[mediaId];
+}
+
+updateStoryLikeUI(mediaId, likedValue);
+        
       })
       .catch(() => {
         updateStoryLikeUI(mediaId);
