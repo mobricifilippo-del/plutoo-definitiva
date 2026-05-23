@@ -1249,7 +1249,7 @@ const state = {
 
   // PLUS
   plus: localStorage.getItem("plutoo_plus") === "yes",
-  plusPlan: localStorage.getItem("plusPlan") || "monthly",
+  plusPlan: "monthly",
 
   // Filtri
   filters: {
@@ -1267,24 +1267,21 @@ const state = {
   },
 
   // Swipe & rewards
-  swipeCount: parseInt(localStorage.getItem("swipes") || "0", 10),
-  nextRewardAt: parseInt(localStorage.getItem("nextRewardAt") || "10", 10),
-  rewardOpen: false,
+swipeCount: 0,
+nextRewardAt: 10,
+matchCount: 0,
+rewardOpen: false,
 
   // Match / amicizie / chat
   matches: JSON.parse(localStorage.getItem("matches") || "{}"),
   friendships: JSON.parse(localStorage.getItem("friendships") || "{}"),
   chatMessagesSent: JSON.parse(localStorage.getItem("chatMessagesSent") || "{}"),
-  matchCount: Number(localStorage.getItem("matchCount") || "0"),
 
   // Selfie unlock (per DOG)
   selfieUntilByDog: JSON.parse(localStorage.getItem("selfieUntilByDog") || "{}"),
 
   // Rewards social
-  socialRewardViewed: JSON.parse(localStorage.getItem("socialRewardViewed") || "{}"),
-
-  // Dati caricati (docs)
-  dogDocsUploaded: JSON.parse(localStorage.getItem("dogDocsUploaded") || "{}"),
+  socialRewardViewed: {},
 
   // Stories
   storyOpen: false,
@@ -1304,9 +1301,9 @@ const state = {
   previousViewForMessages: "nearby",
 
   // Follow / seguiti
-  followersByDog: JSON.parse(localStorage.getItem("followersByDog") || "{}"),
-  followingByDog: JSON.parse(localStorage.getItem("followingByDog") || "{}"),
-  ownerSocialByDog: JSON.parse(localStorage.getItem("ownerSocialByDog") || "{}"),
+  followersByDog: {},
+  followingByDog: {},
+  ownerSocialByDog: {},
 
   // Like stories (per media id)
   storyLikesByMedia: {},
@@ -1921,39 +1918,58 @@ window.openProfilePage(dog);
 
         // 4) Firestore (no await)  
         try {  
-          window.db.collection("dogs").doc(String(savedId)).get()  
-            .then((doc) => {  
-              if (doc && doc.exists && window.openProfilePage) {  
-                const data = doc.data() || {};  
+           window.db.collection("dogs").doc(String(savedId)).get()  
+  .then(async (doc) => {  
+    if (doc && doc.exists && window.openProfilePage) {  
+      const data = doc.data() || {};  
 
-                const freshDog = {
-                  id: doc.id,
-                  name: (data.name || ""),
-                  breed: (data.breed || ""),
-                  age: (data.age || ""),
-                  sex: (data.sex || ""),
-                  bio: (data.bio || ""),
-                  km: (data.km || 0),
-                  img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),
-                  verified: !!data.verified,
-                  ownerSocial: (data.ownerSocial || {}),
-                  dogDocs: (data.dogDocs || {}),
-                  selfieUrl: (data.selfieUrl || "")
-                };
+      const ownerUid = String(data.ownerUid || doc.id || "");
+      let plus = false;
+      let plusStatus = "";
 
-                if (typeof window.openFreshDogProfile === "function") {
-                  window.openFreshDogProfile(savedId, freshDog);
-                } else {
-                  window.openProfilePage(freshDog);
-                }
+      try {
+        if (ownerUid && window.db) {
+          const userSnap = await window.db.collection("users").doc(ownerUid).get();
+          const userData = userSnap && userSnap.exists ? (userSnap.data() || {}) : {};
+          plus = userData.plus === true;
+          plusStatus = String(userData.plusStatus || "");
+        }
+      } catch (_) {
+        plus = false;
+        plusStatus = "";
+      }
 
-              } else {  
-                setActiveView("nearby");  
-              }  
-            })  
-          .catch(() => {  
-            setActiveView("nearby");  
-          });    
+      const freshDog = {
+        id: doc.id,
+        ownerUid,
+        plus,
+        plusStatus,
+        name: (data.name || ""),
+        breed: (data.breed || ""),
+        age: (data.age || ""),
+        sex: (data.sex || ""),
+        bio: (data.bio || ""),
+        km: (data.km || 0),
+        img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),
+        verified: !!data.verified,
+        ownerSocial: (data.ownerSocial || {}),
+        dogDocs: (data.dogDocs || {}),
+        selfieUrl: (data.selfieUrl || "")
+      };
+
+      if (typeof window.openFreshDogProfile === "function") {
+        window.openFreshDogProfile(savedId, freshDog);
+      } else {
+        window.openProfilePage(freshDog);
+      }
+
+    } else {  
+      setActiveView("nearby");  
+    }  
+  })  
+.catch(() => {  
+  setActiveView("nearby");  
+});
             
         } catch (_) {  
           setActiveView("nearby");  
@@ -3509,14 +3525,12 @@ await db.collection("notifications").doc(likeNotifId).set({
       resetCard(card);
 
       state.swipeCount++;
-      localStorage.setItem("swipes", String(state.swipeCount));
 
       if (!state.plus && state.swipeCount >= state.nextRewardAt && !state.rewardOpen){
         state.rewardOpen = true;
         showRewardVideoMock("swipe", ()=>{
           state.rewardOpen = false;
           state.nextRewardAt += 5;
-          localStorage.setItem("nextRewardAt", String(state.nextRewardAt));
 
           state.processingSwipe = false;
           renderSwipe(mode);
@@ -4032,8 +4046,6 @@ async function rebuildFollowersStateFromFirestore() {
 }
 
   function persistFollowState() {
-    localStorage.setItem("followersByDog", JSON.stringify(state.followersByDog || {}));
-    localStorage.setItem("followingByDog", JSON.stringify(state.followingByDog || {}));
   }
 
   function getFollowers(dogId) {
@@ -4431,10 +4443,6 @@ followingOverlay?.addEventListener("click", (e) => {
     return !!(state.storyLikesByMedia && state.storyLikesByMedia[mediaId]);
   }
 
-  function persistStoryLikes() {
-    localStorage.setItem("storyLikesByMedia", JSON.stringify(state.storyLikesByMedia || {}));
-  }
-
   function updateStoryLikeUI(mediaId) {
     if (!storyLikeBtn || !mediaId) return;
 
@@ -4645,10 +4653,6 @@ window.openProfilePage = (d) => {
     if (d.id == null && d.dogId != null) d.id = d.dogId;
     d.id = (d.id != null) ? String(d.id) : "";
     if (!d.id && d.id !== "__create__") return;
-
-    // state maps sempre presenti
-if (!state.dogDocsUploaded || typeof state.dogDocsUploaded !== "object") state.dogDocsUploaded = {};
-if (!state.dogDocsUploaded[d.id] || typeof state.dogDocsUploaded[d.id] !== "object") state.dogDocsUploaded[d.id] = {};
 
     // campi minimi safe (evita undefined in template)
     d.name  = (d.name  != null) ? String(d.name)  : "";
@@ -5326,11 +5330,8 @@ if (!ok) return;
             // tutto ciò che è chiaramente Plutoo / per-dog  
             if (  
               k === "dogs" ||  
-              k === "matches" ||  
-              k === "matchCount" ||  
-              k === "currentProfileDogId" ||   
-              k === "dogDocsUploaded" ||  
-              k === "socialRewardViewed" ||  
+              k === "matches" ||   
+              k === "currentProfileDogId" ||    
               k === "selfieUntilByDog" ||  
               k === "plutoo_plus" ||  
               k === "plutoo_has_dog" ||  
@@ -5365,11 +5366,8 @@ if (!ok) return;
           try {  
             if (state) {  
               state.dogs = [];  
-              state.matches = {};  
-              state.matchCount = 0;  
-              state.dogDocsUploaded = {};  
-              state.selfieUntilByDog = {};  
-              state.socialRewardViewed = {};  
+              state.matches = {}; 
+              state.selfieUntilByDog = {};
               state.createDogDraft = {};  
               state.currentDogProfile = null;  
             }  
@@ -7177,7 +7175,6 @@ openProfilePage(fresh);
           showRewardVideoMock("social", () => {
             state.rewardOpen = false;
             state.socialRewardViewed[rewardKey] = true;
-            localStorage.setItem("socialRewardViewed", JSON.stringify(state.socialRewardViewed));
             window.location.href = finalUrl;
           });
         });
@@ -7264,7 +7261,6 @@ await db.collection("notifications").doc(oldLikeNotifId).delete().catch(() => {}
       showMatchAnimation(nameForMatch, nextMatchColor);
 
       state.matchCount++;
-      localStorage.setItem("matchCount", String(state.matchCount));
 
       nextMatchColor = ["💙","💚","💛","🧡","💜","💗","💝","💖","💞","❤️"][state.matchCount % 10];
   } else {
@@ -8485,7 +8481,7 @@ btnPublishDogBoard?.addEventListener("click", () => {
     adBanner.style.display = "";
   }
 
-  function showRewardVideoMock(type, onClose){
+  async function showRewardVideoMock(type, onClose){
     const msg = {
       it: {
         swipe: `🎬 Reward Video Mock\n\nSwipe: ${state.swipeCount}\nProssima soglia: ${state.nextRewardAt}\n\nTipo: Swipe Unlock`,
@@ -8506,11 +8502,11 @@ btnPublishDogBoard?.addEventListener("click", () => {
     };
     const text = (msg[state.lang] && msg[state.lang][type]) || (msg.it && msg.it[type]) || "Ad";
 
-    showPlutooAlert(text, {
+    await showPlutooAlert(text, {
   title: "Plutoo",
   confirmText: "OK"
 });
-    
+
 if (onClose) onClose();
   }
 
@@ -9713,9 +9709,8 @@ return;
       "DOG";
 
     const dogAvatar =
-      window.PLUTOO_DOG_AVATAR ||
-      localStorage.getItem("plutoo_dog_avatar") ||
-      "plutoo-icon-192.png";
+  window.PLUTOO_DOG_AVATAR ||
+  "plutoo-icon-192.png";
 
     const storyDoc = {
       id: storyId,
