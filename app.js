@@ -1039,6 +1039,7 @@ const userData = snap && snap.exists ? (snap.data() || {}) : {};
 const userPlusActive = userData.plus === true && userData.plusStatus === "active";
 
 state.plus = userPlusActive;
+state.plusReady = true;
 
 if (userData.plusPlan) {
   state.plusPlan = String(userData.plusPlan);
@@ -1249,6 +1250,7 @@ const state = {
 
   // PLUS
   plus: localStorage.getItem("plutoo_plus") === "yes",
+  plusReady: false,
   plusPlan: "monthly",
 
   // Filtri
@@ -4684,6 +4686,19 @@ const selfieUnlocked = isOwner || isSelfieUnlocked(d.id);
 
   const dogDocs = d.dogDocs || {};
 
+  const docsCount = [
+  dogDocs.vaccines && dogDocs.vaccines.url,
+  dogDocs.pedigree && dogDocs.pedigree.url,
+  dogDocs.microchip && dogDocs.microchip.url
+].filter(Boolean).length;
+
+const docsTrustLabel =
+  docsCount >= 3
+    ? (state.lang === "it" ? "👑 Profilo completo" : "👑 Complete profile")
+    : docsCount >= 1
+      ? "✅"
+      : "";
+
   const selfieSrc = d.selfieUrl || "./plutoo-icon-192.png";
 
   const dogStories =
@@ -4693,6 +4708,9 @@ const selfieUnlocked = isOwner || isSelfieUnlocked(d.id);
 
   const isCreate = (d && d.isCreate === true) || (d && d.id === "__create__");
   const heroImg = isCreate ? "" : (d.img || "./plutoo-icon-192.png");
+
+  const isDocsOwner =
+  (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id")) === d.id;
 
 profileContent.innerHTML = `
 
@@ -4865,7 +4883,6 @@ profileContent.innerHTML = `
 
 <div class="pp-docs-section ${d.plus === true && d.plusStatus === "active" ? "pp-docs-plus" : ""}" style="margin-top:1.2rem">
   <h4 class="section-title" style="margin-top:0;font-size:1rem">${state.lang === "it" ? "Documenti DOG" : "DOG Documents"}</h4>
-  <p style="font-size:.88rem;color:var(--muted);margin:.3rem 0 .6rem">${state.lang === "it" ? "Facoltativi (vaccini, pedigree, microchip)" : "Optional (vaccines, pedigree, microchip)"}</p>
 
   <div class="pp-docs-grid">
 
@@ -4875,7 +4892,7 @@ profileContent.innerHTML = `
       <div class="doc-status ${dogDocs.vaccines && dogDocs.vaccines.url ? "uploaded" : "pending"}">
         ${dogDocs.vaccines && dogDocs.vaccines.url
           ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
-          : (state.lang === "it" ? "Da caricare" : "Upload")}
+          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
       </div>
     </div>
 
@@ -4885,7 +4902,7 @@ profileContent.innerHTML = `
       <div class="doc-status ${dogDocs.pedigree && dogDocs.pedigree.url ? "uploaded" : "pending"}">
         ${dogDocs.pedigree && dogDocs.pedigree.url
           ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
-          : (state.lang === "it" ? "Da caricare" : "Upload")}
+          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
       </div>
     </div>
 
@@ -4895,9 +4912,26 @@ profileContent.innerHTML = `
       <div class="doc-status ${dogDocs.microchip && dogDocs.microchip.url ? "uploaded" : "pending"}">
         ${dogDocs.microchip && dogDocs.microchip.url
           ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
-          : (state.lang === "it" ? "Da caricare" : "Upload")}
+          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
       </div>
     </div>
+
+    <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-trust" data-type="trust" style="pointer-events:none">
+  ${
+    docsCount >= 3
+      ? `
+        <div class="doc-icon" style="font-size:2rem;line-height:1">👑</div>
+        <div class="doc-status uploaded">Profilo completo</div>
+      `
+      : docsCount >= 1
+        ? `
+          <div class="doc-icon" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2.2rem;line-height:1">✅</div>
+        `
+        : `
+          <div class="doc-status pending" style="display:flex;align-items:center;justify-content:center;height:100%;text-align:center">${state.lang === "it" ? "Completa profilo" : "Complete profile"}</div>
+        `
+  }
+</div>
 
   </div>
 </div>
@@ -7001,6 +7035,11 @@ freshDog.img = String(freshDog.photoUrl || freshDog.img || d.img || "./plutoo-ic
         if (item.dataset) item.dataset.docBound = "1";
 
         item.addEventListener("click", (e) => {
+          if (window.__plutooDocUploadBusy === true) {
+  e.preventDefault();
+  e.stopPropagation();
+  return;
+          }
   const statusEl = item.querySelector(".doc-status");
 
   if (window.PLUTOO_READONLY && d.id !== "__create__") {
@@ -7017,6 +7056,9 @@ freshDog.img = String(freshDog.photoUrl || freshDog.img || d.img || "./plutoo-ic
   const docType = item.getAttribute("data-doc");
   const docCategory = item.getAttribute("data-type");
 
+  const isDocsOwner =
+  (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id")) === d.id;
+
   if (docCategory === "dog") {
     const dogId = d.id;
     const docName = docType.replace("dog-", "");
@@ -7024,6 +7066,7 @@ freshDog.img = String(freshDog.photoUrl || freshDog.img || d.img || "./plutoo-ic
 
   // 👉 DOCUMENTO ESISTE → ELIMINA
 if (existingDoc) {
+  if (!isDocsOwner) return;
 
   showPlutooConfirm("Vuoi eliminare questo documento DOG?", {
     confirmText: "Elimina",
@@ -7032,6 +7075,9 @@ if (existingDoc) {
   }).then((ok) => {
 
     if (!ok) return;
+
+    if (window.__plutooDocUploadBusy === true) return;
+    window.__plutooDocUploadBusy = true;
 
     const storagePath = d.dogDocs[docName].storagePath;
 
@@ -7065,13 +7111,17 @@ if (existingDoc) {
         fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
         openProfilePage(fresh);
       })
-      .catch((err) => {
-        console.error("dog document delete error:", err);
 
-        if (typeof showToast === "function") {
-          showToast("❌ Errore eliminazione documento DOG");
-        }
-      });
+    .catch((err) => {
+  console.error("dog document delete error:", err);
+
+  if (typeof showToast === "function") {
+    showToast("❌ Errore eliminazione documento DOG");
+  }
+})
+.finally(() => {
+  window.__plutooDocUploadBusy = false;
+});
 
   });
 
@@ -7081,12 +7131,74 @@ if (existingDoc) {
 
   // 👉 UPLOAD (documento NON esiste)
   docFileInput.onchange = () => {
+
+    if (window.__plutooDocUploadBusy === true) {
+  docFileInput.value = "";
+  return;
+    }
+
+    const isDocsOwner =
+  (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id")) === d.id;
+
+if (!isDocsOwner) {
+  docFileInput.value = "";
+  return;
+}
     const file = docFileInput.files && docFileInput.files[0];
+    const docName = docType.replace("dog-", "");
     if (!file) return;
+
+    const maxDocFileSize = 5 * 1024 * 1024;
+
+if (file.size > maxDocFileSize) {
+  docFileInput.value = "";
+
+  if (typeof showPlutooAlert === "function") {
+    showPlutooAlert(
+      state.lang === "it"
+        ? "Documento troppo grande. Carica un file massimo 5 MB."
+        : "Document too large. Upload a file up to 5 MB.",
+      {
+        title: "Plutoo",
+        confirmText: "OK"
+      }
+    );
+  }
+
+  return;
+}
+
+    const selectedFileName = String(file.name || "");
+const selectedFileSize = Number(file.size || 0);
+const selectedFileType = String(file.type || "");
+
+const duplicateDocName = Object.keys(dogDocs || {}).find((key) => {
+  if (String(key) === String(docName)) return false;
+
+  const doc = dogDocs[key] || {};
+  return (
+    String(doc.fileName || "") === selectedFileName &&
+    Number(doc.fileSize || 0) === selectedFileSize &&
+    String(doc.fileType || "") === selectedFileType
+  );
+});
+
+if (duplicateDocName) {
+  docFileInput.value = "";
+
+  if (typeof showPlutooAlert === "function") {
+    showPlutooAlert(
+      state.lang === "it"
+        ? "Documento già presente nel profilo"
+        : "Invalid document"
+    );
+  }
+
+  return;
+}
 
     if (docCategory === "dog") {
       const dogId = d.id;
-      const docName = docType.replace("dog-", "");
       const storagePath = `dogs/${dogId}/dogDocs/${docName}`;
       const storageRef = window.storage.ref().child(storagePath);
 
@@ -7096,18 +7208,25 @@ if (existingDoc) {
         statusEl.classList.add("pending");
       }
 
+      window.__plutooDocUploadBusy = true;
+
       storageRef.put(file)
         .then(() => storageRef.getDownloadURL())
         .then((url) => {
           return window.db.collection("dogs").doc(dogId).set({
+
             dogDocs: {
-              [docName]: {
-                url,
-                storagePath,
-                uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
-              }
-            },
-            dogDocsStatus: "uploaded"
+  [docName]: {
+    url,
+    storagePath,
+    uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    fileName: file.name || "",
+    fileSize: Number(file.size || 0),
+    fileType: file.type || ""
+  }
+},
+dogDocsStatus: "uploaded"
+            
           }, { merge: true });
         })
         .then(() => {
@@ -7128,6 +7247,7 @@ if (existingDoc) {
 fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
 openProfilePage(fresh);
         })
+        
         .catch((err) => {
           console.error("dog document upload error:", err);
 
@@ -7140,6 +7260,9 @@ openProfilePage(fresh);
           if (typeof showToast === "function") {
             showToast("❌ Errore caricamento documento DOG");
           }
+        })
+        .finally(() => {
+          window.__plutooDocUploadBusy = false;
         });
 
       return;
@@ -7148,7 +7271,30 @@ openProfilePage(fresh);
     window.openFreshDogProfile(d.id, d);
   };
 
+if (!isDocsOwner) {
+  return;
+}
+
+  const rewardUntil = Number(localStorage.getItem("plutoo_documents_reward_until") || 0);
+
+if (Date.now() < rewardUntil) {
   docFileInput.click();
+  return;
+}
+
+if (state.rewardOpen) return;
+state.rewardOpen = true;
+
+showRewardVideoMock("documents", () => {
+  localStorage.setItem(
+    "plutoo_documents_reward_until",
+    String(Date.now() + (60 * 60 * 1000))
+  );
+
+  state.rewardOpen = false;
+  docFileInput.click();
+});
+          
 });
       });
 
@@ -8489,7 +8635,8 @@ btnPublishDogBoard?.addEventListener("click", () => {
         chat: "🎬 Reward Video Mock\n(primo messaggio)\n\nTipo: Chat Unlock",
         services: "🎬 Reward Video Mock\n(veterinari/toelettature/negozi)\n\nTipo: Services",
         social: "🎬 Reward Video Mock\n(apertura profilo social)\n\nTipo: Social Unlock",
-        sponsor: "🎬 Reward Video Mock\n(Sponsor ufficiale)\n\nTipo: Sponsor"
+        sponsor: "🎬 Reward Video Mock\n(Sponsor ufficiale)\n\nTipo: Sponsor",
+        documents: "🎬 Guarda un breve video per caricare documenti"
       },
       en: {
         swipe: `🎬 Reward Video Mock\n\nSwipe: ${state.swipeCount}\nNext threshold: ${state.nextRewardAt}\n\nType: Swipe Unlock`,
@@ -8497,7 +8644,8 @@ btnPublishDogBoard?.addEventListener("click", () => {
         chat: "🎬 Reward Video Mock\n(first message)\n\nType: Chat Unlock",
         services: "🎬 Reward Video Mock\n(vets/groomers/shops)\n\nType: Services",
         social: "🎬 Reward Video Mock\n(opening social profile)\n\nType: Social Unlock",
-        sponsor: "🎬 Reward Video Mock\n(Official sponsor)\n\nType: Sponsor"
+        sponsor: "🎬 Reward Video Mock\n(Official sponsor)\n\nType: Sponsor",
+        documents: "🎬 Watch a short video to upload documents"
       }
     };
     const text = (msg[state.lang] && msg[state.lang][type]) || (msg.it && msg.it[type]) || "Ad";
