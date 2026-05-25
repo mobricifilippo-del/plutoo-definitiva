@@ -2273,46 +2273,74 @@ function initMessagesBadge() {
     return;
   }
 
+  const uid = String(window.PLUTOO_UID || "");
+  if (!uid) {
+    __setMsgBadge(0);
+    return;
+  }
+
   // kill vecchio listener
   try { if (typeof __msgBadgeUnsub === "function") __msgBadgeUnsub(); } catch (_) {}
 
   __msgBadgeUnsub = db
-  .collection("messages")
-  .where("isRead", "==", false)
-  .onSnapshot((snap) => {
-    let unread = 0;
-    const myUid = String(window.PLUTOO_UID || "");
+    .collection("chats")
+    .where("members", "array-contains", uid)
+    .onSnapshot((snap) => {
+      let unread = 0;
 
-    snap.forEach((d) => {
-      const x = d.data() || {};
-      const sender = String(x.senderUid || "");
-      const chatId = String(x.chatId || "");
+      snap.forEach((docSnap) => {
+        const chat = docSnap.data() || {};
 
-      if (!sender || !chatId || !myUid) return;
+        if (chat.deletedByUid && chat.deletedByUid[uid] === true) {
+  return;
+}
 
-      const parts = chatId.split("__");
-      if (parts.length !== 2) return;
+if (chat.spamByUid && chat.spamByUid[uid] === true) {
+  return;
+}
 
-      if (parts[0] !== myUid && parts[1] !== myUid) return;
+        const unreadByUid =
+          chat.unreadByUid && typeof chat.unreadByUid === "object"
+            ? chat.unreadByUid
+            : null;
 
-      if (sender !== myUid) unread++;
+        if (unreadByUid && unreadByUid[uid] != null) {
+          const n = parseInt(unreadByUid[uid], 10);
+          if (Number.isFinite(n) && n > 0) unread += n;
+          return;
+        }
+
+        const legacyUnread =
+          chat.unread && typeof chat.unread === "object"
+            ? chat.unread
+            : null;
+
+        if (legacyUnread && legacyUnread[uid] != null) {
+          const n = parseInt(legacyUnread[uid], 10);
+          if (Number.isFinite(n) && n > 0) unread += n;
+          return;
+        }
+
+        const lastSenderUid = String(chat.lastSenderUid || "");
+
+const readMap =
+  chat.lastMessageReadByUid &&
+  typeof chat.lastMessageReadByUid === "object"
+    ? chat.lastMessageReadByUid
+    : {};
+
+const alreadyRead = readMap[uid] === true;
+
+if (lastSenderUid && lastSenderUid !== uid && !alreadyRead) {
+  unread += 1;
+}
+      });
+
+      __setMsgBadge(unread);
+    }, (e) => {
+      console.error("initMessagesBadge error:", e);
+      __setMsgBadge(0);
     });
-
-    __setMsgBadge(unread);
-  }, (e) => {
-
-   showPlutooAlert(
-  (e && e.message)
-    ? e.message
-    : "Errore aggiornamento badge messaggi",
-  {
-    title: "Plutoo",
-    confirmText: "OK"
-  }
-);
-    
-  });
-  
 }
 
 // avvia subito
@@ -2731,9 +2759,10 @@ if (!snap || snap.empty) {
   avatars: data.avatars || {},
   dogIds: data.dogIds || {},
   status: data.status || null,
-  match: data.match === true,
   folder: data.folder || null,
-  spam: data.spam === true
+  spam: data.spam === true,
+  deletedByUid: data.deletedByUid || {},
+  spamByUid: data.spamByUid || {}
 });
 });
 
@@ -2759,9 +2788,8 @@ if (!snap || snap.empty) {
   row.className = "msg-item";
 
   // avatar: se c’è lo metto, se non c’è non mostro nulla (niente icona finta)
-  const avatar = dogAvatar
-    ? `<img src="${dogAvatar}" class="msg-avatar" alt="dog">`
-    : ``;
+  const safeAvatar = dogAvatar || "./plutoo-icon-192.png";
+  const avatar = `<img src="${safeAvatar}" class="msg-avatar" alt="dog" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">`;
 
   // separo "Nome - Messaggio" in modo robusto (se non c’è il trattino, preview vuota)
   let nameLine = (titleText || "").trim();
@@ -2774,13 +2802,153 @@ if (!snap || snap.empty) {
   }
 
   row.innerHTML = `
-    ${avatar}
-    <div class="msg-main">
-      <div class="msg-title">${nameLine}</div>
-      ${previewLine ? `<div class="msg-preview">${previewLine}</div>` : ``}
-      <div class="msg-meta">${dateText}</div>
-    </div>
-  `;
+  ${avatar}
+  <div class="msg-main">
+    <div class="msg-title">${nameLine}</div>
+    ${previewLine ? `<div class="msg-preview">${previewLine}</div>` : ``}
+    <div class="msg-meta">${dateText}</div>
+  </div>
+
+  <button class="msg-delete-btn" title="Elimina chat">
+  🗑️
+</button>
+
+${sourceTab === "spam" ? `
+  <button class="msg-restore-btn" title="Ripristina">
+    ↩️
+  </button>
+` : `
+  <button class="msg-spam-btn" title="Spam">
+    🚫
+  </button>
+`}
+`;
+
+  const deleteBtn = row.querySelector(".msg-delete-btn");
+
+deleteBtn?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const selfUid = String(window.PLUTOO_UID || "");
+  if (!selfUid || !chatId) return;
+
+  const ok = await showPlutooConfirm(
+    "Eliminare questa chat dalla tua lista?",
+    {
+      title: "Plutoo",
+      confirmText: "Elimina",
+      cancelText: "Annulla",
+      danger: false
+    }
+  );
+
+  if (!ok) return;
+
+  try {
+
+    await db.collection("chats").doc(chatId).set({
+      deletedByUid: {
+        [selfUid]: true
+      }
+    }, { merge: true });
+
+    loadMessagesLists();
+
+    try {
+      initMessagesBadge();
+    } catch (_) {}
+
+    if (typeof showToast === "function") {
+      showToast("🗑️ Chat eliminata");
+    }
+
+  } catch (err) {
+    console.error("delete chat error:", err);
+
+    if (typeof showToast === "function") {
+      showToast("❌ Errore eliminazione chat");
+    }
+  }
+});
+
+    const spamBtn = row.querySelector(".msg-spam-btn");
+
+spamBtn?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const selfUid = String(window.PLUTOO_UID || "");
+  if (!selfUid || !chatId) return;
+
+  const ok = await showPlutooConfirm(
+    "Spostare questa chat nello Spam?",
+    {
+      title: "Plutoo",
+      confirmText: "Spam",
+      cancelText: "Annulla",
+      danger: false
+    }
+  );
+
+  if (!ok) return;
+
+  try {
+    await db.collection("chats").doc(chatId).set({
+      spamByUid: {
+        [selfUid]: true
+      }
+    }, { merge: true });
+
+    loadMessagesLists();
+
+    if (typeof showToast === "function") {
+      showToast("🚫 Chat spostata in Spam");
+    }
+
+  } catch (err) {
+    console.error("spam chat error:", err);
+
+    if (typeof showToast === "function") {
+      showToast("❌ Errore spostamento Spam");
+    }
+  }
+});
+
+     const restoreBtn = row.querySelector(".msg-restore-btn");
+
+restoreBtn?.addEventListener("click", async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const selfUid = String(window.PLUTOO_UID || "");
+  if (!selfUid || !chatId) return;
+
+  try {
+    await db.collection("chats").doc(chatId).set({
+      spamByUid: {
+        [selfUid]: firebase.firestore.FieldValue.delete()
+      }
+    }, { merge: true });
+
+    loadMessagesLists();
+
+    try {
+      initMessagesBadge();
+    } catch (_) {}
+
+    if (typeof showToast === "function") {
+      showToast("↩️ Chat ripristinata");
+    }
+
+  } catch (err) {
+    console.error("restore chat error:", err);
+
+    if (typeof showToast === "function") {
+      showToast("❌ Errore ripristino chat");
+    }
+  }
+});
 
   row.addEventListener("click", () => {
     state._openChatFromTab = sourceTab || "";
@@ -2791,6 +2959,48 @@ if (!snap || snap.empty) {
 };
 
     chats.forEach((chat) => {
+
+      if (chat.deletedByUid && chat.deletedByUid[selfUid] === true) {
+  return;
+      }
+
+      if (chat.spamByUid && chat.spamByUid[selfUid] === true) {
+  const otherUid =
+    (Array.isArray(chat.members) ? chat.members : []).find((uid) => uid !== selfUid) || null;
+
+  const dogId =
+    (otherUid && chat.dogIds && chat.dogIds[otherUid]) ||
+    chat.dogId ||
+    null;
+
+  const dogName =
+    (otherUid && chat.names && chat.names[otherUid]) ||
+    chat.dogName ||
+    (state.lang === "en" ? "DOG" : "Dog");
+
+  const dogAvatar =
+    (otherUid && chat.avatars && chat.avatars[otherUid]) ||
+    chat.dogAvatar ||
+    null;
+
+  const text = (chat.lastMessageText || "").trim();
+  const dateText = chat.lastMessageAt ? chat.lastMessageAt.toLocaleString() : "";
+
+  spamList.appendChild(
+    makeRow(
+      `${dogName}${text ? " - " + text : ""}`,
+      dateText,
+      chat.id,
+      dogId,
+      otherUid,
+      "spam",
+      dogAvatar
+    )
+  );
+
+  return;
+      }
+      
   const otherUid =
     (Array.isArray(chat.members) ? chat.members : []).find((uid) => uid !== selfUid) || null;
 
@@ -7740,18 +7950,26 @@ if (selfUid && otherUid) {
           const m = docSnap.data() || {};
           if (m.senderUid && m.senderUid !== selfUid) {
             docSnap.ref.update({
-              isRead: true,
-              readAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).catch(() => {});
+        isRead: true,
+        readAt: firebase.firestore.FieldValue.serverTimestamp(),
+          }).catch(() => {});
           }
         });
       })
       .catch((e) => console.error("mark read failed:", e));
+    window.db.collection("chats").doc(chatId).set({
+  lastMessageReadByUid: {
+    [selfUid]: true
+  }
+}, { merge: true }).catch((e) => {
+  console.error("mark chat read failed:", e);
+});
   }
 
   // Funzione locale per applicare le regole input (UNA sola fonte: hasMatch vero/falso)
   const applyChatRules = (hasMatchValue) => {
-    const msgCount = state.chatMessagesSent[dogId] || 0;
+  const msgCount =
+  Number(chatPane.dataset.msgCount || 0);
 
     if (!state.plus && !hasMatchValue && msgCount >= 1) {
       chatInput.disabled = true;
@@ -7778,6 +7996,10 @@ if (selfUid && otherUid) {
         const fsHasMatch = data.match === true;
 
         chatPane.dataset.hasMatch = fsHasMatch ? "1" : "0";
+        chatPane.dataset.msgCount =
+       String(data.messageCountByUid && data.messageCountByUid[window.PLUTOO_UID]
+    ? data.messageCountByUid[window.PLUTOO_UID]
+    : 0);
 
         // opzionale: aggiorna cache locale senza decidere nulla
         if (state.matches) {
@@ -7979,35 +8201,24 @@ let nextMatch = hasMatch === true;
 let nextStatus = hasMatch === true ? "accepted" : "pending";
 let nextFolder = hasMatch === true ? "inbox" : "requests";
 
-try {
-  const chatSnap = await db.collection("chats").doc(chatId).get();
-  const chatData = chatSnap && chatSnap.exists ? (chatSnap.data() || {}) : {};
-
-  const wasPendingRequest =
-    chatData.status === "pending" &&
-    chatData.folder === "requests" &&
-    chatData.lastSenderUid &&
-    chatData.lastSenderUid !== selfUid;
-
-  if (wasPendingRequest) {
-    nextMatch = true;
-    nextStatus = "accepted";
-    nextFolder = "inbox";
-  }
-} catch (e) {
-  console.error("read chat status failed:", e);
-}
-
 await db.collection("chats").doc(chatId).set({
   members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
+
+  messageCountByUid: {
+  [selfUid]: (msgCount || 0) + 1
+},
 
   lastMessageText: text,
   lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
   lastSenderUid: selfUid,
 
   match: nextMatch,
-  status: nextStatus,
-  folder: nextFolder
+status: nextStatus,
+folder: nextFolder,
+
+deletedByUid: {
+  [otherUid]: firebase.firestore.FieldValue.delete()
+}
 
 }, { merge: true });
 
@@ -8026,7 +8237,7 @@ if (typeof loadMessagesLists === "function") loadMessagesLists();
 
 // Contatore coerente
 state.chatMessagesSent[safeDogId] =
-  (state.chatMessagesSent[safeDogId] || 0) + 1;
+  (msgCount || 0) + 1;
 
 localStorage.setItem(
   "chatMessagesSent",
