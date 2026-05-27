@@ -2688,8 +2688,8 @@ if (notifBtn && notifOverlay) {
   }
 }
 
-const msgTopTabs  = qa(".msg-top-tab");
-const msgLists    = qa(".messages-list");
+const msgTopTabs  = qa("#viewMessages .msg-top-tab");
+const msgLists    = qa("#viewMessages .messages-list");
 
 async function loadMessagesLists() { 
   try { 
@@ -2802,26 +2802,30 @@ if (!snap || snap.empty) {
   }
 
   row.innerHTML = `
+  <div class="msg-swipe-front">
   ${avatar}
   <div class="msg-main">
     <div class="msg-title">${nameLine}</div>
     ${previewLine ? `<div class="msg-preview">${previewLine}</div>` : ``}
     <div class="msg-meta">${dateText}</div>
+    </div>
   </div>
 
-  <button class="msg-delete-btn" title="Elimina chat">
-  🗑️
-</button>
+  <div class="msg-swipe-actions">
+    <button class="msg-delete-btn" title="Elimina chat">
+      🗑️
+    </button>
 
-${sourceTab === "spam" ? `
-  <button class="msg-restore-btn" title="Ripristina">
-    ↩️
-  </button>
-` : `
-  <button class="msg-spam-btn" title="Spam">
-    🚫
-  </button>
-`}
+    ${sourceTab === "spam" ? `
+      <button class="msg-restore-btn" title="Ripristina">
+        ↩️
+      </button>
+    ` : `
+      <button class="msg-spam-btn" title="Spam">
+        🚫
+      </button>
+    `}
+  </div>
 `;
 
   const deleteBtn = row.querySelector(".msg-delete-btn");
@@ -2950,10 +2954,102 @@ restoreBtn?.addEventListener("click", async (e) => {
   }
 });
 
-  row.addEventListener("click", () => {
+  let startX = 0;
+  let startY = 0;
+  let movedX = 0;
+  let movedY = 0;
+  let isSwipeLocked = false;
+  let blockNextClick = false;
+
+  const closeOtherSwipeRows = () => {
+    document.querySelectorAll(".msg-item.swipe-open").forEach((el) => {
+      if (el !== row) el.classList.remove("swipe-open");
+    });
+  };
+
+  row.addEventListener("touchstart", (e) => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+
+    startX = t.clientX;
+    startY = t.clientY;
+    movedX = 0;
+    movedY = 0;
+    isSwipeLocked = false;
+    blockNextClick = false;
+  }, { passive: true });
+
+  row.addEventListener("touchmove", (e) => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+
+    movedX = t.clientX - startX;
+    movedY = t.clientY - startY;
+
+    if (!isSwipeLocked && Math.abs(movedX) > 18 && Math.abs(movedX) > Math.abs(movedY) * 1.4) {
+      isSwipeLocked = true;
+    }
+
+    if (!isSwipeLocked) return;
+
+    if (movedX < -28) {
+      blockNextClick = true;
+      closeOtherSwipeRows();
+      row.classList.add("swipe-open");
+      e.preventDefault();
+    }
+
+    if (movedX > 28) {
+      blockNextClick = true;
+      row.classList.remove("swipe-open");
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  row.addEventListener("touchend", () => {
+    if (isSwipeLocked && movedX < -36) {
+      blockNextClick = true;
+      closeOtherSwipeRows();
+      row.classList.add("swipe-open");
+    }
+
+    if (isSwipeLocked && movedX > 24) {
+      blockNextClick = true;
+      row.classList.remove("swipe-open");
+    }
+
+    setTimeout(() => {
+      blockNextClick = false;
+    }, 180);
+  }, { passive: true });
+
+  row.addEventListener("click", (e) => {
+    if (blockNextClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    if (e.target && e.target.closest && e.target.closest(".msg-swipe-actions")) {
+      return;
+    }
+
     state._openChatFromTab = sourceTab || "";
     openChat(chatId, dogId, otherUid);
   });
+
+  if (!window.__msgSwipeOutsideBound) {
+    window.__msgSwipeOutsideBound = true;
+
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (target && target.closest && target.closest(".msg-item")) return;
+
+      document.querySelectorAll(".msg-item.swipe-open").forEach((el) => {
+        el.classList.remove("swipe-open");
+      });
+    });
+  }
 
   return row;
 };
@@ -3142,6 +3238,7 @@ msgLists.forEach((list) => {
   msgTopTabs.forEach((btn) => {
   btn.addEventListener("click", () => {
     const targetId = btn.dataset.tab;
+    if (!targetId) return;
 
     // 🔒 MEMORIZZA DA QUALE TAB ARRIVO (logica DEFINITIVA)
     switch (targetId) {
@@ -3363,7 +3460,7 @@ btnDogBoardBack?.addEventListener("click", () => {
         state.entered=false;
         appScreen.classList.add("hidden");
         homeScreen.classList.remove("hidden");
-      }
+   }
     }
 
   window.addEventListener("popstate", (e)=>{
@@ -4888,6 +4985,7 @@ setActiveView("profile");
 
   history.pushState({ view: "profile", dogId: d.id }, "", "");
   profilePage.classList.remove("hidden");
+profilePage.classList.toggle("profile-plus", d.plus === true && d.plusStatus === "active");
 
   const isOwner = d.id === (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id"));
 const selfieUnlocked = isOwner || isSelfieUnlocked(d.id);
@@ -4917,6 +5015,7 @@ const docsTrustLabel =
       : null;
 
   const isCreate = (d && d.isCreate === true) || (d && d.id === "__create__");
+  const isFallbackPhoto = !d.img;
   const heroImg = isCreate ? "" : (d.img || "./plutoo-icon-192.png");
 
   const isDocsOwner =
@@ -4960,7 +5059,7 @@ profileContent.innerHTML = `
         `
         : `
 
-        <img src="${heroImg}" alt="${d.name}" loading="eager" fetchpriority="high" decoding="sync" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block;cursor:pointer;">
+  <img src="${heroImg}" alt="${d.name}" loading="eager" fetchpriority="high" decoding="sync" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';" style="width:100%;height:100%;object-fit:${isFallbackPhoto ? "contain" : "cover"};object-position:center;background:#0b0b0f;padding:${isFallbackPhoto ? "24px" : "0"};display:block;cursor:${isFallbackPhoto ? "default" : "pointer"};">
 
         `
     }
@@ -5411,10 +5510,13 @@ if (isCreate) {
   } else {
     
     // PROFILO: hero img / gallery / selfie cliccabili
-const heroImgEl = profileContent.querySelector(".pp-hero img");
+
+    const heroImgEl = profileContent.querySelector(".pp-hero img");
 if (heroImgEl) {
 heroImgEl.addEventListener("click", () => {
-openPlutooImageViewer(heroImgEl.getAttribute("src"));
+const src = heroImgEl.getAttribute("src") || "";
+if (isFallbackPhoto || src === "./plutoo-icon-192.png") return;
+openPlutooImageViewer(src);
 });
 }
 
@@ -6080,7 +6182,8 @@ let images = _existingGallery.map(x => x && x.url ? x.url : "").filter(Boolean);
 
     if (pubBtn) {
       pubBtn.onclick = () => {
-        if (!pendingFiles.length) return;
+        if (!isGalleryOwner) return;
+if   (!pendingFiles.length) return;
 
         const c = document.getElementById("plutooGalleryPendingCount");
 
@@ -6390,17 +6493,27 @@ galleryBlock.appendChild(ph);
     addBtn.disabled = images.length >= maxPhotos;
 
     addBtn.onclick = () => {
+      if (!isGalleryOwner) return;
       if (images.length >= maxPhotos) return;
       input.value = "";
       input.click();
     };
 
-    addPh.appendChild(addBtn);
-    galleryBlock.appendChild(addPh);
+    if (isGalleryOwner) {
+  addPh.appendChild(addBtn);
+  galleryBlock.appendChild(addPh);
+}
+
   };
 
   input.onchange = () => {
+    if (!isGalleryOwner) {
+      input.value = "";
+      return;
+    }
+
     const files = Array.from(input.files || []);
+    
     if (!files.length) return;
 
     const remaining = maxPhotos - images.length;
@@ -7911,8 +8024,30 @@ if (selfUid && otherUid) {
 }
 
   // Trova DOG coerente (evita fallback strani)
-  dog = dog || (DOGS.find(d => d.id === dogId) || null);
+
+  dog =
+  dog ||
+  (state.dogs || []).find(d => String(d.id) === String(dogId)) ||
+  (DOGS.find(d => String(d.id) === String(dogId)) || null);
+  
   const dogName = (dog && dog.name) || (state.lang === "en" ? "DOG" : "Dog");
+
+  const chatDogName = document.getElementById("chatDogName");
+const chatDogAvatar = document.getElementById("chatDogAvatar");
+
+if (chatDogName) {
+  chatDogName.textContent = dogName;
+}
+
+if (chatDogAvatar) {
+  const avatarSrc = String(
+    (dog && (dog.img || dog.avatar || dog.photoUrl)) ||
+    "./plutoo-icon-192.png"
+  );
+
+  chatDogAvatar.src = avatarSrc;
+  chatDogAvatar.alt = dogName;
+}
 
   // Mostra pannello chat
   chatPane.classList.remove("hidden");
