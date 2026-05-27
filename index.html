@@ -493,10 +493,16 @@
 <!-- ==================== CHAT PANE (MODALE CENTRATA) ==================== -->
 <div id="chatPane" class="chat-pane hidden">
   <div class="chat-pane-inner">
+    
     <div class="chat-header">
-      <button id="closeChat" class="btn small ghost">←</button>
-      <span data-i18n="chat">Chat</span>
+  <button id="closeChat" class="btn small ghost">←</button>
+
+  <div class="chat-dog-head">
+    <img id="chatDogAvatar" class="chat-dog-avatar" src="./plutoo-icon-192.png" alt="DOG">
+    <div id="chatDogName" class="chat-dog-name">DOG</div>
+  </div>
     </div>
+    
     <div id="chatList" class="chat-list"></div>
     <form id="chatComposer" class="chat-composer">
       <input id="chatInput" type="text" data-i18n-placeholder="typeMessage" placeholder="Scrivi un messaggio…">
