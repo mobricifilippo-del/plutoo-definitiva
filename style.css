@@ -126,6 +126,7 @@ a{color:inherit;text-decoration:none}
   cursor:pointer;
   transition:transform .12s ease, filter .15s ease, background .15s ease;
 }
+
 .sheet-close:hover{
   filter:brightness(1.12);
   transform:scale(1.04);
@@ -149,7 +150,6 @@ a{color:inherit;text-decoration:none}
   font-weight:800;
 }
 
-.visually-hidden{position:absolute;clip:rect(0 0 0 0);width:1px;height:1px;overflow:hidden}
 .noscroll{overflow:hidden}
 .container{max-width:980px;margin:0 auto;width:100%}
 
@@ -322,6 +322,7 @@ a{color:inherit;text-decoration:none}
   color:#141414;border:1px solid rgba(0,0,0,.12);
   box-shadow:0 6px 16px rgba(205,164,52,.26), inset 0 0 0 1px rgba(255,255,255,.25);
 }
+
 .btn.primary:hover{filter:brightness(1.06)}
 .btn.primary.xl{font-size:1.12rem;padding:.86rem 1.2rem;border-radius:16px;box-shadow:inset 0 0 1px rgba(0,0,0,.2),0 0 22px rgba(205,164,52,.45),0 8px 24px rgba(205,164,52,.25)}
 .btn.primary.large{font-size:1.05rem;padding:.75rem 1.1rem;border-radius:14px}
@@ -362,9 +363,6 @@ a{color:inherit;text-decoration:none}
 }
 
 /* Bottone PLUS */
-.search-plus-wrapper{
-  display:flex;flex-direction:column;align-items:center;gap:.45rem;width:100%;
-}
 .btn.plus-btn{
   display:inline-flex;align-items:center;gap:.4rem;
   background:linear-gradient(135deg,#E8CE7A,#CDA434);
@@ -586,12 +584,6 @@ a{color:inherit;text-decoration:none}
   border-radius:14px;
   display:block;
   transform: translateY(2px);
-}
-
-.brand-mini{
-  color:var(--gold);
-  font-size:1.05rem;
-  font-weight:800;
 }
 
 .tabs{
@@ -1038,21 +1030,6 @@ body.story-open #storiesBar {
   box-sizing: border-box; /* AGGIUNTO */
 }
 
-.profile-navbar{
-  position:sticky;top:0;z-index:1501;
-  display:flex;align-items:center;justify-content:space-between;
-  background:rgba(12,12,18,.94);
-  backdrop-filter:saturate(120%) blur(6px);
-  -webkit-backdrop-filter:saturate(120%) blur(6px);
-  border-bottom:1px solid var(--line);
-  padding:.5rem .9rem;
-}
-
-.profile-title{
-  flex:1;text-align:center;font-weight:800;font-size:1.05rem;
-  color:var(--violet-glow);
-}
-
 .profile-content{
   flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:1rem;padding-bottom:72px;
@@ -1129,10 +1106,6 @@ body.story-open #storiesBar {
   }
 }
 
-.pp-head{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin:.4rem 0 .7rem 0}
-
-.pp-name{font-size:1.5rem;font-weight:900;color:var(--violet-glow);margin:0}
-
 .pp-badges{
   display:flex;
   gap:.55rem;
@@ -1182,9 +1155,6 @@ body.story-open #storiesBar {
   color:rgba(255,255,255,.68);
   font-style:italic;
 }
-
-.pp-meta{color:var(--muted);font-size:.98rem;margin:.15rem 0 .8rem 0}
-.pp-bio{margin:.5rem 0 1.2rem 0;line-height:1.5}
 
 .pp-actions{
   display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin-top:1.2rem;
@@ -1244,6 +1214,33 @@ body.story-open #storiesBar {
 
 .section-title{
   color:var(--violet-glow);font-weight:900;margin:1.2rem 0 .6rem 0;font-size:1.15rem;
+}
+
+.profile-plus .section-title{
+  color:#CDA434;
+  text-shadow:0 0 14px rgba(205,164,52,.32);
+}
+
+.profile-plus .add-photo{
+  border-color:#CDA434;
+  color:#CDA434;
+  box-shadow:0 0 14px rgba(205,164,52,.14);
+}
+
+.profile-plus .add-photo:hover{
+  background:rgba(205,164,52,.08);
+}
+
+.profile-plus .gallery .ph{
+  border-color:#CDA434;
+  box-shadow:
+    0 0 14px rgba(205,164,52,.14),
+    inset 0 0 0 1px rgba(205,164,52,.18);
+}
+
+.profile-plus .pp-docs-section,
+.profile-plus .pp-social-section{
+  border-color:#CDA434;
 }
 
 /* SEZIONE STORIES NEL PROFILO */
@@ -1672,9 +1669,8 @@ padding:24px;
 .f input:focus,.f select:focus{
   outline:none;border-color:var(--violet);box-shadow:0 0 0 3px rgba(138,123,255,.2);
 }
+
 .f input:disabled,.f select:disabled{opacity:.5;cursor:not-allowed}
-.f-row{display:flex;gap:.7rem}
-.f-row .f{flex:1;margin-top:.7rem}
 
 .f.switch{
   flex-direction:row;align-items:center;justify-content:space-between;
@@ -1687,19 +1683,8 @@ padding:24px;
   position:absolute;inset:0;background:#2a2a3e;border-radius:24px;
   transition:.3s;cursor:pointer;
 }
-.switcher input:checked + .track{background:var(--violet)}
-.switcher .track:before{
-  content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;
-  background:#fff;border-radius:50%;transition:.3s;
-}
-.switcher input:checked + .track:before{transform:translateX(18px)}
-.switcher input:disabled + .track{opacity:.5;cursor:not-allowed}
 
 .f-gold{position:relative}
-.lock-icon{
-  position:absolute;right:.6rem;top:50%;transform:translateY(-50%);
-  font-size:1.1rem;pointer-events:none;
-}
 
 .suggestions{
   background:var(--panel);border:1px solid var(--violet);border-radius:10px;
@@ -1707,10 +1692,6 @@ padding:24px;
 }
 .suggestions .item{padding:.55rem .75rem;cursor:pointer;font-size:.9rem}
 .suggestions .item:hover{background:rgba(138,123,255,.12)}
-
-.panel-actions{display:flex;gap:.7rem;margin-top:1.2rem}
-.panel-actions .btn{flex:1}
-.hint{font-size:.88rem;color:var(--muted);text-align:center;margin-top:.8rem}
 
 /* ================= MODALE ================= */
 .modal{
@@ -1742,9 +1723,10 @@ padding:24px;
   width:32px;height:32px;border-radius:8px;
   display:flex;align-items:center;justify-content:center;transition:background .2s;
 }
+
 .modal-close:hover{background:rgba(255,255,255,.08)}
 .modal-body{text-align:center}
-.plus-icon-large{font-size:3.5rem;margin-bottom:.5rem}
+
 .modal-body h2{
   color: var(--violet-glow);
   font-size: 2.2rem;
@@ -1898,11 +1880,6 @@ padding:24px;
   margin-left:.25rem;
 }
 
-.plan-period{
-  font-size:1rem;
-  color:var(--muted);
-}
-
 .modal-body .btn{margin:.5rem auto;display:block;width:100%;max-width:320px}
 
 /* ================= UPLOAD STORY MODAL ================= */
@@ -2023,7 +2000,7 @@ padding:24px;
 }
 
 .chat-pane-inner{
-  background:var(--panel);
+  background:rgba(138,123,255,.12);
   border:2px solid var(--violet);
   border-radius:20px;
   width:100%;
@@ -2042,6 +2019,32 @@ padding:24px;
   border-bottom:1px solid var(--line);
   background:rgba(12,12,18,.95);
   border-radius:20px 20px 0 0;
+}
+
+.chat-dog-head{
+  display:flex;
+  align-items:center;
+  gap:.65rem;
+  min-width:0;
+}
+
+.chat-dog-avatar{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  object-fit:cover;
+  background:#0b0b0f;
+  border:1px solid rgba(205,164,52,.45);
+  flex-shrink:0;
+}
+
+.chat-dog-name{
+  font-weight:900;
+  color:#fff;
+  font-size:.98rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .chat-list{
@@ -2064,25 +2067,43 @@ padding:24px;
 }
 
 .msg{
-  background:#1f1f2e;
-  padding:.65rem .9rem;
-  border-radius:16px 16px 16px 6px; /* stile IG */
+  align-self:flex-start;
   width:fit-content;
   max-width:82%;
-  font-size:.95rem;
-  line-height:1.35;
+  padding:.72rem .92rem;
+  border-radius:18px 18px 18px 6px;
+  background:linear-gradient(135deg,#8A7BFF 0%,#5B4FE8 100%);
+  border:1px solid rgba(255,255,255,.14);
   color:#fff;
-  box-shadow:0 4px 12px rgba(0,0,0,.35);
+  box-shadow:0 6px 16px rgba(138,123,255,.22);
+  font-size:1rem;
+  line-height:1.38;
+  word-break:break-word;
 }
 
 .msg.me{
   align-self:flex-end;
-  background:linear-gradient(135deg,#7C3AED,#8B5CF6);
-  border-radius:16px 16px 6px 16px; /* specchiato */
+  max-width:74%;
+  padding:.58rem .78rem;
+  border-radius:18px 18px 6px 18px;
+  background:rgba(255,255,255,.075);
+  border:1px solid rgba(255,255,255,.10);
   color:#fff;
-  box-shadow:
-    0 4px 14px rgba(139,92,246,.45),
-    inset 0 0 0 1px rgba(255,255,255,.12);
+  box-shadow:0 6px 18px rgba(138,123,255,.35);
+}
+
+.msg-text{
+  color:#fff;
+  font-weight:650;
+  letter-spacing:.1px;
+}
+
+.msg-status{
+  margin-top:.2rem;
+  font-size:.66rem;
+  line-height:1;
+  text-align:right;
+  opacity:.58;
 }
 
 .chat-composer input{
@@ -2330,11 +2351,6 @@ display: none !important;
 .empty-state { text-align: center; color: rgba(255, 255, 255, 0.5); padding: 40px 20px; font-size: 1rem; line-height: 1.6; }
 
 /* ================= BACHECA DOG ================= */
-.dogboard-feed-head{
-  display:flex;
-  justify-content:flex-start;
-  margin-bottom:.75rem;
-}
 
 #dogBoardList{
   flex: 1;
@@ -2353,23 +2369,6 @@ display: none !important;
   background:rgba(255,255,255,.03);
   border:1px solid rgba(138,123,255,.16);
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
-}
-
-.dogboard-empty-icon{
-  font-size:1.4rem;
-  line-height:1;
-}
-
-.dogboard-empty-title{
-  font-size:1rem;
-  font-weight:800;
-  color:var(--violet-glow);
-}
-
-.dogboard-empty-text{
-  font-size:.92rem;
-  line-height:1.5;
-  color:rgba(255,255,255,.74);
 }
 
 .dogboard-composer{
@@ -2596,56 +2595,113 @@ display: none !important;
    INSTAGRAM-LIKE LIST (msg-item)
    =============================== */
 
-/* riga chat */
-.msg-item{
+ .msg-item{
   display:flex;
   align-items:center;
   gap:12px;
-  padding:12px 12px;
+  padding:11px 12px;
   border-radius:18px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.10);
-  margin-bottom:10px;
+  background:rgba(138,123,255,.18);
+  border:1px solid rgba(255,255,255,0.10);
+  margin-bottom:9px;
   cursor:pointer;
-  transition: transform .15s ease, background .2s ease, border-color .2s ease;
+  transition:transform .15s ease, background .2s ease, border-color .2s ease;
+  overflow:hidden;
+  position:relative;
+}
+
+.msg-swipe-front{
+  position:relative;
+  z-index:2;
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  transition:transform .18s ease;
+  will-change:transform;
+}
+
+.msg-swipe-actions{
+  position:absolute;
+  top:0;
+  right:0;
+  bottom:0;
+  width:116px;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  padding:6px;
+  opacity:0;
+  pointer-events:none;
+}
+
+.msg-swipe-actions button{
+  width:52px;
+  height:100%;
+  border:0;
+  border-radius:14px;
+  font-size:1.05rem;
+  font-weight:900;
+}
+
+.msg-item.swipe-open .msg-swipe-front{
+  transform:translateX(-116px);
+}
+
+.msg-item.swipe-open .msg-swipe-actions{
+  opacity:1;
+  pointer-events:auto;
 }
 
 .msg-item:hover{
-  background: rgba(255,255,255,0.085);
-  border-color: rgba(177,154,255,0.28);
+  background:rgba(255,255,255,0.08);
+  border-color:rgba(177,154,255,0.26);
 }
 
 .msg-item:active{
-  transform: scale(0.99);
+  transform:scale(0.99);
 }
 
-/* blocco testo */
 .msg-main{
   flex:1;
   min-width:0;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:3px;
 }
 
-/* titolo (nome + preview) */
 .msg-title{
-  color: rgba(255,255,255,0.92);
-  font-weight:800;
-  font-size: 0.98rem;
-  line-height:1.2;
-  margin-bottom:4px;
+  color:rgba(255,255,255,0.96);
+  font-weight:900;
+  font-size:.98rem;
+  line-height:1.15;
+  letter-spacing:.1px;
   overflow:hidden;
-  text-overflow: ellipsis;
+  white-space:nowrap;
+  text-overflow:ellipsis;
 }
 
-/* meta (data/ora) */
-.msg-meta{
-  color: rgba(255,255,255,0.55);
-  font-size: 0.82rem;
-  white-space: nowrap;
+.msg-preview{
+  color:rgba(255,255,255,0.62);
+  font-weight:650;
+  font-size:.84rem;
+  line-height:1.18;
+  white-space:nowrap;
   overflow:hidden;
-  text-overflow: ellipsis;
+  text-overflow:ellipsis;
+  max-width:100%;
+}
+
+.msg-meta{
+  color:rgba(255,255,255,0.38);
+  font-size:.68rem;
+  line-height:1;
+  margin-top:3px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 /* separatore super leggero “tipo DM” */
@@ -2925,37 +2981,6 @@ display: none !important;
   text-decoration:underline;
 }
 
-/* ================= LIKE FOTO PROFILO ================= */
-.photo-like-btn{
-  position:absolute;
-  bottom:1.4rem;
-  left:50%;
-  transform:translateX(-50%) scale(1);
-  background:rgba(0,0,0,.8);
-  backdrop-filter:blur(10px);
-  border-radius:999px;
-  border:0;
-  padding:.6rem 1.1rem;
-  color:#fff;
-  font-size:1.25rem;
-  font-weight:700;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 10px 30px rgba(0,0,0,.45);
-  cursor:pointer;
-  z-index:9999;
-}
-
-.photo-like-btn.liked{
-  background:rgba(255,64,129,.95);
-}
-
-/* Nasconde la vecchia barra like sotto al profilo cane */
-.profile-like-btn{
-  display: none !important;
-}
-
 /* ===== STORY VIEWER – BACK BUTTON PILL ===== */
 .story-back-btn {
   background: rgba(0,0,0,0.55);
@@ -3131,18 +3156,7 @@ display: none !important;
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* se esiste ancora un titolo tipo "It's a Match! 💜", lo nascondiamo */
-.match-title{
-  display: none;
-}
-
 /* ===== AVATAR MESSAGGI (STILE INSTAGRAM) ===== */
-
-.msg-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
 
 .msg-avatar {
   width: 52px;
