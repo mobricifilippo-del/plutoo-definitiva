@@ -414,6 +414,27 @@ document.getElementById("btnLogout")?.addEventListener("click", async () => {
   try {
     localStorage.setItem("currentView", "home");
     localStorage.setItem("entered", "0");
+
+    Object.keys(localStorage).forEach((k) => {
+  if (k.startsWith("f_")) {
+    localStorage.removeItem(k);
+  }
+});
+
+    if (window.state && window.state.filters) {
+  window.state.filters = {
+    breed: "",
+    distKm: 50,
+    verified: false,
+    sex: "",
+    ageMin: "",
+    ageMax: "",
+    pedigree: "",
+    breeding: "",
+    size: "",
+    onlySelfie: false
+  };
+    }
   } catch (_) {}
 
   try { closeAuth(); } catch (_) {}
@@ -748,8 +769,10 @@ try {
     } catch (_) {}
   }
 
-  if (typeof window.openProfilePage === "function") {
-    window.openProfilePage(myDog || { id: myId });
+  if (typeof window.openFreshDogProfile === "function") {
+  window.openFreshDogProfile(myId, myDog || { id: myId });
+} else if (typeof window.openProfilePage === "function") {
+  window.openProfilePage(myDog || { id: myId });
   }
 
   // riallineo CTA
@@ -898,11 +921,19 @@ dogPlusStatus = String(userData.plusStatus || "");
     bio: String(data.bio || ""),
     zone: String(data.zone || ""),
     km: Number(data.km || 0),
-    weight: Number(data.weight || 0),
-    height: Number(data.height || 0),
     pedigree: !!data.pedigree,
-    breeding: !!data.breeding,
-    size: String(data.size || ""),
+availability: {
+  breeding: data.availability && typeof data.availability === "object"
+    ? data.availability.breeding === true
+    : data.breeding === true,
+  walks: data.availability && typeof data.availability === "object"
+    ? data.availability.walks === true
+    : false
+},
+breeding: data.availability && typeof data.availability === "object"
+  ? data.availability.breeding === true
+  : data.breeding === true,
+size: String(data.size || ""),
     dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
     ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
     selfieUrl: String(data.selfieUrl || "")
@@ -1261,11 +1292,10 @@ const state = {
     sex:          localStorage.getItem("f_sex") || "",
     ageMin:       localStorage.getItem("f_ageMin") || "",
     ageMax:       localStorage.getItem("f_ageMax") || "",
-    weight:       localStorage.getItem("f_weight") || "",
-    height:       localStorage.getItem("f_height") || "",
     pedigree:     localStorage.getItem("f_pedigree") || "",
     breeding:     localStorage.getItem("f_breeding") || "",
     size:         localStorage.getItem("f_size") || "",
+    onlySelfie:   localStorage.getItem("f_onlySelfie") === "1",
   },
 
   // Swipe & rewards
@@ -1378,8 +1408,6 @@ const btnRefreshDogBoard = $("btnRefreshDogBoard");
   const sexFilter   = $("sexFilter");
   const ageMin      = $("ageMin");
   const ageMax      = $("ageMax");
-  const weightInput = $("weightInput");
-  const heightInput = $("heightInput");
   const pedigreeFilter = $("pedigreeFilter");
   const breedingFilter = $("breedingFilter");
   const sizeFilter  = $("sizeFilter");
@@ -1638,7 +1666,7 @@ saveStories() {
       weight: "Peso (kg)",
       height: "Altezza (cm)",
       pedigree: "Pedigree",
-      breeding: "Disponibile per accoppiamento",
+      breeding: "Disponibile per",
       size: "Taglia",
       indifferent: "Indifferente",
       yes: "Sì",
@@ -1703,7 +1731,7 @@ saveStories() {
       weight: "Weight (kg)",
       height: "Height (cm)",
       pedigree: "Pedigree",
-      breeding: "Available for breeding",
+      breeding: "Available for",
       size: "Size",
       indifferent: "Any",
       yes: "Yes",
@@ -1852,6 +1880,14 @@ if (state.entered) {
   appScreen.classList.remove("hidden");
   const viewToRestore = localStorage.getItem("currentView") || state.currentView || "nearby";
 
+  try {
+  if (viewToRestore === "nearby" && (!Array.isArray(state.dogs) || state.dogs.length === 0)) {
+    const _cached = JSON.parse(localStorage.getItem("dogs") || "[]");
+    const _real = Array.isArray(_cached) ? _cached.filter(d => d && !d.isDemo) : [];
+    if (_real.length > 0) state.dogs = _real;
+  }
+} catch (_) {}
+
   if (viewToRestore === "profile") {
   setActiveView("profile");
 
@@ -1988,7 +2024,7 @@ setActiveView("nearby");
 }
 
 } else {
-setActiveView(viewToRestore);
+    setActiveView(viewToRestore);
 }
 
 showAdBanner();
@@ -2166,20 +2202,27 @@ function closePlusModal(){
 function updatePlusUI(){
   const goldInputs = [
     onlyVerified,
+    onlySelfie,
     ageMin,
     ageMax,
-    weightInput,
-    heightInput,
     pedigreeFilter,
     breedingFilter,
     sizeFilter
   ];
 
   goldInputs.forEach(inp => {
-    if (inp) inp.disabled = !state.plus;
-  });
+  if (inp) inp.disabled = !state.plus;
+});
 
-  if (adBanner) {
+const goldFiltersBox = document.querySelector(".gold-filters");
+  const unlockHint = document.querySelector(".unlock-hint");
+  const searchPanel = document.getElementById("searchPanel");
+
+goldFiltersBox?.classList.toggle("plus-active", !!state.plus);
+  unlockHint?.classList.toggle("hidden", !!state.plus);
+  searchPanel?.classList.toggle("plus-active", !!state.plus);
+
+if (adBanner) {
     adBanner.style.display = state.plus ? "none" : "";
   }
 
@@ -2424,7 +2467,41 @@ function __renderNotifs(items) {
         <div class="notif-main">${main}</div>
       </div>
       <div class="notif-time">${__fmtTime(n.createdAt)}</div>
+      <button type="button" class="notif-delete-btn" title="Elimina notifica">🗑️</button>
     `;
+
+    const deleteBtn = row.querySelector(".notif-delete-btn");
+
+  deleteBtn?.addEventListener("click", async function (e) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+
+  const notifId = String(n.id || "").trim();
+  if (!notifId || !db) return;
+
+  const ok = await showPlutooConfirm(
+    "Vuoi eliminare questa notifica?",
+    {
+      title: "Elimina notifica",
+      confirmText: "Elimina",
+      cancelText: "Annulla",
+      danger: false
+    }
+  );
+
+  if (!ok) return;
+
+  try {
+    await db.collection("notifications").doc(notifId).delete();
+
+    if (typeof showToast === "function") {
+      showToast("✅ Notifica eliminata");
+    }
+  } catch (err) {
+    console.error("delete notification error:", err);
+  }
+});
 
     // FEEDBACK VISIVO (se non lo vedi, il click NON arriva)
     row.addEventListener("click", function (e) {
@@ -3474,32 +3551,43 @@ btnDogBoardBack?.addEventListener("click", () => {
 
   // ============ Nearby ============
 
-  function renderNearby(){
+function renderNearby(){
   if(!nearGrid) return;
 
-    const list = filteredDogs();
-    if (!list.length){
-      nearGrid.innerHTML = `<p class="soft" style="padding:.5rem">${t("noProfiles")}</p>`;
-      return;
-    }
-    nearGrid.innerHTML = list.map(cardHTML).join("");
+  const list = filteredDogs();
 
-    setTimeout(()=>{
-      qa(".dog-card").forEach(card=>{
-        const id = card.getAttribute("data-id");
-const d  = list.find(x => x && String(x.id) === String(id));
-if(!d) return;
+  const nextSignature = list.map(d => String(d.id)).join("|");
+  const currentSignature = nearGrid.dataset.renderSignature || "";
 
-        card.addEventListener("click", ()=>{
-          card.classList.add("flash-violet");
-          setTimeout(()=>{
-            card.classList.remove("flash-violet");
-            window.openFreshDogProfile(d.id, d);
-          }, 500);
-        });
-      });
-    }, 10);
+  if (!list.length){
+    nearGrid.dataset.renderSignature = "";
+    nearGrid.innerHTML = `<p class="soft" style="padding:.5rem">${t("noProfiles")}</p>`;
+    return;
   }
+
+  if (nextSignature && nextSignature === currentSignature) {
+    return;
+  }
+
+  nearGrid.innerHTML = list.map(cardHTML).join("");
+  nearGrid.dataset.renderSignature = nextSignature;
+
+  setTimeout(()=>{
+    qa(".dog-card").forEach(card=>{
+      const id = card.getAttribute("data-id");
+      const d = list.find(x => x && String(x.id) === String(id));
+      if(!d) return;
+
+      card.addEventListener("click", ()=>{
+        card.classList.add("flash-violet");
+        setTimeout(()=>{
+          card.classList.remove("flash-violet");
+          window.openFreshDogProfile(d.id, d);
+        }, 500);
+      });
+    });
+  }, 10);
+}
 
   function cardHTML(d){
   const rawImg = String(d.img || "");
@@ -3538,34 +3626,75 @@ if(!d) return;
 const f = state.filters;
 
 let realDogs = [];
-try { realDogs = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : []; } catch (_) {}
-if (!realDogs.length) {
-try { realDogs = JSON.parse(localStorage.getItem("dogs") || "[]"); } catch (_) { realDogs = []; }
+try {
+  realDogs = (window.state && Array.isArray(window.state.dogs))
+    ? window.state.dogs
+    : [];
+} catch (_) {
+  realDogs = [];
 }
+
 if (!Array.isArray(realDogs)) realDogs = [];
 
-const sourceDogs = [...realDogs, ...DOGS];
+const hasActiveFilters = !!(
+  f.breed ||
+  Number(f.distKm || 50) !== 50 ||
+  f.verified ||
+  f.onlySelfie ||
+  f.sex ||
+  f.ageMin ||
+  f.ageMax ||
+  f.pedigree ||
+  f.breeding ||
+  f.size
+);
+
+const sourceDogs = hasActiveFilters ? realDogs : [...realDogs, ...DOGS];
     
 const myDogId = String(window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id") || "");
 
 return sourceDogs
 .filter(d => !myDogId || String(d.id) !== myDogId)
 .filter(d => !d.km || d.km <= (f.distKm || 999))
-.filter(d => (!f.verified || !state.plus) ? true : d.verified)
+
+  .filter(d => {
+  if (!f.verified || !state.plus) return true;
+
+  const docs = d.dogDocs && typeof d.dogDocs === "object" ? d.dogDocs : {};
+
+  return !!(
+    docs.vaccines?.url ||
+    docs.pedigree?.url ||
+    docs.microchip?.url
+  );
+})
+  
+.filter(d => (!state.plus || !f.onlySelfie) ? true : !!String(d.selfieUrl || "").trim())
 .filter(d => (!f.sex) ? true : d.sex === f.sex)
 .filter(d => (!f.breed) ? true : d.breed.toLowerCase().startsWith(f.breed.toLowerCase()))
 .filter(d => { if (!state.plus || !f.ageMin) return true; return d.age >= parseInt(f.ageMin); })
 .filter(d => { if (!state.plus || !f.ageMax) return true; return d.age <= parseInt(f.ageMax); })
-.filter(d => { if (!state.plus || !f.weight) return true; return d.weight >= parseInt(f.weight); })
-.filter(d => { if (!state.plus || !f.height) return true; return d.height >= parseInt(f.height); })
+  
 .filter(d => {
-if (!state.plus || !f.pedigree) return true;
-return f.pedigree === "yes" ? d.pedigree : true;
+  const hasPedigreeDoc = !!d.dogDocs?.pedigree?.url;
+  if (!state.plus || !f.pedigree) return true;
+  return f.pedigree === "yes" ? hasPedigreeDoc : !hasPedigreeDoc;
 })
+  
 .filter(d => {
-if (!state.plus || !f.breeding) return true;
-return f.breeding === "yes" ? d.breeding : true;
+  if (!state.plus || !f.breeding) return true;
+
+  if (f.breeding === "breeding") {
+    return d.availability && d.availability.breeding === true;
+  }
+
+  if (f.breeding === "walks") {
+    return d.availability && d.availability.walks === true;
+  }
+
+  return true;
 })
+  
 .filter(d => {
 if (!state.plus || !f.size) return true;
 return d.size === f.size;
@@ -3699,8 +3828,11 @@ if(noBtn) {
   ].filter(Boolean);
 
   meta.innerHTML =
-  `${d.plus === true && d.plusStatus === "active" ? '<span class="plus-badge-card">💎 Utente Plus</span><br>' : ""}` +
-  metaParts.join(" · ");
+`${d.plus === true && d.plusStatus === "active" ? '<span class="plus-badge-card">💎 Utente Plus</span>' : ""}` +
+`${d.availability && d.availability.breeding === true ? '<span class="plus-badge-card">💛 Accoppiamento</span>' : ""}` +
+`${d.availability && d.availability.walks === true ? '<span class="plus-badge-card">🐾 Passeggiate</span>' : ""}` +
+`<br>` +
+metaParts.join(" · ");
 
   if(yesBtn) yesBtn.onclick = null;
   if(noBtn) noBtn.onclick = null;
@@ -4194,11 +4326,10 @@ qa(".item",breedsList).forEach(it=>it.addEventListener("click",(e)=>{
     state.filters.distKm = parseInt(distRange.value||"50");
     state.filters.sex = sexFilter.value || "";
     state.filters.verified = !!onlyVerified.checked;
+    state.filters.onlySelfie = state.plus ? !!onlySelfie.checked : false;
     if (state.plus){
       state.filters.ageMin = (ageMin.value||"").trim();
       state.filters.ageMax = (ageMax.value||"").trim();
-      state.filters.weight = (weightInput.value||"").trim();
-      state.filters.height = (heightInput.value||"").trim();
       state.filters.pedigree = pedigreeFilter.value || "";
       state.filters.breeding = breedingFilter.value || "";
       state.filters.size = sizeFilter.value || "";
@@ -4210,17 +4341,17 @@ qa(".item",breedsList).forEach(it=>it.addEventListener("click",(e)=>{
 
   resetFilters?.addEventListener("click",()=>{
     breedInput.value=""; distRange.value=50; distLabel.textContent="50 km";
-    onlyVerified.checked=false; sexFilter.value="";
+    onlyVerified.checked=false; onlySelfie.checked=false; sexFilter.value="";
     if (state.plus){
       ageMin.value=""; ageMax.value="";
-      weightInput.value=""; heightInput.value="";
       pedigreeFilter.value=""; breedingFilter.value=""; sizeFilter.value="";
     }
     Object.assign(state.filters,{
-      breed:"",distKm:50,verified:false,sex:"",
-      ageMin:"",ageMax:"",weight:"",height:"",
+      breed:"",distKm:50,verified:false,onlySelfie:false,sex:"",
+      ageMin:"",ageMax:"",
       pedigree:"",breeding:"",size:""
     });
+    
     persistFilters(); renderNearby();
   });
 
@@ -4630,14 +4761,128 @@ _db.collection("followers").doc(docId).delete()
     };
 
     const row = document.createElement("div");
-    row.className = "sheet-item";
+    row.className = "msg-item";
     row.innerHTML = `
-      <img class="sheet-avatar" src="${realDog.img}" alt="${realDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
-      <div class="sheet-info">
-        <div class="sheet-name">${realDog.name} ${realDog.verified ? "✅" : ""}</div>
-        <div class="sheet-meta">${realDog.breed}</div>
+      <div class="msg-swipe-front">
+        <img class="sheet-avatar" src="${realDog.img}" alt="${realDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+        <div class="sheet-info">
+          <div class="sheet-name">${realDog.name} ${realDog.verified ? "✅" : ""}</div>
+          <div class="sheet-meta">${realDog.breed}</div>
+        </div>
+      </div>
+
+      <div class="msg-swipe-actions">
+        <button
+          type="button"
+          class="msg-spam-btn"
+          data-remove-follower="${realDog.id}"
+        >
+          Rimuovi follower
+        </button>
       </div>
     `;
+
+    const removeFollowerBtn = row.querySelector('button[data-remove-follower]');
+
+    removeFollowerBtn?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      try {
+        await db.collection("followers").doc(`${followerDogId}_${dogId}`).delete();
+
+        if (typeof rebuildFollowersStateFromFirestore === "function") {
+          await rebuildFollowersStateFromFirestore();
+        }
+
+        if (typeof updateFollowerUI === "function") {
+          updateFollowerUI(dogId);
+          updateFollowerUI(followerDogId);
+        }
+
+        openFollowersList(dogId);
+      } catch (e) {
+        console.error("remove follower direct delete error:", e);
+      }
+    });
+
+    let startX = 0;
+    let startY = 0;
+    let movedX = 0;
+    let movedY = 0;
+    let isSwipeLocked = false;
+    let blockNextClick = false;
+
+const closeOtherFollowersSwipeRows = () => {
+  followersList.querySelectorAll(".msg-item.swipe-open").forEach((el) => {
+    if (el !== row) el.classList.remove("swipe-open");
+  });
+};
+
+row.addEventListener("touchstart", (e) => {
+  const t = e.touches && e.touches[0];
+  if (!t) return;
+
+  startX = t.clientX;
+  startY = t.clientY;
+  movedX = 0;
+  movedY = 0;
+  isSwipeLocked = false;
+  blockNextClick = false;
+}, { passive: true });
+
+row.addEventListener("touchmove", (e) => {
+  const t = e.touches && e.touches[0];
+  if (!t) return;
+
+  movedX = t.clientX - startX;
+  movedY = t.clientY - startY;
+
+  if (!isSwipeLocked && Math.abs(movedX) > 18 && Math.abs(movedX) > Math.abs(movedY) * 1.4) {
+    isSwipeLocked = true;
+  }
+
+  if (!isSwipeLocked) return;
+
+  if (movedX < -28) {
+    blockNextClick = true;
+    closeOtherFollowersSwipeRows();
+    row.classList.add("swipe-open");
+    e.preventDefault();
+  }
+
+  if (movedX > 28) {
+    blockNextClick = true;
+    row.classList.remove("swipe-open");
+    e.preventDefault();
+  }
+}, { passive: false });
+
+row.addEventListener("touchend", () => {
+  if (isSwipeLocked && movedX < -36) {
+    blockNextClick = true;
+    closeOtherFollowersSwipeRows();
+    row.classList.add("swipe-open");
+  }
+
+  if (isSwipeLocked && movedX > 24) {
+    blockNextClick = true;
+    row.classList.remove("swipe-open");
+  }
+
+  setTimeout(() => {
+    blockNextClick = false;
+  }, 220);
+}, { passive: true });
+
+row.addEventListener("click", (e) => {
+  if (!blockNextClick) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation();
+}, true);
 
     row.addEventListener("click", (e) => {
   e.preventDefault();
@@ -4697,14 +4942,128 @@ _db.collection("followers").doc(docId).delete()
     };
 
     const row = document.createElement("div");
-    row.className = "sheet-item";
+    row.className = "msg-item";
     row.innerHTML = `
-      <img class="sheet-avatar" src="${realDog.img}" alt="${realDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
-      <div class="sheet-info">
-        <div class="sheet-name">${realDog.name} ${realDog.verified ? "✅" : ""}</div>
-        <div class="sheet-meta">${realDog.breed}</div>
+      <div class="msg-swipe-front">
+        <img class="sheet-avatar" src="${realDog.img}" alt="${realDog.name}" onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+        <div class="sheet-info">
+          <div class="sheet-name">${realDog.name} ${realDog.verified ? "✅" : ""}</div>
+          <div class="sheet-meta">${realDog.breed}</div>
+        </div>
+      </div>
+
+      <div class="msg-swipe-actions">
+        <button
+          type="button"
+          class="msg-spam-btn"
+          data-unfollow-dog="${realDog.id}"
+        >
+          ${state.lang === "it" ? "Smetti di seguire" : "Unfollow"}
+        </button>
       </div>
     `;
+
+    const unfollowBtn = row.querySelector('button[data-unfollow-dog]');
+
+    unfollowBtn?.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      try {
+  await db.collection("followers").doc(`${dogId}_${targetDogId}`).delete();
+
+if (typeof rebuildFollowersStateFromFirestore === "function") {
+  await rebuildFollowersStateFromFirestore();
+}
+
+if (typeof updateFollowerUI === "function") {
+  updateFollowerUI(dogId);
+  updateFollowerUI(targetDogId);
+}
+
+openFollowingList(dogId);
+} catch (e) {
+  console.error("following direct delete error:", e);
+      }
+    });
+
+    let startX = 0;
+    let startY = 0;
+    let movedX = 0;
+    let movedY = 0;
+    let isSwipeLocked = false;
+    let blockNextClick = false;
+
+    const closeOtherFollowingSwipeRows = () => {
+      followingList.querySelectorAll(".msg-item.swipe-open").forEach((el) => {
+        if (el !== row) el.classList.remove("swipe-open");
+      });
+    };
+
+    row.addEventListener("touchstart", (e) => {
+      const t = e.touches && e.touches[0];
+      if (!t) return;
+
+      startX = t.clientX;
+      startY = t.clientY;
+      movedX = 0;
+      movedY = 0;
+      isSwipeLocked = false;
+      blockNextClick = false;
+    }, { passive: true });
+
+    row.addEventListener("touchmove", (e) => {
+      const t = e.touches && e.touches[0];
+      if (!t) return;
+
+      movedX = t.clientX - startX;
+      movedY = t.clientY - startY;
+
+      if (!isSwipeLocked && Math.abs(movedX) > 18 && Math.abs(movedX) > Math.abs(movedY) * 1.4) {
+        isSwipeLocked = true;
+      }
+
+      if (!isSwipeLocked) return;
+
+      if (movedX < -28) {
+        blockNextClick = true;
+        closeOtherFollowingSwipeRows();
+        row.classList.add("swipe-open");
+        e.preventDefault();
+      }
+
+      if (movedX > 28) {
+        blockNextClick = true;
+        row.classList.remove("swipe-open");
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    row.addEventListener("touchend", () => {
+      if (isSwipeLocked && movedX < -36) {
+        blockNextClick = true;
+        closeOtherFollowingSwipeRows();
+        row.classList.add("swipe-open");
+      }
+
+      if (isSwipeLocked && movedX > 24) {
+        blockNextClick = true;
+        row.classList.remove("swipe-open");
+      }
+
+      setTimeout(() => {
+        blockNextClick = false;
+      }, 220);
+    }, { passive: true });
+
+    row.addEventListener("click", (e) => {
+      if (!blockNextClick) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    }, true);
 
     row.addEventListener("click", (e) => {
       e.preventDefault();
@@ -4940,17 +5299,27 @@ try {
         dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
         ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
         selfieUrl: String(data.selfieUrl || ""),
-ownerUid,
-plus,
-plusStatus
+        ownerUid,
+        plus,
+        plusStatus
       };
 
       if (typeof window.openProfilePage === "function") {
-        window.openProfilePage(freshDog);
+
+  try {
+    if (Array.isArray(state.dogs)) {
+      state.dogs = state.dogs.map(dog =>
+        String(dog.id) === String(freshDog.id)
+          ? { ...dog, ...freshDog }
+          : dog
+      );
+      localStorage.setItem("dogs", JSON.stringify(state.dogs));
+    }
+  } catch (_) {}
+
+  window.openProfilePage(freshDog);
+  return;
       }
-    })
-    .catch(() => {
-      openFallback();
     });
 };
 
@@ -5127,12 +5496,21 @@ profileContent.innerHTML = `
     </div>
   `
   : `
+
     <div class="pp-badges" style="margin-top:.75rem">
-      <span class="badge">${d.breed}</span>
-      <span class="badge">${d.age} ${t("years")}</span>
-     <span class="badge">${d.zone || fmtKm(d.km)}</span>
-      <span class="badge">${d.sex === "M" ? (state.lang === "it" ? "Maschio" : "Male") : (state.lang === "it" ? "Femmina" : "Female")}</span>
-    </div>
+  <span class="badge">${d.breed}</span>
+  <span class="badge">${d.age} ${t("years")}</span>
+  <span class="badge">${d.zone || fmtKm(d.km)}</span>
+  <span class="badge">${d.sex === "M" ? (state.lang === "it" ? "Maschio" : "Male") : (state.lang === "it" ? "Femmina" : "Female")}</span>
+
+  ${((d.availability && d.availability.breeding === true) || d.breeding === true)
+    ? `<span class="badge">💛 Accoppiamento</span>`
+    : ""}
+
+  ${(d.availability && d.availability.walks === true)
+    ? `<span class="badge">🐾 Passeggiate</span>`
+    : ""}
+</div>
 
     ${d.bio ? `
   <div class="pp-bio-block">
@@ -6686,6 +7064,7 @@ if (btnSettings0) {
 
     const wrap = document.createElement("div");
     wrap.id = "plutooProfileSettingsView";
+    wrap.classList.toggle("profile-plus", d.plus === true && d.plusStatus === "active");
     wrap.style.position = "fixed";
     wrap.style.left = "0";
     wrap.style.top = "0";
@@ -7013,6 +7392,55 @@ zoneInput.addEventListener("click", () => {
     bio.style.resize = "vertical";
     bio.style.minHeight = "120px";
 
+    const availabilityBox = document.createElement("div");
+availabilityBox.style.display = "flex";
+availabilityBox.style.flexDirection = "column";
+availabilityBox.style.gap = "10px";
+availabilityBox.style.padding = "10px 12px";
+availabilityBox.style.border = "1px solid rgba(255,255,255,.12)";
+availabilityBox.style.borderRadius = "14px";
+availabilityBox.style.background = "rgba(255,255,255,.03)";
+
+const availabilityTitle = document.createElement("div");
+availabilityTitle.style.fontWeight = "900";
+availabilityTitle.style.color = "#CDA434";
+availabilityTitle.textContent = "Disponibilità DOG";
+
+const currentAvailability = d.availability && typeof d.availability === "object"
+  ? d.availability
+  : {};
+
+const availabilityBreedingLabel = document.createElement("label");
+availabilityBreedingLabel.style.display = "flex";
+availabilityBreedingLabel.style.alignItems = "center";
+availabilityBreedingLabel.style.justifyContent = "space-between";
+availabilityBreedingLabel.style.gap = "12px";
+availabilityBreedingLabel.innerHTML = `<span>Disponibile per accoppiamento</span>`;
+
+const availabilityBreedingInput = document.createElement("input");
+availabilityBreedingInput.type = "checkbox";
+availabilityBreedingInput.id = "availabilityBreeding";
+availabilityBreedingInput.checked = currentAvailability.breeding === true || d.breeding === true;
+
+const availabilityWalksLabel = document.createElement("label");
+availabilityWalksLabel.style.display = "flex";
+availabilityWalksLabel.style.alignItems = "center";
+availabilityWalksLabel.style.justifyContent = "space-between";
+availabilityWalksLabel.style.gap = "12px";
+availabilityWalksLabel.innerHTML = `<span>Disponibile per passeggiate</span>`;
+
+const availabilityWalksInput = document.createElement("input");
+availabilityWalksInput.type = "checkbox";
+availabilityWalksInput.id = "availabilityWalks";
+availabilityWalksInput.checked = currentAvailability.walks === true;
+
+availabilityBreedingLabel.appendChild(availabilityBreedingInput);
+availabilityWalksLabel.appendChild(availabilityWalksInput);
+
+availabilityBox.appendChild(availabilityTitle);
+availabilityBox.appendChild(availabilityBreedingLabel);
+availabilityBox.appendChild(availabilityWalksLabel);
+
     const feedback = document.createElement("div");
     feedback.style.display = "none";
     feedback.style.padding = ".65rem .8rem";
@@ -7084,14 +7512,18 @@ zoneInput.addEventListener("click", () => {
             : new Date();
 
           const updateData = {
-            name: newName,
-            breed: newBreed,
-            age: newAge,
-            sex: newSex,
-            zone: newZone,
-            bio: newBio,
-            updatedAt: ts
-          };
+  name: newName,
+  breed: newBreed,
+  age: newAge,
+  sex: newSex,
+  zone: newZone,
+  bio: newBio,
+  availability: {
+    breeding: availabilityBreedingInput.checked === true,
+    walks: availabilityWalksInput.checked === true
+  },
+  updatedAt: ts
+};
 
           if (nextPhotoUrl !== null) {
             updateData.photoUrl = nextPhotoUrl;
@@ -7106,6 +7538,11 @@ zoneInput.addEventListener("click", () => {
         d.sex = newSex;
         d.zone = newZone;
         d.bio = newBio;
+
+        d.availability = {
+  breeding: availabilityBreedingInput.checked === true,
+  walks: availabilityWalksInput.checked === true
+};
 
         if (nextPhotoUrl !== null) {
           d.img = nextPhotoUrl;
@@ -7122,6 +7559,11 @@ zoneInput.addEventListener("click", () => {
               state.dogs[idx].sex = newSex;
               state.dogs[idx].zone = newZone;
               state.dogs[idx].bio = newBio;
+
+              state.dogs[idx].availability = {
+  breeding: availabilityBreedingInput.checked === true,
+  walks: availabilityWalksInput.checked === true
+};
 
               if (nextPhotoUrl !== null) {
                 state.dogs[idx].img = nextPhotoUrl;
@@ -7186,6 +7628,7 @@ if (typeof window.refreshCreateDogCTA === "function") {
     card.appendChild(zoneInput);
     card.appendChild(bioLabel);
     card.appendChild(bio);
+    card.appendChild(availabilityBox);
     card.appendChild(feedback);
     card.appendChild(row);
 
@@ -7430,10 +7873,12 @@ if (existingDoc) {
         return window.db.collection("dogs").doc(dogId).get();
       })
       .then((snap) => {
-        const fresh = snap && snap.exists ? { id: snap.id, ...(snap.data() || {}) } : d;
-        fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
-        openProfilePage(fresh);
-      })
+        const fresh = snap && snap.exists ? { ...d, id: snap.id, ...(snap.data() || {}) } : d;
+fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
+fresh.plus = d.plus === true;
+fresh.plusStatus = d.plusStatus || "";
+openProfilePage(fresh);
+        })
 
     .catch((err) => {
   console.error("dog document delete error:", err);
@@ -7565,9 +8010,24 @@ dogDocsStatus: "uploaded"
 
           return window.db.collection("dogs").doc(dogId).get();
         })
+        
         .then((snap) => {
-          const fresh = snap && snap.exists ? { id: snap.id, ...(snap.data() || {}) } : d;
+        const fresh = snap && snap.exists ? { ...d, id: snap.id, ...(snap.data() || {}) } : d;
 fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
+fresh.plus = d.plus === true;
+fresh.plusStatus = d.plusStatus || "";
+
+try {
+  if (Array.isArray(state.dogs)) {
+    state.dogs = state.dogs.map(dog =>
+      String(dog.id) === String(fresh.id)
+        ? { ...dog, ...fresh }
+        : dog
+    );
+    localStorage.setItem("dogs", JSON.stringify(state.dogs));
+  }
+} catch (_) {}
+
 openProfilePage(fresh);
         })
         
@@ -8332,9 +8792,24 @@ try {
 
 // 2) Meta chat: source of truth conversazione
 
+let existingChatData = {};
+
+try {
+  const chatSnap = await db.collection("chats").doc(chatId).get();
+  existingChatData = chatSnap && chatSnap.exists ? (chatSnap.data() || {}) : {};
+} catch (_) {
+  existingChatData = {};
+}
+
+const isReplyToRequest =
+  existingChatData.status === "pending" &&
+  existingChatData.folder === "requests" &&
+  existingChatData.lastSenderUid &&
+  String(existingChatData.lastSenderUid) !== String(selfUid);
+
 let nextMatch = hasMatch === true;
-let nextStatus = hasMatch === true ? "accepted" : "pending";
-let nextFolder = hasMatch === true ? "inbox" : "requests";
+let nextStatus = hasMatch === true || isReplyToRequest ? "accepted" : "pending";
+let nextFolder = hasMatch === true || isReplyToRequest ? "inbox" : "requests";
 
 await db.collection("chats").doc(chatId).set({
   members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
@@ -8369,6 +8844,9 @@ await db.collection("chats").doc(chatId).update({
 });
 
 if (typeof loadMessagesLists === "function") loadMessagesLists();
+    if (typeof showToast === "function") {
+  showToast("✅ Messaggio inviato");
+    }
 
 // Contatore coerente
 state.chatMessagesSent[safeDogId] =
@@ -9023,8 +9501,6 @@ async function init(){
   if (state.plus){
     if (ageMin) ageMin.value = state.filters.ageMin;
     if (ageMax) ageMax.value = state.filters.ageMax;
-    if (weightInput) weightInput.value = state.filters.weight;
-    if (heightInput) heightInput.value = state.filters.height;
     if (pedigreeFilter) pedigreeFilter.value = state.filters.pedigree;
     if (breedingFilter) breedingFilter.value = state.filters.breeding;
     if (sizeFilter) sizeFilter.value = state.filters.size;
@@ -9075,6 +9551,7 @@ async function init(){
     img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
     selfieUrl: String(data.selfieUrl || ""),
     gallery: Array.isArray(data.gallery) ? data.gallery : [],
+    dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
     verified: !!data.verified,
     bio: String(data.bio || ""),
     zone: String(data.zone || ""),
@@ -9082,8 +9559,18 @@ async function init(){
     weight: Number(data.weight || 0),
     height: Number(data.height || 0),
     pedigree: !!data.pedigree,
-    breeding: !!data.breeding,
-    size: String(data.size || "")
+availability: {
+  breeding: data.availability && typeof data.availability === "object"
+    ? data.availability.breeding === true
+    : data.breeding === true,
+  walks: data.availability && typeof data.availability === "object"
+    ? data.availability.walks === true
+    : false
+},
+breeding: data.availability && typeof data.availability === "object"
+  ? data.availability.breeding === true
+  : data.breeding === true,
+size: String(data.size || "")
   });
       }
 
