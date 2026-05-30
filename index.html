@@ -8,6 +8,8 @@
   <title>Plutoo</title>
   <link rel="icon" type="image/png" href="plutoo-icon-192.png">
   <link rel="apple-touch-icon" href="plutoo-icon-192.png">
+  <link rel="preload" as="image" href="plutoo-icon-512.png">
+<link rel="preload" as="image" href="plutoo-icon-192.png">
   <link rel="manifest" href="manifest.json">
   <link rel="preload" as="image" href="dog1.jpg">
   <link rel="preload" as="image" href="dog2.jpg">
@@ -350,7 +352,12 @@
 
         <div class="f switch f-gold">
           <label data-i18n="onlyVerified">Solo con badge verificato ✅</label>
-          <input id="onlyVerified" type="checkbox" disabled>
+          <input id="onlyVerified" type="checkbox">
+        </div>
+
+        <div class="f switch f-gold">
+          <label>Solo con selfie</label>
+          <input id="onlySelfie" type="checkbox">
         </div>
 
         <div class="f f-gold">
@@ -364,16 +371,6 @@
         </div>
 
         <div class="f f-gold">
-          <label data-i18n="weight">Peso (kg)</label>
-          <input id="weightInput" type="number" min="0" placeholder="Min peso" disabled>
-        </div>
-
-        <div class="f f-gold">
-          <label data-i18n="height">Altezza (cm)</label>
-          <input id="heightInput" type="number" min="0" placeholder="Min altezza" disabled>
-        </div>
-
-        <div class="f f-gold">
           <label data-i18n="pedigree">Pedigree</label>
           <select id="pedigreeFilter" disabled>
             <option value="" data-i18n="indifferent">Indifferente</option>
@@ -383,11 +380,11 @@
         </div>
 
         <div class="f f-gold">
-          <label data-i18n="breeding">Disponibile per accoppiamento</label>
+          <label data-i18n="breeding">Disponibile per</label>
           <select id="breedingFilter" disabled>
-            <option value="" data-i18n="indifferent">Indifferente</option>
-            <option value="yes" data-i18n="yes">Sì</option>
-            <option value="no" data-i18n="no">No</option>
+          <option value="">Indifferente</option>
+          <option value="breeding">Accoppiamento</option>
+          <option value="walks">Passeggiate</option>
           </select>
         </div>
 
