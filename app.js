@@ -415,6 +415,12 @@ document.getElementById("btnLogout")?.addEventListener("click", async () => {
     localStorage.setItem("currentView", "home");
     localStorage.setItem("entered", "0");
 
+    localStorage.removeItem("dogs");
+
+if (window.state && Array.isArray(window.state.dogs)) {
+  window.state.dogs = [];
+}
+
     Object.keys(localStorage).forEach((k) => {
   if (k.startsWith("f_")) {
     localStorage.removeItem(k);
@@ -824,6 +830,54 @@ console.error("bindCreateDogButtonsOnce error:", e);
 }
 })();
 
+async function loadBlockedDogIds() {
+  try {
+    const myDogId = String(window.PLUTOO_DOG_ID || "").trim();
+    const _db = window.db || null;
+
+    const blockedSet = new Set();
+
+    if (!myDogId || !_db) {
+      state.blockedDogIds = [];
+      window.PLUTOO_BLOCKED_DOG_IDS = [];
+      return [];
+    }
+
+    const blockedByMeSnap = await _db
+      .collection("blocks")
+      .where("blockerDogId", "==", myDogId)
+      .get();
+
+    blockedByMeSnap.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const blockedDogId = String(data.blockedDogId || "").trim();
+      if (blockedDogId) blockedSet.add(blockedDogId);
+    });
+
+    const blockedMeSnap = await _db
+      .collection("blocks")
+      .where("blockedDogId", "==", myDogId)
+      .get();
+
+    blockedMeSnap.forEach((docSnap) => {
+      const data = docSnap.data() || {};
+      const blockerDogId = String(data.blockerDogId || "").trim();
+      if (blockerDogId) blockedSet.add(blockerDogId);
+    });
+
+    state.blockedDogIds = Array.from(blockedSet);
+    window.PLUTOO_BLOCKED_DOG_IDS = state.blockedDogIds;
+
+    try { localStorage.setItem("plutoo_blocked_ids", JSON.stringify(state.blockedDogIds)); } catch (_) {}
+
+    return state.blockedDogIds;
+  } catch (_) {
+    state.blockedDogIds = [];
+    window.PLUTOO_BLOCKED_DOG_IDS = [];
+    return [];
+  }
+}
+
 // ✅ DOG presence check (Firestore source of truth)
 // (wrappato in IIFE async per evitare await fuori contesto)
 window.plutooDogPresenceCheck = async function plutooDogPresenceCheck() {
@@ -868,7 +922,13 @@ CURRENT_USER_DOG_ID = dogId || "";
 window.PLUTOO_DOG_NAME = dogName;  
 
 // ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)  
-window.PLUTOO_READONLY = !hasDog;  
+window.PLUTOO_READONLY = !hasDog;
+
+  await loadBlockedDogIds();
+
+if (state.currentView === "nearby" && typeof renderNearby === "function") {
+  renderNearby();
+}
 
 // UI CTA aggiornata (mai sparire)  
 if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
@@ -1259,6 +1319,156 @@ function showPlutooConfirm(message, options = {}) {
   });
 }
 
+function showDogBoardReplyReportReasonModal(title) {
+  const modalTitle = title || "Segnala";
+
+  return new Promise((resolve) => {
+    const modal = document.createElement("div");
+    modal.className = "plutoo-report-choice-backdrop";
+
+    modal.innerHTML = `
+      <div class="plutoo-report-choice-box">
+        <div class="plutoo-report-choice-title">${modalTitle}</div>
+
+        <div class="plutoo-report-choice-list">
+          ${["Spam", "Linguaggio offensivo", "Truffa", "Minori", "Contenuto sessuale", "Razzismo / Bullismo"].map((reason) => `
+            <button type="button" class="plutoo-report-choice" data-reason="${reason}">
+              <span class="plutoo-report-check">○</span>
+              <span>${reason}</span>
+            </button>
+          `).join("")}
+        </div>
+
+        <div class="plutoo-report-error" hidden>Seleziona un motivo</div>
+
+        <div class="plutoo-report-choice-actions">
+          <button type="button" class="btn ghost small" data-cancel="1">Annulla</button>
+          <button type="button" class="btn plutoo-report-confirm-btn small" data-confirm="1">Invia segnalazione</button>
+        </div>
+      </div>
+    `;
+
+    let selectedReason = "";
+
+    modal.querySelectorAll(".plutoo-report-choice").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectedReason = String(btn.getAttribute("data-reason") || "");
+
+        modal.querySelectorAll(".plutoo-report-choice").forEach((b) => {
+          b.classList.toggle("selected", b === btn);
+          const check = b.querySelector(".plutoo-report-check");
+          if (check) check.textContent = b === btn ? "✓" : "○";
+        });
+
+        const err = modal.querySelector(".plutoo-report-error");
+        if (err) err.hidden = true;
+      });
+    });
+
+    const close = (value) => {
+      if (modal.parentNode) modal.remove();
+      resolve(value || "");
+    };
+
+    modal.querySelector("[data-cancel='1']")?.addEventListener("click", () => close(""));
+
+    modal.querySelector("[data-confirm='1']")?.addEventListener("click", () => {
+      if (!selectedReason) {
+        const err = modal.querySelector(".plutoo-report-error");
+        if (err) err.hidden = false;
+        return;
+      }
+
+      close(selectedReason);
+    });
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) close("");
+    });
+
+    document.body.appendChild(modal);
+  });
+}
+
+function showProfileReportContentModal() {
+  return new Promise((resolve) => {
+    const modal = document.createElement("div");
+    modal.className = "plutoo-report-choice-backdrop";
+
+    modal.innerHTML = `
+      <div class="plutoo-report-choice-box">
+        <div class="plutoo-report-choice-title">Segnala contenuti</div>
+
+        <div class="plutoo-report-choice-list">
+          ${[
+            { type: "dog_profile", label: "Segnala profilo" },
+            { type: "dog_profile_photo", label: "Segnala foto profilo" },
+            { type: "gallery_photo", label: "Segnala immagini" },
+            { type: "dog_selfie", label: "Segnala selfie" },
+            { type: "story", label: "Segnala aggiornamento" },
+            { type: "owner_social", label: "Segnala social" }
+          ].map((item) => `
+            <button type="button" class="plutoo-report-choice" data-type="${item.type}" data-label="${item.label}">
+              <span class="plutoo-report-check">○</span>
+              <span>${item.label}</span>
+            </button>
+          `).join("")}
+        </div>
+
+        <div class="plutoo-report-error" hidden>Seleziona un contenuto</div>
+
+        <div class="plutoo-report-choice-actions">
+          <button type="button" class="btn ghost small" data-cancel="1">Annulla</button>
+          <button type="button" class="btn plutoo-report-confirm-btn small" data-confirm="1">Continua</button>
+        </div>
+      </div>
+    `;
+
+    let selected = null;
+
+    modal.querySelectorAll(".plutoo-report-choice").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selected = {
+          type: String(btn.getAttribute("data-type") || ""),
+          label: String(btn.getAttribute("data-label") || "")
+        };
+
+        modal.querySelectorAll(".plutoo-report-choice").forEach((b) => {
+          b.classList.toggle("selected", b === btn);
+          const check = b.querySelector(".plutoo-report-check");
+          if (check) check.textContent = b === btn ? "✓" : "○";
+        });
+
+        const err = modal.querySelector(".plutoo-report-error");
+        if (err) err.hidden = true;
+      });
+    });
+
+    const close = (value) => {
+      if (modal.parentNode) modal.remove();
+      resolve(value || null);
+    };
+
+    modal.querySelector("[data-cancel='1']")?.addEventListener("click", () => close(null));
+
+    modal.querySelector("[data-confirm='1']")?.addEventListener("click", () => {
+      if (!selected || !selected.type) {
+        const err = modal.querySelector(".plutoo-report-error");
+        if (err) err.hidden = false;
+        return;
+      }
+
+      close(selected);
+    });
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) close(null);
+    });
+
+    document.body.appendChild(modal);
+  });
+}
+
 function autodetectLang(){
   return (navigator.language||"it").toLowerCase().startsWith("en")?"en":"it";
 }
@@ -1301,7 +1511,6 @@ const state = {
   // Swipe & rewards
 swipeCount: 0,
 nextRewardAt: 10,
-matchCount: 0,
 rewardOpen: false,
 
   // Match / amicizie / chat
@@ -1343,8 +1552,6 @@ rewardOpen: false,
 
 // ✅ FIX DEFINITIVO: una sola sorgente di verità per la lingua e per tutte le funzioni che usano window.state
   window.state = state;
-
- let nextMatchColor = ["🩵","🩷","💛","🧡","💚","💙","💜","💗","🫶","❤️"][state.matchCount % 10];
 
   // ============ DOM refs ============
   const homeScreen   = $("homeScreen");
@@ -1559,8 +1766,13 @@ saveStories() {
   }
 
   this.stories = realStories;
-  return true;
-},
+
+try {
+  localStorage.setItem("plutoo_cached_stories", JSON.stringify(realStories));
+} catch (_) {}
+
+return true;
+     },
     
     cleanExpiredStories() {
   const now = Date.now();
@@ -1814,52 +2026,43 @@ $("langEN")?.addEventListener("click", ()=>{
 const DOGS = [
   { id:"d1", isDemo:true, name:"Luna", age:2, breed:"Golden Retriever", km:1.2, img:"dog1.jpg",
     bio:"Dolcissima e curiosa.", mode:"love", sex:"F", verified:true,
-    weight:28, height:55, pedigree:true, breeding:false, size:"medium",
-    social:{ facebook:{enabled:true,url:"https://facebook.com/"},
-             instagram:{enabled:true,url:"https://instagram.com/"},
-             tiktok:{enabled:false,url:""} } },
+    weight:28, height:55, pedigree:true,
+    availability:{ breeding:false, walks:false }, size:"medium" },
+
   { id:"d2", isDemo:true, name:"Rex", age:4, breed:"Pastore Tedesco", km:3.4, img:"dog2.jpg",
     bio:"Fedele e giocherellone.", mode:"friendship", sex:"M", verified:true,
-    weight:35, height:62, pedigree:true, breeding:true, size:"large",
-    social:{ facebook:{enabled:false,url:""},
-             instagram:{enabled:true,url:"https://instagram.com/"},
-             tiktok:{enabled:true,url:"https://tiktok.com/"} } },
+    weight:35, height:62, pedigree:true,
+    availability:{ breeding:true, walks:false }, size:"large" },
+
   { id:"d3", isDemo:true, name:"Maya", age:3, breed:"Bulldog Francese", km:2.1, img:"dog3.jpg",
     bio:"Coccole e passeggiate.", mode:"love", sex:"F", verified:false,
-    weight:12, height:30, pedigree:false, breeding:false, size:"small",
-    social:{ facebook:{enabled:true,url:"https://facebook.com/"},
-             instagram:{enabled:true,url:"https://instagram.com/"},
-             tiktok:{enabled:false,url:""} } },
+    weight:12, height:30, pedigree:false,
+    availability:{ breeding:false, walks:false }, size:"small" },
+
   { id:"d4", isDemo:true, name:"Rocky", age:5, breed:"Beagle", km:4.0, img:"dog4.jpg",
     bio:"Sempre in movimento.", mode:"friendship", sex:"M", verified:true,
-    weight:15, height:38, pedigree:true, breeding:false, size:"medium",
-    social:{ facebook:{enabled:false,url:""},
-             instagram:{enabled:true,url:"https://instagram.com/"},
-             tiktok:{enabled:true,url:"https://tiktok.com/"} } },
+    weight:15, height:38, pedigree:true,
+    availability:{ breeding:false, walks:false }, size:"medium" },
+
   { id:"d5", isDemo:true, name:"Chicco", age:1, breed:"Barboncino", km:0.8, img:"dog5.jpg",
     bio:"Piccolo fulmine.", mode:"love", sex:"M", verified:true,
-    weight:8, height:28, pedigree:false, breeding:false, size:"small",
-    social:{ facebook:{enabled:true,url:"https://facebook.com/"},
-             instagram:{enabled:false,url:""},
-             tiktok:{enabled:false,url:""} } },
+    weight:8, height:28, pedigree:false,
+    availability:{ breeding:false, walks:false }, size:"small" },
+
   { id:"d6", isDemo:true, name:"Kira", age:6, breed:"Labrador", km:5.1, img:"dog6.jpg",
     bio:"Acqua e palla.", mode:"friendship", sex:"F", verified:true,
-    weight:30, height:58, pedigree:true, breeding:true, size:"large",
-    social:{ facebook:{enabled:true,url:"https://facebook.com/"},
-             instagram:{enabled:true,url:"https://instagram.com/"},
-             tiktok:{enabled:true,url:"https://tiktok.com/"} } },
+    weight:30, height:58, pedigree:true,
+    availability:{ breeding:true, walks:false }, size:"large" },
+
   { id:"d7", isDemo:true, name:"Toby", age:2, breed:"Husky", km:2.8, img:"dog7.jpg",
     bio:"Energia pura.", mode:"love", sex:"M", verified:true,
-    weight:25, height:54, pedigree:true, breeding:true, size:"medium",
-    social:{ facebook:{enabled:false,url:""},
-             instagram:{enabled:true,url:"https://instagram.com/"},
-             tiktok:{enabled:false,url:""} } },
+    weight:25, height:54, pedigree:true,
+    availability:{ breeding:true, walks:false }, size:"medium" },
+
   { id:"d8", isDemo:true, name:"Bella", age:4, breed:"Cocker Spaniel", km:1.5, img:"dog8.jpg",
     bio:"Dolce compagna.", mode:"friendship", sex:"F", verified:false,
-    weight:14, height:40, pedigree:false, breeding:false, size:"medium",
-    social:{ facebook:{enabled:true,url:"https://facebook.com/"},
-             instagram:{enabled:true,url:"https://instagram.com/"},
-             tiktok:{enabled:true,url:"https://tiktok.com/"} } },
+    weight:14, height:40, pedigree:false,
+    availability:{ breeding:false, walks:false }, size:"medium" },
 ];
 
   // ============ Razze ============
@@ -1885,6 +2088,14 @@ if (state.entered) {
     const _cached = JSON.parse(localStorage.getItem("dogs") || "[]");
     const _real = Array.isArray(_cached) ? _cached.filter(d => d && !d.isDemo) : [];
     if (_real.length > 0) state.dogs = _real;
+  }
+} catch (_) {}
+
+  try {
+  const _cachedBlocks = JSON.parse(localStorage.getItem("plutoo_blocked_ids") || "[]");
+  if (Array.isArray(_cachedBlocks)) {
+    state.blockedDogIds = _cachedBlocks;
+    window.PLUTOO_BLOCKED_DOG_IDS = _cachedBlocks;
   }
 } catch (_) {}
 
@@ -1934,14 +2145,6 @@ window.openProfilePage(dog);
         const dogsLocal = (window.state && Array.isArray(window.state.dogs)) ? window.state.dogs : [];  
         myDog = dogsLocal.find(x => x && String(x.id) === String(savedId)) || null;  
       } catch (_) {}  
-
-      // 2) fallback localStorage "dogs"  
-      if (!myDog) {  
-        try {  
-          const dogsLS = JSON.parse(localStorage.getItem("dogs") || "[]");  
-          myDog = (Array.isArray(dogsLS) ? dogsLS : []).find(x => x && String(x.id) === String(savedId)) || null;  
-        } catch (_) { myDog = null; }  
-      }  
 
       // 3) se ho già dati → apro profilo  
       if (myDog && window.openProfilePage) {  
@@ -2023,9 +2226,9 @@ window.openProfilePage(dog);
 setActiveView("nearby");
 }
 
-} else {
+    } else {
     setActiveView(viewToRestore);
-}
+  }
 
 showAdBanner();
 }
@@ -2466,7 +2669,6 @@ function __renderNotifs(items) {
       <div class="notif-txt">
         <div class="notif-main">${main}</div>
       </div>
-      <div class="notif-time">${__fmtTime(n.createdAt)}</div>
       <button type="button" class="notif-delete-btn" title="Elimina notifica">🗑️</button>
     `;
 
@@ -2837,6 +3039,8 @@ if (!snap || snap.empty) {
   dogIds: data.dogIds || {},
   status: data.status || null,
   folder: data.folder || null,
+  source: data.source || "",
+  dogBoardPostId: data.dogBoardPostId || "",
   spam: data.spam === true,
   deletedByUid: data.deletedByUid || {},
   spamByUid: data.spamByUid || {}
@@ -2860,7 +3064,13 @@ if (!snap || snap.empty) {
       return b.lastMessageAt - a.lastMessageAt;
     });
 
-   const makeRow = (titleText, dateText, chatId, dogId, otherUid, sourceTab, dogAvatar) => {
+    const _blockedChatIds = new Set(
+  Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+    ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id))
+    : []
+);
+
+  const makeRow = (titleText, dateText, chatId, dogId, otherUid, sourceTab, dogAvatar, chatSource = "", dogBoardPostId = "") => {
   const row = document.createElement("div");
   row.className = "msg-item";
 
@@ -2883,6 +3093,7 @@ if (!snap || snap.empty) {
   ${avatar}
   <div class="msg-main">
     <div class="msg-title">${nameLine}</div>
+    ${chatSource === "dogboard" && dogBoardPostId ? `<div class="msg-dogboard-badge">📌 Annuncio Bacheca DOG</div>` : ``}
     ${previewLine ? `<div class="msg-preview">${previewLine}</div>` : ``}
     <div class="msg-meta">${dateText}</div>
     </div>
@@ -3137,6 +3348,10 @@ restoreBtn?.addEventListener("click", async (e) => {
   return;
       }
 
+      const _otherUidCheck = (Array.isArray(chat.members) ? chat.members : []).find((uid) => uid !== selfUid) || null;
+const _dogIdCheck = (_otherUidCheck && chat.dogIds && chat.dogIds[_otherUidCheck]) || chat.dogId || null;
+if (_dogIdCheck && _blockedChatIds.has(String(_dogIdCheck))) return;
+
       if (chat.spamByUid && chat.spamByUid[selfUid] === true) {
   const otherUid =
     (Array.isArray(chat.members) ? chat.members : []).find((uid) => uid !== selfUid) || null;
@@ -3276,7 +3491,9 @@ restoreBtn?.addEventListener("click", async (e) => {
       dogId,
       otherUid,
       "requests",
-      dogAvatar
+      dogAvatar,
+      chat.source || "",
+      chat.dogBoardPostId || ""
     )
   );
 });
@@ -3381,11 +3598,23 @@ function setActiveView(name){
   state.currentView = name;
 
   // 🔄 Mantieni allineato lo stato delle Stories
-  try {
-    if (!Array.isArray(StoriesState.stories) || StoriesState.stories.length === 0) {
+try {
+  if (!Array.isArray(StoriesState.stories) || StoriesState.stories.length === 0) {
+    let cachedStories = [];
+
+    try {
+      cachedStories = JSON.parse(localStorage.getItem("plutoo_cached_stories") || "[]");
+    } catch (_) {
+      cachedStories = [];
+    }
+
+    if (Array.isArray(cachedStories) && cachedStories.length > 0) {
+      StoriesState.stories = cachedStories;
+    } else {
       StoriesState.loadStories();
     }
-  } catch (e) {}
+  }
+} catch (e) {}
 
   [viewNearby, viewLove, viewPlay, viewMessages, document.getElementById("viewDogBoard"), profilePage].forEach(v => {
     if (!v) return;
@@ -3556,8 +3785,12 @@ function renderNearby(){
 
   const list = filteredDogs();
 
-  const nextSignature = list.map(d => String(d.id)).join("|");
-  const currentSignature = nearGrid.dataset.renderSignature || "";
+  const blockedSignature = Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+  ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id)).sort().join("|")
+  : "";
+
+const nextSignature = `${list.map(d => String(d.id)).join("|")}::blocked=${blockedSignature}`;
+const currentSignature = nearGrid.dataset.renderSignature || "";
 
   if (!list.length){
     nearGrid.dataset.renderSignature = "";
@@ -3653,8 +3886,15 @@ const sourceDogs = hasActiveFilters ? realDogs : [...realDogs, ...DOGS];
     
 const myDogId = String(window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id") || "");
 
+const blockedDogIds = new Set(
+  Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+    ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id))
+    : []
+);
+
 return sourceDogs
 .filter(d => !myDogId || String(d.id) !== myDogId)
+.filter(d => !blockedDogIds.has(String(d.id || "")))
 .filter(d => !d.km || d.km <= (f.distKm || 999))
 
   .filter(d => {
@@ -3740,12 +3980,19 @@ likesSnap.forEach(doc => {
     }
   }
 
-   const deck = swipeSourceDogs
+   const blockedDogIds = new Set(
+  Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+    ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id))
+    : []
+);
+
+const deck = swipeSourceDogs
     .filter(d=>mode==="love" ? true : d.mode===mode)
     .filter(d=>{
       if (!d) return false;
       if (myDogId && String(d.id || "") === myDogId) return false;
       if (myUid && String(d.ownerUid || "") === myUid) return false;
+      if (blockedDogIds.has(String(d.id || ""))) return false;
       if (swipedIds.includes(String(d.id || ""))) return false;
       
       return true;
@@ -3933,7 +4180,7 @@ await db.collection("notifications").doc(oldLikeNotifId).delete().catch(() => {}
     await ensureChatForMatch(d);
   }
 
-  showMatchAnimation(d.name, nextMatchColor);
+  showMatchAnimation(d.name, "❤️");
 
 } else {
 
@@ -4692,8 +4939,17 @@ _db.collection("followers").doc(docId).delete()
     const dogId = (typeof dog === "string") ? dog : dog.id;
     if (!dogId) return;
 
-    const followers = getFollowers(dogId);
-    const following = getFollowing(dogId);
+    const blockedDogIds = new Set(
+      Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+        ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id))
+        : []
+    );
+
+    const followers = getFollowers(dogId)
+      .filter(id => !blockedDogIds.has(String(id)));
+
+    const following = getFollowing(dogId)
+      .filter(id => !blockedDogIds.has(String(id)));
 
     const followersCountEl = $("followersCount");
     const followingCountEl = $("followingCount");
@@ -4747,6 +5003,12 @@ _db.collection("followers").doc(docId).delete()
 
     const dogSnap = await db.collection("dogs").doc(followerDogId).get();
     if (!dogSnap.exists) continue;
+
+    const blockedDogIds = Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+  ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id))
+  : [];
+
+if (blockedDogIds.includes(followerDogId)) continue;
 
     const dogData = dogSnap.data() || {};
 
@@ -4925,6 +5187,12 @@ row.addEventListener("click", (e) => {
     const data = doc.data() || {};
     const targetDogId = String(data.targetDogId || "");
     if (!targetDogId) continue;
+
+    const blockedDogIds = Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+  ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id))
+  : [];
+
+if (blockedDogIds.includes(targetDogId)) continue;
 
     const dogSnap = await db.collection("dogs").doc(targetDogId).get();
     if (!dogSnap.exists) continue;
@@ -5105,29 +5373,162 @@ followingOverlay?.addEventListener("click", (e) => {
   }
 });
 
+async function openStoryLikesList(mediaId) {
+  const _db = window.db || (typeof db !== "undefined" ? db : null);
+
+  if (!mediaId || !_db) {
+    showPlutooAlert("Firestore non pronto. Riprova tra un attimo.", {
+      title: "Plutoo",
+      confirmText: "OK"
+    });
+    return;
+  }
+
+  const modal = document.createElement("div");
+  modal.style.position = "fixed";
+  modal.style.inset = "0";
+  modal.style.zIndex = "99999";
+  modal.style.background = "rgba(0,0,0,.72)";
+  modal.style.display = "flex";
+  modal.style.alignItems = "center";
+  modal.style.justifyContent = "center";
+  modal.style.padding = "18px";
+
+  modal.innerHTML = `
+    <div style="
+      width:min(92vw,390px);
+      max-height:80vh;
+      overflow:auto;
+      background:#171022;
+      border:1px solid rgba(205,164,52,.45);
+      border-radius:20px;
+      padding:16px;
+      color:#fff;
+      box-shadow:0 18px 45px rgba(0,0,0,.45);
+    ">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;">
+        <div style="font-weight:900;color:#CDA434;font-size:1.05rem;">❤️ Like ricevuti</div>
+        <button type="button" data-close="1" class="btn ghost small">✕</button>
+      </div>
+      <div data-list="1" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="color:rgba(255,255,255,.75);font-weight:700;">Caricamento...</div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const close = () => {
+    if (modal.parentNode) modal.parentNode.removeChild(modal);
+  };
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal || e.target?.getAttribute("data-close") === "1") {
+      close();
+    }
+  });
+
+  const list = modal.querySelector("[data-list='1']");
+
+  try {
+    const likesSnap = await _db
+      .collection("stories")
+      .doc(String(mediaId))
+      .collection("likes")
+      .get();
+
+    if (!likesSnap || likesSnap.empty) {
+      list.innerHTML = `<div style="color:rgba(255,255,255,.75);font-weight:700;">Nessun like ricevuto</div>`;
+      return;
+    }
+
+    list.innerHTML = "";
+
+    for (const likeDoc of likesSnap.docs) {
+      const likeData = likeDoc.data() || {};
+      const dogId = String(likeData.fromDogId || likeData.uid || likeDoc.id || "").trim();
+      if (!dogId) continue;
+
+      const dogSnap = await _db.collection("dogs").doc(dogId).get();
+      if (!dogSnap || !dogSnap.exists) continue;
+
+      const dogData = dogSnap.data() || {};
+      const fallbackDog = {
+        id: dogSnap.id,
+        name: String(dogData.name || "DOG"),
+        img: String(dogData.photoUrl || dogData.img || "./plutoo-icon-192.png"),
+        avatar: String(dogData.photoUrl || dogData.img || "./plutoo-icon-192.png"),
+        ownerUid: String(dogData.ownerUid || dogId || "")
+      };
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.style.cssText = `
+        width:100%;
+        display:flex;
+        align-items:center;
+        gap:12px;
+        padding:10px;
+        border-radius:16px;
+        border:1px solid rgba(205,164,52,.22);
+        background:rgba(255,255,255,.06);
+        color:#fff;
+        text-align:left;
+      `;
+
+      row.innerHTML = `
+        <img src="${fallbackDog.img}" alt="${fallbackDog.name}" style="
+          width:44px;
+          height:44px;
+          border-radius:50%;
+          object-fit:cover;
+          background:#0b0b0f;
+        " onerror="this.onerror=null;this.src='./plutoo-icon-192.png';">
+        <div style="font-weight:900;">${fallbackDog.name}</div>
+      `;
+
+      row.onclick = () => {
+        close();
+        if (typeof closeStoryViewer === "function") closeStoryViewer();
+        window.openFreshDogProfile(dogSnap.id, fallbackDog);
+      };
+
+      list.appendChild(row);
+    }
+
+    if (!list.children.length) {
+      list.innerHTML = `<div style="color:rgba(255,255,255,.75);font-weight:700;">Nessun like ricevuto</div>`;
+    }
+  } catch (e) {
+    list.innerHTML = `<div style="color:rgba(255,255,255,.75);font-weight:700;">Errore caricamento like</div>`;
+  }
+}
+
   // ============ LIKE STORIES ============
   function isStoryLiked(mediaId) {
     if (!mediaId) return false;
     return !!(state.storyLikesByMedia && state.storyLikesByMedia[mediaId]);
   }
 
-  function updateStoryLikeUI(mediaId) {
-    if (!storyLikeBtn || !mediaId) return;
+  function updateStoryLikeUI(mediaId, likedValue, likeCount) {
+  if (!storyLikeBtn || !mediaId) return;
 
-    const liked = arguments.length > 1 ? arguments[1] === true : isStoryLiked(mediaId);
-    storyLikeBtn.classList.toggle("liked", liked);
+  const liked = arguments.length > 1 ? likedValue === true : isStoryLiked(mediaId);
+  const count = Number.isFinite(Number(likeCount)) ? Number(likeCount) : 0;
 
-    storyLikeBtn.classList.remove("heart-anim");
-    void storyLikeBtn.offsetWidth;
-    storyLikeBtn.classList.add("heart-anim");
+  storyLikeBtn.classList.toggle("liked", liked);
 
-    storyLikeBtn.textContent = "❤️";
+  storyLikeBtn.classList.remove("heart-anim");
+  void storyLikeBtn.offsetWidth;
+  storyLikeBtn.classList.add("heart-anim");
+
+  storyLikeBtn.textContent = count > 0 ? `❤️ ${count}` : "❤️";
   }
 
   function toggleStoryLike(mediaId) {
-    if (!mediaId) return;
+  if (!mediaId) return;
 
-    if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
+  if (window.PLUTOO_HAS_DOG !== true || !window.PLUTOO_DOG_ID) {
     showPlutooAlert(
       state.lang === "it"
         ? "Per mettere Mi Piace agli Aggiornamenti DOG crea il tuo profilo DOG"
@@ -5138,115 +5539,138 @@ followingOverlay?.addEventListener("click", (e) => {
       }
     );
     return;
-    }
-
-    const currentStory =
-  (StoriesState.stories || []).find(story =>
-    Array.isArray(story.media) &&
-    story.media.some(m => String(m.id) === String(mediaId))
-  );
-
-const isDemoStory =
-  !!currentStory &&
-  currentStory.isDemo === true;
-
-if (isDemoStory) {
-  if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
-
-  if (state.storyLikesByMedia[mediaId]) {
-    delete state.storyLikesByMedia[mediaId];
-  } else {
-    state.storyLikesByMedia[mediaId] = true;
   }
 
-  updateStoryLikeUI(mediaId);
+  const currentStory =
+    (StoriesState.stories || []).find(story =>
+      Array.isArray(story.media) &&
+      story.media.some(m => String(m.id) === String(mediaId))
+    );
 
-  if (storyLikeBtn) {
-    storyLikeBtn.classList.remove("heart-anim");
-    void storyLikeBtn.offsetWidth;
-    storyLikeBtn.classList.add("heart-anim");
+  const myDogId = String(window.PLUTOO_DOG_ID || "");
+  const myUid = String(window.PLUTOO_UID || "");
+  const storyDogId = String(currentStory?.userId || currentStory?.dogId || "");
+  const storyOwnerUid = String(currentStory?.ownerUid || "");
+
+  if (
+    (myDogId && storyDogId && storyDogId === myDogId) ||
+    (myUid && storyOwnerUid && storyOwnerUid === myUid)
+  ) {
+    return;
   }
 
-  return;
-}
-    
+  const isDemoStory =
+    !!currentStory &&
+    currentStory.isDemo === true;
+
+  if (isDemoStory) {
     if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
 
-    const wasLiked = isStoryLiked(mediaId);
-
-    if (wasLiked) {
+    if (state.storyLikesByMedia[mediaId]) {
       delete state.storyLikesByMedia[mediaId];
     } else {
       state.storyLikesByMedia[mediaId] = true;
     }
-    
+
     updateStoryLikeUI(mediaId);
 
-    // ✅ FIRESTORE (PRODUCTION): salva like/unlike (robusto, non silenzioso)
-    try {
-      const uid = window.PLUTOO_UID;
-      const _db = (window.db || (typeof db !== "undefined" ? db : null));
-      if (!uid || !_db) return;
-
-      const hasFirebase =
-        (typeof firebase !== "undefined" && firebase && firebase.firestore && firebase.firestore.FieldValue);
-
-      const ts =
-        (hasFirebase && typeof firebase.firestore.FieldValue.serverTimestamp === "function")
-          ? firebase.firestore.FieldValue.serverTimestamp()
-          : new Date();
-
-      const ref = _db
-        .collection("stories")
-        .doc(String(mediaId))
-        .collection("likes")
-        .doc(String(uid));
-
-      if (wasLiked) {
-        ref.delete().catch((e) => console.error("storyLike delete error:", e));
-      } else {
-        ref.set(
-          {
-            uid: String(uid),
-            mediaId: String(mediaId),
-            createdAt: ts
-          },
-          { merge: true }
-        ).catch((e) => console.error("storyLike set error:", e));
-
-        const currentStory =
-  (StoriesState.stories || []).find(story =>
-    Array.isArray(story.media) &&
-    story.media.some(m => String(m.id) === String(mediaId))
-  );
-
-  _db.collection("stories").doc(String(mediaId)).get()
-  .then((storySnap) => {
-    const storyData = (storySnap && storySnap.exists) ? (storySnap.data() || {}) : {};
-    const targetDogId = String(storyData.dogId || "");
-
-    if (!targetDogId || targetDogId === String(window.PLUTOO_DOG_ID || "")) return;
-
-    const notifId =
-      `story_like_${String(mediaId)}_${String(window.PLUTOO_DOG_ID || "")}`;
-
-    _db.collection("notifications").doc(notifId).set({
-      type: "story_like",
-      fromUid: String(uid),
-      fromDogId: String(window.PLUTOO_DOG_ID || ""),
-      toDogId: targetDogId,
-      mediaId: String(mediaId),
-      createdAt: ts,
-      read: false
-    }, { merge: true }).catch(() => {});
-  })
-  .catch(() => {});
-        
-      }
-    } catch (e) {
-      console.error("storyLike write fatal error:", e);
-      
+    if (storyLikeBtn) {
+      storyLikeBtn.classList.remove("heart-anim");
+      void storyLikeBtn.offsetWidth;
+      storyLikeBtn.classList.add("heart-anim");
     }
+
+    return;
+  }
+
+  const wasLiked = isStoryLiked(mediaId);
+
+  try {
+    const uid = window.PLUTOO_UID;
+    const _db = (window.db || (typeof db !== "undefined" ? db : null));
+    if (!uid || !_db) return;
+
+    const hasFirebase =
+      (typeof firebase !== "undefined" && firebase && firebase.firestore && firebase.firestore.FieldValue);
+
+    const ts =
+      (hasFirebase && typeof firebase.firestore.FieldValue.serverTimestamp === "function")
+        ? firebase.firestore.FieldValue.serverTimestamp()
+        : new Date();
+
+    const ref = _db
+      .collection("stories")
+      .doc(String(mediaId))
+      .collection("likes")
+      .doc(String(uid));
+
+    if (wasLiked) {
+      ref.delete()
+        .then(() => ref.parent.get())
+        .then((likesSnap) => {
+          if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
+          delete state.storyLikesByMedia[mediaId];
+
+          const likeCount = likesSnap && typeof likesSnap.size === "number"
+            ? likesSnap.size
+            : 0;
+
+          updateStoryLikeUI(mediaId, false, likeCount);
+        })
+        .catch((e) => console.error("storyLike delete error:", e));
+    } else {
+      ref.set(
+        {
+          uid: String(uid),
+          mediaId: String(mediaId),
+          createdAt: ts
+        },
+        { merge: true }
+      )
+        .then(() => ref.parent.get())
+        .then((likesSnap) => {
+          if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
+          state.storyLikesByMedia[mediaId] = true;
+
+          const likeCount = likesSnap && typeof likesSnap.size === "number"
+            ? likesSnap.size
+            : 0;
+
+          updateStoryLikeUI(mediaId, true, likeCount);
+        })
+        .catch((e) => console.error("storyLike set error:", e));
+
+      const currentStory =
+        (StoriesState.stories || []).find(story =>
+          Array.isArray(story.media) &&
+          story.media.some(m => String(m.id) === String(mediaId))
+        );
+
+      _db.collection("stories").doc(String(mediaId)).get()
+        .then((storySnap) => {
+          const storyData = (storySnap && storySnap.exists) ? (storySnap.data() || {}) : {};
+          const targetDogId = String(storyData.dogId || "");
+
+          if (!targetDogId || targetDogId === String(window.PLUTOO_DOG_ID || "")) return;
+
+          const notifId =
+            `story_like_${String(mediaId)}_${String(window.PLUTOO_DOG_ID || "")}`;
+
+          _db.collection("notifications").doc(notifId).set({
+            type: "story_like",
+            fromUid: String(uid),
+            fromDogId: String(window.PLUTOO_DOG_ID || ""),
+            toDogId: targetDogId,
+            mediaId: String(mediaId),
+            createdAt: ts,
+            read: false
+          }, { merge: true }).catch(() => {});
+        })
+        .catch(() => {});
+    }
+  } catch (e) {
+    console.error("storyLike write fatal error:", e);
+  }
   }
 
   // ========== Profilo DOG (con Stories + Social + Follow + Like foto) ============
@@ -5644,6 +6068,9 @@ profileContent.innerHTML = `
         <button id="btnOpenChat" class="btn primary">
           ${state.lang === "it" ? "Invia messaggio" : "Send message"}
         </button>
+
+        <button id="btnReportProfileContent" class="btn ghost">🚩 Segnala contenuti</button>
+        <button id="btnBlockProfileVisual" class="btn ghost">⛔ Blocca profilo</button>
       `
   }
 </div>
@@ -5876,6 +6303,8 @@ if (isCreate) {
       if (close && close.parentNode) close.parentNode.removeChild(close);
     });
   }
+
+  window.openPlutooImageViewer = openPlutooImageViewer;
 
    // CREATE: preview cliccabile apre viewer (oltre al picker già esistente)
   if (isCreate) {
@@ -6171,21 +6600,125 @@ location.reload();
 
   const createDogZoneInput = document.getElementById("createDogZone");
 if (createDogZoneInput && isCreate) {
+
+  let _geoRunning = false;
+
   createDogZoneInput.addEventListener("click", () => {
 
+    if (!createDogZoneInput.readOnly) return;
+    if (_geoRunning) return;
+    _geoRunning = true;
+
+    // ── MODALE GEO ────────────────────────────────────────────────
+    function showGeoModal(phase) {
+      // inietta keyframes una sola volta
+      if (!document.getElementById("_plutooGeoStyle")) {
+        const st = document.createElement("style");
+        st.id = "_plutooGeoStyle";
+        st.textContent =
+          "@keyframes _plSpinAnim { to { transform: rotate(360deg); } }";
+        document.head.appendChild(st);
+      }
+
+      // evita duplicati
+      const existing = document.getElementById("_plutooGeoModal");
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+      const overlay = document.createElement("div");
+      overlay.id = "_plutooGeoModal";
+      overlay.style.cssText =
+        "position:fixed;inset:0;z-index:99999;" +
+        "background:rgba(0,0,0,.62);" +
+        "display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;";
+
+      const title    = phase === 1
+        ? (state.lang === "it" ? "Attendi..."    : "Please wait…")
+        : (state.lang === "it" ? "Quasi fatto…"  : "Almost there…");
+      const subtitle = phase === 1
+        ? (state.lang === "it" ? "Sto rilevando la tua posizione" : "Detecting your position")
+        : (state.lang === "it" ? "Sto trovando la tua zona"       : "Finding your area");
+
+      overlay.innerHTML =
+        '<div style="' +
+          'width:min(88vw,320px);' +
+          'background:#171022;' +
+          'border:1px solid rgba(205,164,52,.55);' +
+          'border-radius:20px;' +
+          'padding:28px 22px 24px;' +
+          'box-shadow:0 20px 50px rgba(0,0,0,.55);' +
+          'color:#fff;' +
+          'text-align:center;' +
+          'box-sizing:border-box;">' +
+
+          // emoji cane
+          '<div style="font-size:2rem;margin-bottom:10px;">🐶</div>' +
+
+          // titolo gold
+          '<div style="' +
+            'font-weight:900;font-size:1.05rem;' +
+            'color:#CDA434;margin-bottom:6px;">' +
+            title +
+          '</div>' +
+
+          // sottotitolo
+          '<div id="_plutooGeoText" style="' +
+            'font-size:.875rem;font-weight:600;' +
+            'color:rgba(232,232,232,.82);' +
+            'margin-bottom:20px;line-height:1.4;">' +
+            subtitle +
+          '</div>' +
+
+          // spinner
+          '<div style="' +
+            'width:32px;height:32px;margin:0 auto;' +
+            'border:3px solid rgba(205,164,52,.18);' +
+            'border-top-color:#CDA434;' +
+            'border-radius:50%;' +
+            'animation:_plSpinAnim .75s linear infinite;">' +
+          '</div>' +
+
+        '</div>';
+
+      document.body.appendChild(overlay);
+    }
+
+    function updateGeoModal(phase) {
+      const existing = document.getElementById("_plutooGeoModal");
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      showGeoModal(phase);
+    }
+
+    function closeGeoModal() {
+      const modal = document.getElementById("_plutooGeoModal");
+      if (modal && modal.parentNode) modal.parentNode.removeChild(modal);
+      _geoRunning = false;
+    }
+
+    function enableManualFallback() {
+      closeGeoModal();
+      createDogZoneInput.value = "";
+      createDogZoneInput.readOnly = false;
+      createDogZoneInput.removeAttribute("inputmode");
+      createDogZoneInput.placeholder =
+        state.lang === "it" ? "Inserisci zona manualmente" : "Enter area manually";
+      createDogZoneInput.focus();
+    }
+    // ── FINE MODALE GEO ───────────────────────────────────────────
+
     if (!navigator.geolocation) {
-      createDogZoneInput.value = state.lang === "it" ? "Geolocalizzazione non disponibile" : "Geolocation unavailable";
+      enableManualFallback();
       return;
     }
 
-    createDogZoneInput.value = state.lang === "it" ? "Rilevamento posizione..." : "Detecting location...";
+    // FASE 1 — GPS
+    showGeoModal(1);
 
     let geoWatchId = null;
-let geoDone = false;
+    let geoDone    = false;
 
-geoWatchId = navigator.geolocation.watchPosition(
+    geoWatchId = navigator.geolocation.watchPosition(
+
       p => {
-
         if (geoDone) return;
         geoDone = true;
 
@@ -6198,47 +6731,54 @@ geoWatchId = navigator.geolocation.watchPosition(
           lon: p.coords.longitude
         };
 
-        createDogZoneInput.value = state.lang === "it" ? "Posizione rilevata" : "Location detected";
+        // FASE 2 — NOMINATIM
+        updateGeoModal(2);
 
-fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${state.geo.lat}&lon=${state.geo.lon}&addressdetails=1&accept-language=it`)
-  .then(r => {
-    if (!r.ok) throw new Error();
-    return r.json();
-  })
-  .then(data => {
-    const a = data && data.address ? data.address : {};
-    const city = a.city || a.town || a.village || a.municipality || "";
-    const region = a.region || a.state || "";
-    const label = [city, region].filter(Boolean).join(", ");
+        fetch(
+          "https://nominatim.openstreetmap.org/reverse?format=jsonv2" +
+          "&lat=" + state.geo.lat +
+          "&lon=" + state.geo.lon +
+          "&addressdetails=1&accept-language=it"
+        )
+          .then(r => {
+            if (!r.ok) throw new Error();
+            return r.json();
+          })
+          .then(data => {
+            const a     = data && data.address ? data.address : {};
+            const city  = a.city || a.town || a.village || a.municipality || "";
+            const region = a.region || a.state || "";
+            const label = [city, region].filter(Boolean).join(", ");
 
-    if (label) {
-      createDogZoneInput.value = label;
-    }
-    
-  })
-
-  .catch((e) => {
-  console.error("ZONE REVERSE GEOCODING ERROR:", e);
-}); 
-        
+            if (label) {
+              // FASE 3 — SUCCESSO
+              createDogZoneInput.value = label;
+              closeGeoModal();
+            } else {
+              // Nominatim ok ma label vuota — FASE 5
+              enableManualFallback();
+            }
+          })
+          .catch(e => {
+            console.error("ZONE REVERSE GEOCODING ERROR:", e);
+            // FASE 5 — ERRORE NOMINATIM
+            enableManualFallback();
+          });
       },
-      
-      (err) => {
 
-  if (geoDone) return;
-  geoDone = true;
+      err => {
+        if (geoDone) return;
+        geoDone = true;
 
-  if (geoWatchId !== null) {
-    navigator.geolocation.clearWatch(geoWatchId);
-  }
+        if (geoWatchId !== null) {
+          navigator.geolocation.clearWatch(geoWatchId);
+        }
 
-  createDogZoneInput.value = state.lang === "it"
-  ? "Posizione non rilevata"
-  : "Location not detected";
-},
+        // FASE 4 — ERRORE GPS
+        enableManualFallback();
+      },
 
-      { enableHighAccuracy:true, timeout:20000, maximumAge:0 }
-      
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
   });
 }
@@ -6365,6 +6905,11 @@ const newDogId = dogRef.id;
         km: 0,
         verified: false,
         photoUrl: photoUrl,
+        
+        availability: {
+  breeding: false,
+  walks: false
+},
         createdAt: createdAt,
         updatedAt: createdAt
       }, { merge: true });
@@ -6560,8 +7105,14 @@ let images = _existingGallery.map(x => x && x.url ? x.url : "").filter(Boolean);
 
     if (pubBtn) {
       pubBtn.onclick = () => {
-        if (!isGalleryOwner) return;
+      if (!isGalleryOwner) return;
 if   (!pendingFiles.length) return;
+        if (state.rewardOpen) return;
+
+        state.rewardOpen = true;
+
+        showRewardVideoMock("gallery", () => {
+          state.rewardOpen = false;
 
         const c = document.getElementById("plutooGalleryPendingCount");
 
@@ -6670,7 +7221,11 @@ if   (!pendingFiles.length) return;
                     images = nextGallery.map(x => x && x.url ? x.url : "").filter(Boolean);
 
                     pendingFiles = [];
-                    if (c) c.textContent = state.lang === "it" ? " — Foto pubblicate" : " — Photos published";
+                 showToast(
+                 state.lang === "it"
+                 ? (newItems.length === 1 ? "✅ Immagine caricata" : "✅ Immagini caricate")
+                 : (newItems.length === 1 ? "✅ Image uploaded" : "✅ Images uploaded")
+);
 
                     setTimeout(() => {
                       if (c) c.textContent = "";
@@ -6691,6 +7246,7 @@ if   (!pendingFiles.length) return;
             if (c) c.textContent = state.lang === "it" ? " — Errore lettura profilo" : " — Profile read error";
             publishBar.style.display = "none";
           });
+      });
       };
     }
   };
@@ -6842,6 +7398,12 @@ del.onclick = (ev) => {
                 .filter(Boolean)
                 .slice(0, maxPhotos);
 
+              showToast(
+  state.lang === "it"
+    ? "✅ Immagine eliminata"
+    : "✅ Image deleted"
+);
+
               renderGallery();
             });
         })
@@ -6860,6 +7422,22 @@ if (isGalleryOwner) {
 galleryBlock.appendChild(ph);
     }
 
+    if (!isGalleryOwner && images.length === 0) {
+  const empty = document.createElement("div");
+  const isPlusGallery = d.plus === true && d.plusStatus === "active";
+
+  empty.className = "gallery-empty-card";
+  empty.classList.toggle("gallery-empty-plus", isPlusGallery);
+
+  empty.innerHTML = `
+  <div class="gallery-empty-icon">📷🐶</div>
+  <div class="gallery-empty-text">Nessuna immagine caricata</div>
+`;
+
+  galleryBlock.appendChild(empty);
+  return;
+    }
+
     const addPh = document.createElement("div");
     addPh.className = "ph";
 
@@ -6868,11 +7446,18 @@ galleryBlock.appendChild(ph);
     addBtn.className = "add-photo";
     addBtn.textContent = "+ " + (state.lang === "it" ? "Aggiungi" : "Add");
 
-    addBtn.disabled = images.length >= maxPhotos;
+    addBtn.disabled = false;
 
     addBtn.onclick = () => {
       if (!isGalleryOwner) return;
-      if (images.length >= maxPhotos) return;
+
+      if (images.length >= maxPhotos) {
+        if (typeof showToast === "function") {
+          showToast("⚠️ Hai raggiunto il limite di 5 immagini");
+        }
+        return;
+      }
+
       input.value = "";
       input.click();
     };
@@ -7064,6 +7649,7 @@ if (btnSettings0) {
 
     const wrap = document.createElement("div");
     wrap.id = "plutooProfileSettingsView";
+    wrap.classList.add("plutoo-profile-settings-wrap");
     wrap.classList.toggle("profile-plus", d.plus === true && d.plusStatus === "active");
     wrap.style.position = "fixed";
     wrap.style.left = "0";
@@ -7076,10 +7662,23 @@ if (btnSettings0) {
     wrap.style.flexDirection = "column";
 
     const card = document.createElement("div");
+    card.className = "plutoo-profile-settings-card";
     card.style.margin = "12px";
     card.style.borderRadius = "18px";
-    card.style.border = "1px solid rgba(255,255,255,.10)";
-    card.style.background = "#121218";
+    card.style.border =
+  (d.plus === true && d.plusStatus === "active")
+    ? "1px solid rgba(205,164,52,.55)"
+    : "1px solid rgba(167,139,250,.38)";
+
+card.style.background =
+  (d.plus === true && d.plusStatus === "active")
+    ? "linear-gradient(180deg, #1a1510 0%, #121218 100%)"
+    : "linear-gradient(180deg, #17142a 0%, #121218 100%)";
+
+card.style.boxShadow =
+  (d.plus === true && d.plusStatus === "active")
+    ? "0 22px 70px rgba(0,0,0,.62), 0 0 30px rgba(205,164,52,.20)"
+    : "0 22px 70px rgba(0,0,0,.62), 0 0 30px rgba(167,139,250,.18)";
     card.style.padding = "14px";
     card.style.display = "flex";
     card.style.flexDirection = "column";
@@ -7178,9 +7777,15 @@ btnChangePhoto.addEventListener("click", () => {
     photoRow.appendChild(btnChangePhoto);
     photoRow.appendChild(btnRemovePhoto);
 
-    const nameLabel = document.createElement("div");
+    const sectionColor =
+  (d.plus === true && d.plusStatus === "active")
+    ? "#CDA434"
+    : "#a78bfa";
+
+const nameLabel = document.createElement("div");
     nameLabel.style.opacity = ".85";
-    nameLabel.style.fontWeight = "800";
+    nameLabel.style.fontWeight = "900";
+    nameLabel.style.color = sectionColor;
     nameLabel.textContent = (state.lang === "it") ? "Nome DOG" : "DOG name";
 
     const nameInput = document.createElement("input");
@@ -7195,7 +7800,8 @@ btnChangePhoto.addEventListener("click", () => {
 
     const breedLabel = document.createElement("div");
     breedLabel.style.opacity = ".85";
-    breedLabel.style.fontWeight = "800";
+    breedLabel.style.fontWeight = "900";
+    breedLabel.style.color = sectionColor;
     breedLabel.textContent = (state.lang === "it") ? "Razza" : "Breed";
 
     const breedInput = document.createElement("input");
@@ -7268,7 +7874,8 @@ document.addEventListener("click", (e) => {
 
     const ageLabel = document.createElement("div");
     ageLabel.style.opacity = ".85";
-    ageLabel.style.fontWeight = "800";
+    ageLabel.style.fontWeight = "900";
+    ageLabel.style.color = sectionColor;
     ageLabel.textContent = (state.lang === "it") ? "Età" : "Age";
 
     const ageInput = document.createElement("input");
@@ -7285,7 +7892,8 @@ document.addEventListener("click", (e) => {
 
     const sexLabel = document.createElement("div");
     sexLabel.style.opacity = ".85";
-    sexLabel.style.fontWeight = "800";
+    sexLabel.style.fontWeight = "900";
+    sexLabel.style.color = sectionColor;
     sexLabel.textContent = (state.lang === "it") ? "Sesso" : "Sex";
 
     const sexInput = document.createElement("select");
@@ -7304,7 +7912,8 @@ document.addEventListener("click", (e) => {
 
     const zoneLabel = document.createElement("div");
     zoneLabel.style.opacity = ".85";
-    zoneLabel.style.fontWeight = "800";
+    zoneLabel.style.fontWeight = "900";
+    zoneLabel.style.color = sectionColor;
     zoneLabel.textContent = (state.lang === "it") ? "Zona" : "Area";
 
     const zoneInput = document.createElement("input");
@@ -7373,9 +7982,10 @@ zoneInput.addEventListener("click", () => {
 });
 
     const bioLabel = document.createElement("div");
-    bioLabel.style.opacity = ".85";
-    bioLabel.style.fontWeight = "800";
-    bioLabel.textContent = "Bio";
+bioLabel.style.opacity = ".85";
+bioLabel.style.fontWeight = "900";
+bioLabel.style.color = sectionColor;
+bioLabel.textContent = "Bio";
 
     const bio = document.createElement("textarea");
     bio.rows = 5;
@@ -7403,7 +8013,10 @@ availabilityBox.style.background = "rgba(255,255,255,.03)";
 
 const availabilityTitle = document.createElement("div");
 availabilityTitle.style.fontWeight = "900";
-availabilityTitle.style.color = "#CDA434";
+availabilityTitle.style.color =
+  (d.plus === true && d.plusStatus === "active")
+    ? "#CDA434"
+    : "#a78bfa";
 availabilityTitle.textContent = "Disponibilità DOG";
 
 const currentAvailability = d.availability && typeof d.availability === "object"
@@ -7489,10 +8102,18 @@ availabilityBox.appendChild(availabilityWalksLabel);
         let nextPhotoUrl = null;
 
         if (selectedProfilePhotoFile) {
+
           if (!storage) throw new Error("Storage non pronto");
 
-          const uid = (window.PLUTOO_UID) || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
-          if (!uid) throw new Error("Login richiesto");
+  const uid = (window.PLUTOO_UID) || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
+  if (!uid) throw new Error("Login richiesto");
+
+  await Promise.allSettled([
+    storage.ref().child(`dogs/${uid}/profile.jpg`).delete(),
+    storage.ref().child(`dogs/${uid}/profile.png`).delete(),
+    storage.ref().child(`dogs/${uid}/${String(d.id)}/profile.jpg`).delete(),
+    storage.ref().child(`dogs/${uid}/${String(d.id)}/profile.png`).delete()
+  ]);
 
           const ext = selectedProfilePhotoFile.type && selectedProfilePhotoFile.type.includes("png") ? "png" : "jpg";
           const storageRef = storage.ref().child(`dogs/${uid}/profile.${ext}`);
@@ -7502,7 +8123,18 @@ availabilityBox.appendChild(availabilityWalksLabel);
         }
 
         if (removeProfilePhoto) {
-          nextPhotoUrl = "";
+  const uid = (window.PLUTOO_UID) || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
+
+  if (storage && uid) {
+    await Promise.allSettled([
+      storage.ref().child(`dogs/${uid}/profile.jpg`).delete(),
+      storage.ref().child(`dogs/${uid}/profile.png`).delete(),
+      storage.ref().child(`dogs/${uid}/${String(d.id)}/profile.jpg`).delete(),
+      storage.ref().child(`dogs/${uid}/${String(d.id)}/profile.png`).delete()
+    ]);
+  }
+
+  nextPhotoUrl = "";
         }
 
         if (db) {
@@ -7629,6 +8261,20 @@ if (typeof window.refreshCreateDogCTA === "function") {
     card.appendChild(bioLabel);
     card.appendChild(bio);
     card.appendChild(availabilityBox);
+
+    const btnBlockedProfiles = document.createElement("button");
+btnBlockedProfiles.type = "button";
+btnBlockedProfiles.className = "btn ghost";
+btnBlockedProfiles.style.width = "100%";
+btnBlockedProfiles.style.justifyContent = "flex-start";
+btnBlockedProfiles.textContent = "⛔ Profili bloccati";
+
+btnBlockedProfiles.addEventListener("click", () => {
+  openBlockedProfilesList(myDogId);
+});
+
+card.appendChild(btnBlockedProfiles);
+    
     card.appendChild(feedback);
     card.appendChild(row);
 
@@ -8132,6 +8778,102 @@ if (openChatBtn) {
   };
 }
 
+  const reportProfileContentBtn = $("btnReportProfileContent");
+if (reportProfileContentBtn) {
+  reportProfileContentBtn.onclick = async () => {
+    if (!d || !d.id) return;
+
+    const selectedContent = await showProfileReportContentModal();
+    if (!selectedContent || !selectedContent.type) return;
+
+    const reason = await showDogBoardReplyReportReasonModal("Segnala contenuti");
+    if (!reason) return;
+
+    const reporterUid = String(window.PLUTOO_UID || "");
+    const reporterDogId = String(window.PLUTOO_DOG_ID || "");
+    const targetDogId = String(d.id || "");
+    const targetOwnerUid = String(d.ownerUid || "");
+
+    if (!reporterUid || !reporterDogId || !targetDogId || !targetOwnerUid || !db) return;
+
+    await db.collection("reports").add({
+  type: selectedContent.type,
+  contentType: selectedContent.type,
+  contentLabel: selectedContent.label || "",
+  reporterUid,
+  reporterDogId,
+  targetUid: String(d.ownerUid || ""),
+  targetOwnerUid,
+  targetDogId,
+  reason: String(reason || ""),
+  status: "open",
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+});
+
+    if (typeof showToast === "function") {
+      showToast("✅ Segnalazione inviata con successo");
+    }
+  };
+}
+
+  const blockProfileBtn = $("btnBlockProfileVisual");
+if (blockProfileBtn) {
+  blockProfileBtn.onclick = async () => {
+    const blockerUid = String(window.PLUTOO_UID || "");
+    const blockerDogId = String(window.PLUTOO_DOG_ID || "");
+    const blockedDogId = String(d && d.id ? d.id : "");
+    const blockedUid = String(d && d.ownerUid ? d.ownerUid : "");
+    const _db = window.db || db;
+
+    if (!blockerUid || !blockerDogId || !blockedDogId || !blockedUid || !_db) return;
+    if (blockerDogId === blockedDogId || blockerUid === blockedUid) return;
+
+    const ok = await showPlutooConfirm(
+      "Vuoi bloccare questo profilo?",
+      {
+        title: "Plutoo",
+        confirmText: "Blocca",
+        cancelText: "Annulla",
+        danger: false
+      }
+    );
+
+    if (!ok) return;
+
+    const blockId = `${blockerDogId}_${blockedDogId}`;
+
+    await _db.collection("blocks").doc(blockId).set({
+      blockerUid,
+      blockerDogId,
+      blockerDogName: String(window.PLUTOO_DOG_NAME || ""),
+      blockerDogAvatar: "",
+
+      blockedUid,
+      blockedDogId,
+      blockedDogName: String(d.name || ""),
+      blockedDogAvatar: String(d.avatar || d.img || ""),
+
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    await loadBlockedDogIds();
+
+localStorage.setItem("currentView", "nearby");
+localStorage.removeItem("currentProfileDogId");
+
+profilePage?.classList.remove("active");
+profilePage?.classList.add("hidden");
+
+setActiveView("nearby");
+renderNearby();
+renderSwipe("love");
+
+    if (typeof showToast === "function") {
+      showToast("✅ Profilo bloccato con successo");
+    }
+  };
+}
+
   const likeDogBtn = $("btnLikeDog");
 if (likeDogBtn) {
   likeDogBtn.onclick = async () => {
@@ -8187,11 +8929,9 @@ await db.collection("notifications").doc(oldLikeNotifId).delete().catch(() => {}
       }
 
       const nameForMatch = d.name || (state.lang === "it" ? "Nuovo match" : "New match");
-      showMatchAnimation(nameForMatch, nextMatchColor);
 
-      state.matchCount++;
-
-      nextMatchColor = ["💙","💚","💛","🧡","💜","💗","💝","💖","💞","❤️"][state.matchCount % 10];
+      showMatchAnimation(nameForMatch, "❤️");
+      
   } else {
   const likeNotifId = `like_${String(fromDogId)}_${String(toDogId)}`;
 
@@ -8455,8 +9195,65 @@ async function loadChatHistory(chatId, dogName) {
   }
 }
 
+function getChatPermission({ hasMatch, status, msgCount, plus } = {}) {
+  const safeStatus = String(status || "");
+  const safeMsgCount = Number(msgCount || 0);
+
+  const isPlus = plus === true;
+  const isMatch = hasMatch === true;
+  const isAccepted = safeStatus === "accepted";
+
+  if (isPlus) {
+    return {
+      canSend: true,
+      needsReward: false,
+      reason: "plus",
+      disabled: false,
+      placeholderKey: "write_message"
+    };
+  }
+
+  if (isMatch || isAccepted) {
+    return {
+      canSend: true,
+      needsReward: false,
+      reason: "unlocked",
+      disabled: false,
+      placeholderKey: "write_message"
+    };
+  }
+
+  if (safeMsgCount === 0) {
+    return {
+      canSend: true,
+      needsReward: true,
+      reason: "free_first_message_reward",
+      disabled: false,
+      placeholderKey: "write_message"
+    };
+  }
+
+  return {
+    canSend: false,
+    needsReward: false,
+    reason: "wait_for_reply",
+    disabled: true,
+    placeholderKey: "wait_for_reply"
+  };
+}
+
+function getChatPlaceholder(placeholderKey, lang) {
+  const map = {
+    write_message: { it: "Scrivi un messaggio…", en: "Type a message…" },
+    wait_for_reply: { it: "Attendi una risposta per continuare", en: "Wait for a reply to continue" }
+  };
+
+  const entry = map[placeholderKey] || map.write_message;
+  return lang === "it" ? entry.it : entry.en;
+}
+
   // =========== Chat ===========
-function openChat(chatIdOrDog, maybeDogId, maybeOtherUid) {
+async function openChat(chatIdOrDog, maybeDogId, maybeOtherUid) {
   if (!chatPane || !chatList || !chatInput) return;
 
   const selfUid = window.PLUTOO_UID || "anonymous";
@@ -8509,10 +9306,6 @@ if (chatDogAvatar) {
   chatDogAvatar.alt = dogName;
 }
 
-  // Mostra pannello chat
-  chatPane.classList.remove("hidden");
-  chatPane.classList.add("show");
-
   // Salva metadati correnti
   chatPane.dataset.dogId = dogId;
   chatPane.dataset.chatId = chatId;
@@ -8523,8 +9316,12 @@ if (chatDogAvatar) {
 
   chatList.innerHTML = "";
 
-  // Carica history completa
-  loadChatHistory(chatId, dogName);
+// Carica history completa
+await loadChatHistory(chatId, dogName);
+
+  // Mostra pannello chat
+chatPane.classList.remove("hidden");
+chatPane.classList.add("show");
 
   // ✅ LETTO quando apro la chat (serve per far scalare il badge)
   const openedFrom = state._openChatFromTab || "";
@@ -8555,29 +9352,27 @@ if (chatDogAvatar) {
     window.db.collection("chats").doc(chatId).set({
   lastMessageReadByUid: {
     [selfUid]: true
+  },
+  unreadByUid: {
+    [selfUid]: 0
   }
 }, { merge: true }).catch((e) => {
   console.error("mark chat read failed:", e);
 });
   }
 
-  // Funzione locale per applicare le regole input (UNA sola fonte: hasMatch vero/falso)
-  const applyChatRules = (hasMatchValue) => {
-  const msgCount =
-  Number(chatPane.dataset.msgCount || 0);
+  // Funzione locale per applicare le regole input (fonte unica: getChatPermission)
+const applyChatRules = (hasMatchValue) => {
+  const _perm = getChatPermission({
+    hasMatch: hasMatchValue,
+    status: String(chatPane.dataset.status || ""),
+    msgCount: Number(chatPane.dataset.msgCount || 0),
+    plus: state.plus
+  });
 
-    if (!state.plus && !hasMatchValue && msgCount >= 1) {
-      chatInput.disabled = true;
-      chatInput.placeholder = state.lang === "it"
-        ? "Match necessario per continuare"
-        : "Match needed to continue";
-    } else {
-      chatInput.disabled = false;
-      chatInput.placeholder = state.lang === "it"
-        ? "Scrivi un messaggio…"
-        : "Type a message…";
-    }
-  };
+  chatInput.disabled = _perm.disabled;
+  chatInput.placeholder = getChatPlaceholder(_perm.placeholderKey, state.lang);
+};
 
   // 1) Applica subito una regola “provvisoria” (cache locale, se esiste)
   const localHasMatch = !!(state.matches && state.matches[dogId]);
@@ -8591,6 +9386,7 @@ if (chatDogAvatar) {
         const fsHasMatch = data.match === true;
 
         chatPane.dataset.hasMatch = fsHasMatch ? "1" : "0";
+        chatPane.dataset.status = String(data.status || "");
         chatPane.dataset.msgCount =
        String(data.messageCountByUid && data.messageCountByUid[window.PLUTOO_UID]
     ? data.messageCountByUid[window.PLUTOO_UID]
@@ -8602,7 +9398,10 @@ if (chatDogAvatar) {
           localStorage.setItem("matches", JSON.stringify(state.matches));
         }
 
-        applyChatRules(fsHasMatch);
+        applyChatRules(
+  fsHasMatch ||
+  String(data.status || "") === "accepted"
+);
       })
       .catch((err) => {
         console.error("openChat -> read match failed:", err);
@@ -8640,34 +9439,34 @@ if (chatDogAvatar) {
     }
 
   const hasMatch = (chatPane.dataset.hasMatch === "1") || !!(state.matches && state.matches[dogId]);
-  const msgCount = state.chatMessagesSent[dogId] || 0;
+const msgCount = Number(chatPane.dataset.msgCount || 0);
 
-  if (!state.plus) {
-    if (msgCount === 0) {
-      if (state.rewardOpen) return;
-      state.rewardOpen = true;
-      showRewardVideoMock("chat", () => {
-        state.rewardOpen = false;
-        sendChatMessage(text, dogId, hasMatch, msgCount);
-      });
-      return;
-    } else if (!hasMatch && msgCount >= 1) {
+const _perm = getChatPermission({
+  hasMatch: hasMatch,
+  status: String(chatPane.dataset.status || ""),
+  msgCount: msgCount,
+  plus: state.plus
+});
 
-      showPlutooAlert(
-  state.lang === "it"
-    ? "Serve un match per continuare"
-    : "Match required to continue",
-  {
-    title: "Plutoo",
-    confirmText: "OK"
-  }
-);
-return;
-      
-    }
-  }
+if (!_perm.canSend) {
+  showPlutooAlert(
+    getChatPlaceholder(_perm.placeholderKey, state.lang),
+    { title: "Plutoo", confirmText: "OK" }
+  );
+  return;
+}
 
-  sendChatMessage(text, dogId, hasMatch, msgCount);
+if (_perm.needsReward) {
+  if (state.rewardOpen) return;
+  state.rewardOpen = true;
+  showRewardVideoMock("chat", () => {
+    state.rewardOpen = false;
+    sendChatMessage(text, dogId, hasMatch, msgCount);
+  });
+  return;
+}
+
+sendChatMessage(text, dogId, hasMatch, msgCount);
 });
 
 async function sendChatMessage(text, dogId, hasMatch, msgCount) {
@@ -8808,14 +9607,26 @@ const isReplyToRequest =
   String(existingChatData.lastSenderUid) !== String(selfUid);
 
 let nextMatch = hasMatch === true;
-let nextStatus = hasMatch === true || isReplyToRequest ? "accepted" : "pending";
-let nextFolder = hasMatch === true || isReplyToRequest ? "inbox" : "requests";
+
+const alreadyAccepted = String(existingChatData.status || "") === "accepted";
+
+let nextStatus = (hasMatch === true || isReplyToRequest || alreadyAccepted)
+  ? "accepted"
+  : "pending";
+
+let nextFolder = (hasMatch === true || isReplyToRequest || alreadyAccepted)
+  ? "inbox"
+  : "requests";
 
 await db.collection("chats").doc(chatId).set({
   members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
 
   messageCountByUid: {
   [selfUid]: (msgCount || 0) + 1
+},
+
+  unreadByUid: {
+  [otherUid]: firebase.firestore.FieldValue.increment(1)
 },
 
   lastMessageText: text,
@@ -8843,6 +9654,9 @@ await db.collection("chats").doc(chatId).update({
   [`dogIds.${otherUid}`]: safeDogId
 });
 
+    chatPane.dataset.status = nextStatus;
+chatPane.dataset.folder = nextFolder;
+
 if (typeof loadMessagesLists === "function") loadMessagesLists();
     if (typeof showToast === "function") {
   showToast("✅ Messaggio inviato");
@@ -8852,25 +9666,23 @@ if (typeof loadMessagesLists === "function") loadMessagesLists();
 state.chatMessagesSent[safeDogId] =
   (msgCount || 0) + 1;
 
+    chatPane.dataset.msgCount = String((msgCount || 0) + 1);
+
 localStorage.setItem(
   "chatMessagesSent",
   JSON.stringify(state.chatMessagesSent)
 );
 
 // Regole input
-if (!state.plus && !hasMatch && state.chatMessagesSent[safeDogId] >= 1) {
-  chatInput.disabled = true;
-  chatInput.placeholder =
-    state.lang === "it"
-      ? "Match necessario per continuare"
-      : "Match needed to continue";
-} else {
-  chatInput.disabled = false;
-  chatInput.placeholder =
-    state.lang === "it"
-      ? "Scrivi un messaggio…"
-      : "Type a message…";
-}
+const _perm = getChatPermission({
+  hasMatch: hasMatch,
+  status: nextStatus,
+  msgCount: (msgCount || 0) + 1,
+  plus: state.plus
+});
+
+chatInput.disabled = _perm.disabled;
+chatInput.placeholder = getChatPlaceholder(_perm.placeholderKey, state.lang);
         
 
   } catch (err) {
@@ -8893,6 +9705,68 @@ if (!state.plus && !hasMatch && state.chatMessagesSent[safeDogId] >= 1) {
   } catch (_) {}
   }
   
+}
+
+if (typeof window.openPlutooImageViewer !== "function") {
+  window.openPlutooImageViewer = function(src) {
+    if (!src) return;
+
+    const old = document.getElementById("plutooImageViewer");
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+
+    const wrap = document.createElement("div");
+    wrap.id = "plutooImageViewer";
+    wrap.style.position = "fixed";
+    wrap.style.left = "0";
+    wrap.style.top = "0";
+    wrap.style.right = "0";
+    wrap.style.bottom = "0";
+    wrap.style.background = "rgba(0,0,0,.82)";
+    wrap.style.zIndex = "99999";
+    wrap.style.display = "flex";
+    wrap.style.alignItems = "center";
+    wrap.style.justifyContent = "center";
+    wrap.style.padding = "18px";
+
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = "";
+    img.style.maxWidth = "100%";
+    img.style.maxHeight = "100%";
+    img.style.objectFit = "contain";
+    img.style.borderRadius = "16px";
+    img.style.background = "#0b0b0f";
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "✕";
+    close.style.position = "fixed";
+    close.style.top = "14px";
+    close.style.left = "14px";
+    close.style.zIndex = "100000";
+    close.style.border = "0";
+    close.style.borderRadius = "999px";
+    close.style.padding = "10px 14px";
+    close.style.fontSize = "18px";
+    close.style.fontWeight = "900";
+    close.style.background = "rgba(20,20,20,.8)";
+    close.style.color = "#fff";
+
+    const closeViewer = () => {
+      if (wrap && wrap.parentNode) wrap.parentNode.removeChild(wrap);
+      if (close && close.parentNode) close.parentNode.removeChild(close);
+    };
+
+    close.addEventListener("click", closeViewer);
+
+    wrap.addEventListener("click", (e) => {
+      if (e.target === wrap) closeViewer();
+    });
+
+    wrap.appendChild(img);
+    document.body.appendChild(wrap);
+    document.body.appendChild(close);
+  };
 }
 
 function escapeDogBoardHtml(value){
@@ -8930,7 +9804,20 @@ function openDogBoardViewer(post){
     content.innerHTML = `
       <div class="dogboard-viewer">
 
-        <div class="dogboard-viewer-name">${String(post.dogName || "")}</div>
+      <div
+  class="dogboard-viewer-name dogboard-viewer-open-profile"
+  data-dog-id="${String(post.dogId || "").replace(/"/g, "&quot;")}"
+  role="button"
+  style="display:flex;align-items:center;gap:10px;"
+>
+  <img
+    src="${String(post.dogAvatar || "./plutoo-icon-192.png").replace(/"/g, "&quot;")}"
+    alt="${String(post.dogName || "DOG").replace(/"/g, "&quot;")}"
+    style="width:42px;height:42px;border-radius:50%;object-fit:cover;background:#0b0b0f;"
+    onerror="this.onerror=null;this.src='./plutoo-icon-192.png';"
+  >
+  <span>${String(post.dogName || "")}</span>
+</div>
 
         ${String(post.zone || "").trim()
           ? `<div class="dogboard-zone">${String(post.zone)
@@ -8963,14 +9850,286 @@ function openDogBoardViewer(post){
             </div>`
           : ""}
 
+        <div id="dogBoardRepliesList"></div>
+
         ${isOwner && String(post.id || "")
           ? `<button id="dogboardDeletePost" class="btn danger small" type="button">
               🗑️ Elimina
             </button>`
           : ""}
 
+        ${!isOwner && String(post.id || "")
+          ? `<button id="dogboardReportPost" class="btn ghost small" type="button">
+              🚩 Segnala annuncio
+            </button>`
+          : ""}
+
       </div>
-    `;
+  `;
+
+    const postProfileOpen = content.querySelector(".dogboard-viewer-open-profile");
+if (postProfileOpen) {
+  postProfileOpen.onclick = () => {
+    const dogId = String(post.dogId || "");
+    if (!dogId || typeof openFreshDogProfile !== "function") return;
+
+    pane.classList.remove("show");
+    pane.classList.add("hidden");
+
+    openFreshDogProfile(dogId, {
+      id: dogId,
+      ownerUid: String(post.ownerUid || ""),
+      name: String(post.dogName || "DOG")
+    });
+  };
+}
+
+    content.querySelectorAll(".dogboard-photo").forEach((img) => {
+  img.addEventListener("click", () => {
+    const src = img.getAttribute("src") || "";
+    if (!src || src === "./plutoo-icon-192.png") return;
+    window.openPlutooImageViewer(src);
+  });
+});
+
+  if (window.db && String(post.id || "")) {
+    window.db
+      .collection("dogBoardReplies")
+      .where("dogBoardPostId", "==", String(post.id || ""))
+      .get()
+      .then((snap) => {
+        const repliesList = document.getElementById("dogBoardRepliesList");
+        if (!repliesList) return;
+
+        if (!snap || snap.empty) {
+    repliesList.innerHTML = "";
+  return;
+        }
+
+        let html = "";
+
+        snap.forEach((docSnap) => {
+          const r = docSnap.data() || {};
+
+        const replyId = String(docSnap.id || "");
+        const canDeleteReply =
+  
+  String(post.ownerUid || "") === String(window.PLUTOO_UID || "") ||
+  String(r.senderUid || "") === String(window.PLUTOO_UID || "");
+
+          const avatar = String(r.senderDogAvatar || "./plutoo-icon-192.png");
+          const name   = String(r.senderDogName || "DOG");
+          const text   = String(r.text || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+
+          let dateText = "";
+          if (r.createdAt && typeof r.createdAt.toDate === "function") {
+            dateText = r.createdAt.toDate().toLocaleString();
+          }
+
+        html += `
+          <div class="dogboard-reply-item msg-item" data-reply-id="${replyId.replace(/"/g, "&quot;")}" data-can-delete="${canDeleteReply ? "1" : "0"}" data-reply-dog-id="${String(r.senderDogId || "").replace(/"/g, "&quot;")}" data-reply-sender-uid="${String(r.senderUid || "").replace(/"/g, "&quot;")}">
+            <div class="msg-swipe-front">
+              <img
+                src="${avatar}"
+                class="dogboard-reply-avatar"
+                alt="${name}"
+                onerror="this.onerror=null;this.src='./plutoo-icon-192.png';"
+              >
+              <div class="dogboard-reply-body">
+                <div class="dogboard-reply-name">${name}</div>
+                <div class="dogboard-reply-text">${text}</div>
+                ${dateText ? `<div class="dogboard-reply-date">${dateText}</div>` : ""}
+              </div>
+            </div>
+
+            <div class="msg-swipe-actions">
+              <button type="button" class="msg-delete-btn" title="Elimina">🗑️</button>
+<button type="button" class="msg-spam-btn" title="Segnala">🚩</button>
+            </div>
+          </div>
+        `;
+      });
+
+      repliesList.innerHTML = html;
+
+      repliesList.querySelectorAll(".dogboard-reply-item").forEach((el) => {
+        let startX = 0;
+        let startY = 0;
+        let movedX = 0;
+        let movedY = 0;
+        let isSwipeLocked = false;
+        let blockNextClick = false;
+
+        const closeOtherDogBoardReplyRows = () => {
+          repliesList.querySelectorAll(".dogboard-reply-item.msg-item.swipe-open").forEach((row) => {
+            if (row !== el) row.classList.remove("swipe-open");
+          });
+        };
+
+        el.querySelectorAll(".msg-swipe-actions button").forEach((btn) => {
+  btn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const replyId = String(el.getAttribute("data-reply-id") || "");
+    const targetUid = String(el.getAttribute("data-reply-sender-uid") || "");
+    const reporterUid = String(window.PLUTOO_UID || "");
+    const dogBoardPostId = String(post.id || "");
+
+    if (btn.classList.contains("msg-delete-btn")) {
+      const canDelete = el.getAttribute("data-can-delete") === "1";
+
+      if (!replyId || !canDelete || !window.db) return;
+
+      const ok = await showPlutooConfirm("Vuoi eliminare il commento?", {
+        title: "Plutoo",
+        confirmText: "Elimina",
+        cancelText: "Annulla",
+        danger: true
+      });
+
+      if (!ok) return;
+
+      try {
+        await window.db.collection("dogBoardReplies").doc(replyId).delete();
+
+        el.remove();
+
+        if (typeof showToast === "function") {
+          showToast("Commento eliminato");
+        }
+      } catch (err) {
+        console.error("delete dogBoard reply error:", err);
+      }
+
+      return;
+    }
+
+    if (!btn.classList.contains("msg-spam-btn")) return;
+if (!replyId || !targetUid || !reporterUid || !dogBoardPostId || !window.db) return;
+
+if (reporterUid === targetUid) {
+  if (typeof showToast === "function") showToast("Non puoi segnalare un tuo commento");
+  return;
+}
+
+    const reason = await showDogBoardReplyReportReasonModal();
+    if (!reason) return;
+
+    try {
+      await window.db.collection("reports").add({
+  type: "dogboard_reply",
+  contentType: "dogboard_reply",
+  contentLabel: "",
+  replyId,
+  dogBoardPostId,
+  reporterUid,
+  reporterDogId: String(window.PLUTOO_DOG_ID || ""),
+  targetUid,
+  targetOwnerUid: String(targetUid),
+  targetDogId: String(el.getAttribute("data-reply-dog-id") || ""),
+  reason,
+  status: "open",
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+});
+
+      if (typeof showToast === "function") {
+        showToast("🚩 Segnalazione inviata");
+      }
+    } catch (err) {
+      console.error("dogboard reply report error:", err);
+    }
+  });
+});
+
+        el.addEventListener("touchstart", (e) => {
+          const t = e.touches && e.touches[0];
+          if (!t) return;
+
+          startX = t.clientX;
+          startY = t.clientY;
+          movedX = 0;
+          movedY = 0;
+          isSwipeLocked = false;
+          blockNextClick = false;
+        }, { passive: true });
+
+        el.addEventListener("touchmove", (e) => {
+          const t = e.touches && e.touches[0];
+          if (!t) return;
+
+          movedX = t.clientX - startX;
+          movedY = t.clientY - startY;
+
+          if (!isSwipeLocked && Math.abs(movedX) > 18 && Math.abs(movedX) > Math.abs(movedY) * 1.4) {
+            isSwipeLocked = true;
+          }
+
+          if (!isSwipeLocked) return;
+
+          if (movedX < -28) {
+            blockNextClick = true;
+            closeOtherDogBoardReplyRows();
+            el.classList.add("swipe-open");
+            e.preventDefault();
+          }
+
+          if (movedX > 28) {
+            blockNextClick = true;
+            el.classList.remove("swipe-open");
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        el.addEventListener("touchend", () => {
+          if (isSwipeLocked && movedX < -36) {
+            blockNextClick = true;
+            closeOtherDogBoardReplyRows();
+            el.classList.add("swipe-open");
+          }
+
+          if (isSwipeLocked && movedX > 24) {
+            blockNextClick = true;
+            el.classList.remove("swipe-open");
+          }
+
+          setTimeout(() => {
+            blockNextClick = false;
+          }, 180);
+        }, { passive: true });
+
+        el.onclick = (e) => {
+          if (blockNextClick) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+
+          if (e.target && e.target.closest && e.target.closest(".msg-swipe-actions")) {
+            return;
+          }
+
+          const dogId = String(el.getAttribute("data-reply-dog-id") || "");
+          if (!dogId || typeof openFreshDogProfile !== "function") return;
+
+          pane.classList.remove("show");
+          pane.classList.add("hidden");
+
+          openFreshDogProfile(dogId, { id: dogId });
+        };
+      });
+        
+      })
+      .catch((e) => {
+        console.error("dogBoardReplies load error:", e);
+      });
+  }
 
    const composerEl = input?.closest(".chat-composer");
 
@@ -8986,6 +10145,7 @@ if (input) {
 if (sendBtn) {
   sendBtn.style.display = isOwner ? "none" : "";
   sendBtn.onclick = async () => {
+    
     try {
       if (isOwner) return;
       if (!input || !window.db) return;
@@ -9012,41 +10172,63 @@ if (sendBtn) {
         return;
       }
 
-      const pair = [selfUid, otherUid].sort();
-      const chatId = `${pair[0]}__${pair[1]}`;
+      const selfDogId = String(window.PLUTOO_DOG_ID || "");
 
-      await window.db.collection("messages").add({
-        chatId,
-        senderUid: selfUid,
-        text,
-        type: "text",
-        source: "dogboard",
-        dogBoardPostId: String(post.id || ""),
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        isRead: false
-      });
+      const repliesSnap = await window.db
+  .collection("dogBoardReplies")
+  .where("dogBoardPostId", "==", String(post.id || ""))
+  .where("senderDogId", "==", selfDogId)
+  .get();
 
-      await window.db.collection("chats").doc(chatId).set({
-        members: firebase.firestore.FieldValue.arrayUnion(selfUid, otherUid),
-        lastMessageText: text,
-        lastMessageAt: firebase.firestore.FieldValue.serverTimestamp(),
-        lastSenderUid: selfUid,
-        match: false,
-        status: "pending",
-        folder: "requests",
-        source: "dogboard",
-        dogBoardPostId: String(post.id || "")
-      }, { merge: true });
+const count = repliesSnap && typeof repliesSnap.size === "number"
+  ? repliesSnap.size
+  : 0;
+
+if (count >= 2) {
+  await showPlutooAlert("Hai raggiunto il limite di 2 commenti per questo annuncio.", {
+    title: "Plutoo",
+    confirmText: "OK"
+  });
+  return;
+}
+      
+const selfDog = Array.isArray(state.dogs)
+  ? state.dogs.find(x => x && String(x.id) === selfDogId)
+  : null;
+
+const selfDogName = String(
+  (selfDog && selfDog.name) ||
+  window.PLUTOO_DOG_NAME ||
+  "DOG"
+);
+
+const selfDogAvatar = String(
+  (selfDog && (selfDog.photoUrl || selfDog.img || selfDog.avatar)) ||
+  "./plutoo-icon-192.png"
+);
+
+await window.db.collection("dogBoardReplies").add({
+  dogBoardPostId: String(post.id || ""),
+  ownerUid: otherUid,
+  ownerDogId: dogId,
+  senderUid: selfUid,
+  senderDogId: selfDogId,
+  senderDogName: selfDogName,
+  senderDogAvatar: selfDogAvatar,
+  text,
+  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  isRead: false
+});
 
       input.value = "";
-      sendBtn.disabled = true;
-      sendBtn.textContent = "Inviato";
-
-      if (typeof loadMessagesLists === "function") loadMessagesLists();
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Invia";
+      
       await showPlutooAlert("Messaggio inviato", {
   title: "Plutoo",
   confirmText: "OK"
 });
+      closeViewer();
 
     } catch (e) {
       console.error("DogBoard viewer send error:", e);
@@ -9054,7 +10236,7 @@ if (sendBtn) {
   };
 }
 
-    const closeViewer = () => {
+  const closeViewer = () => {
       pane.classList.remove("show");
       pane.classList.add("hidden");
       if (input) input.value = "";
@@ -9069,17 +10251,89 @@ if (sendBtn) {
 
     const deleteBtn = document.getElementById("dogboardDeletePost");
     if (deleteBtn){
-      deleteBtn.onclick = () => {
+      deleteBtn.onclick = async () => {
         if (!post.id || !window.db) return;
 
-        window.db.collection("dogBoardPosts").doc(String(post.id)).delete()
-          .then(() => {
-            closeViewer();
-            if (typeof loadDogBoardPosts === "function") loadDogBoardPosts();
-          })
-          .catch((e) => {
-            console.error("DogBoard delete post error:", e);
-          });
+        const ok = await showPlutooConfirm("Vuoi eliminare l'annuncio?", {
+          title: "Plutoo",
+          confirmText: "Elimina",
+          cancelText: "Annulla",
+          danger: true
+        });
+
+        if (!ok) return;
+
+        try {
+  const postId = String(post.id || "");
+  const postRef = window.db.collection("dogBoardPosts").doc(postId);
+
+  const postSnap = await postRef.get();
+  const postData = postSnap && postSnap.exists ? (postSnap.data() || {}) : {};
+  const realPhotos = Array.isArray(postData.photos) ? postData.photos : [];
+
+  if (window.storage && realPhotos.length) {
+    await Promise.all(
+      realPhotos
+        .map(p => String(p.storagePath || "").trim())
+        .filter(Boolean)
+        .map(path => window.storage.ref().child(path).delete().catch(() => {}))
+    );
+  }
+
+  const repliesSnap = await window.db
+    .collection("dogBoardReplies")
+    .where("dogBoardPostId", "==", postId)
+    .get();
+
+  await Promise.all(
+    repliesSnap.docs.map(doc => doc.ref.delete().catch(() => {}))
+  );
+
+  await postRef.delete();
+
+  closeViewer();
+  if (typeof showToast === "function") showToast("Annuncio eliminato");
+  if (typeof loadDogBoardPosts === "function") loadDogBoardPosts();
+
+} catch (e) {
+  console.error("DogBoard delete post error:", e);
+        }
+        
+      };
+    }
+
+    const reportPostBtn = document.getElementById("dogboardReportPost");
+    if (reportPostBtn) {
+      reportPostBtn.onclick = async () => {
+        const reporterUid = String(window.PLUTOO_UID || "");
+        const targetUid = String(post.ownerUid || "");
+        const postId = String(post.id || "");
+
+        if (!reporterUid || !targetUid || !postId || !window.db) return;
+
+        const reason = await showDogBoardReplyReportReasonModal();
+        if (!reason) return;
+
+        try {
+          await window.db.collection("reports").add({
+  type: "dogboard_post",
+  contentType: "dogboard_post",
+  contentLabel: "",
+  dogBoardPostId: postId,
+  reporterUid,
+  reporterDogId: String(window.PLUTOO_DOG_ID || ""),
+  targetUid,
+  targetOwnerUid: String(post.ownerUid || ""),
+  targetDogId: String(post.dogId || ""),
+  reason,
+  status: "open",
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+});
+
+          if (typeof showToast === "function") showToast("🚩 Segnalazione inviata");
+        } catch (err) {
+          console.error("dogboard post report error:", err);
+        }
       };
     }
 
@@ -9128,7 +10382,17 @@ function renderDogBoardItem(payload, nowValue, mode = "prepend"){
        dogAvatar: String(payload.dogAvatar || "./plutoo-icon-192.png"),
        zone: String(payload.zone || ""),
        text: String(payload.text || ""),
-       photos: Array.isArray(payload.photos) ? payload.photos.filter(p => typeof p === "string" && p.startsWith("http")) : [],
+
+       photos: Array.isArray(payload.photos)
+  ? payload.photos
+      .map(p => {
+        if (typeof p === "string" && p.startsWith("http")) return p;
+        if (p && typeof p === "object" && typeof p.url === "string" && p.url.startsWith("http")) return p.url;
+        return "";
+      })
+      .filter(Boolean)
+  : [],
+       
        createdAtClient: nowValue
      }))}"
      role="button"
@@ -9152,10 +10416,14 @@ function renderDogBoardItem(payload, nowValue, mode = "prepend"){
 
       ${Array.isArray(payload.photos)
   ? (() => {
-      const validUrls = payload.photos.filter(p =>
-        typeof p === "string" &&
-        p.startsWith("http")
-      );
+
+    const validUrls = payload.photos
+  .map(p => {
+    if (typeof p === "string" && p.startsWith("http")) return p;
+    if (p && typeof p === "object" && typeof p.url === "string" && p.url.startsWith("http")) return p.url;
+    return "";
+  })
+  .filter(Boolean);
 
       return validUrls.length
         ? `<div class="dogboard-photos">
@@ -9214,6 +10482,12 @@ async function loadDogBoardPosts(){
   }
 }
 
+if (btnRefreshDogBoard) {
+  btnRefreshDogBoard.addEventListener("click", () => {
+    loadDogBoardPosts();
+  });
+}
+
     async function publishDogBoardTextOnly(){
   try {
     if (!btnPublishDogBoard || !dogBoardText || !dogBoardList || !window.db) return;
@@ -9257,8 +10531,10 @@ if (!text && !hasPhotos) return;
   return;
     }
 
-    btnPublishDogBoard.dataset.busy = "1";
-    btnPublishDogBoard.disabled = true;
+btnPublishDogBoard.dataset.originalText = btnPublishDogBoard.textContent;
+btnPublishDogBoard.dataset.busy = "1";
+btnPublishDogBoard.disabled = true;
+btnPublishDogBoard.textContent = "Pubblicazione in corso...";
 
     const now = Date.now();
 
@@ -9277,7 +10553,11 @@ if (!text && !hasPhotos) return;
           await storageRef.put(blob);
           const url = await storageRef.getDownloadURL();
 
-          photoUrls.push(url);
+        photoUrls.push({
+         url,
+        storagePath: path
+         });
+          
         } catch (e) {
           console.error("DogBoard upload error:", e);
         }
@@ -9296,13 +10576,14 @@ if (!text && !hasPhotos) return;
       createdAtClient: now
     };
 
-    await window.db.collection("dogBoardPosts").add(payload);
+   const ref = await window.db.collection("dogBoardPosts").add(payload);
+    payload.id = ref.id;
 
     dogBoardSelectedPhotos = [];
     if (dogBoardPreview) dogBoardPreview.innerHTML = "";
     if (dogBoardPhotos) dogBoardPhotos.value = "";
 
-    renderDogBoardItem(payload, now, "prepend");
+    renderDogBoardItem(payload, now, "prepend"); 
 
     dogBoardText.value = "";
 
@@ -9321,7 +10602,8 @@ if (!text && !hasPhotos) return;
   } finally {
     if (btnPublishDogBoard) {
       btnPublishDogBoard.dataset.busy = "0";
-      btnPublishDogBoard.disabled = false;
+btnPublishDogBoard.disabled = false;
+btnPublishDogBoard.textContent = btnPublishDogBoard.dataset.originalText || "Pubblica";
     }
   }
 }
@@ -9592,6 +10874,19 @@ size: String(data.size || "")
 }
 
   function getVisibleMediaList(story) {
+
+    const blockedDogIds = new Set(
+  Array.isArray(window.PLUTOO_BLOCKED_DOG_IDS)
+    ? window.PLUTOO_BLOCKED_DOG_IDS.map(id => String(id))
+    : []
+);
+
+const storyDogId = String(story.dogId || story.userId || story.ownerUid || "");
+
+if (storyDogId && blockedDogIds.has(storyDogId)) {
+  return [];
+}
+    
   const hasMatch = !!state.matches[story.userId];
   const hasFriendship = !!state.friendships[story.userId];
 
@@ -9732,6 +11027,16 @@ circle.innerHTML = `
     document.body.classList.add("noscroll");
     document.body.classList.add("story-open");
 
+    state.storyOpen = true;
+
+try {
+  history.pushState(
+    { view: "storyViewer", storyOpen: true },
+    "",
+    ""
+  );
+} catch (_) {}
+
     renderStoryViewer();
     startStoryProgress();
   }
@@ -9744,6 +11049,16 @@ circle.innerHTML = `
     $("storyViewer")?.classList.remove("hidden");
     document.body.classList.add("noscroll");
     document.body.classList.add("story-open");
+
+    state.storyOpen = true;
+
+try {
+  history.pushState(
+    { view: "storyViewer", storyOpen: true },
+    "",
+    ""
+  );
+} catch (_) {}
 
     renderStoryViewer();
     startStoryProgress();
@@ -9856,7 +11171,20 @@ if (media.text && media.text.trim() !== "") {
     }
 
     if (storyLikeBtn && media.id) {
-  storyLikeBtn.onclick = () => toggleStoryLike(media.id);
+  storyLikeBtn.onclick = () => {
+  const isOwnerStory =
+    currentStory &&
+    String(currentStory.ownerUid || "") === String(window.PLUTOO_UID || "");
+
+  if (isOwnerStory) {
+    if (typeof openStoryLikesList === "function") {
+      openStoryLikesList(media.id);
+    }
+    return;
+  }
+
+  toggleStoryLike(media.id);
+};
 
   const mediaId = String(media.id);
   const uid = String(window.PLUTOO_UID || "");
@@ -9881,29 +11209,36 @@ if (isDemoStory) {
   if (!uid || !_db) {
     updateStoryLikeUI(mediaId);
   } else {
-    _db
+
+    const likesRef = _db
       .collection("stories")
       .doc(mediaId)
-      .collection("likes")
-      .doc(uid)
-      .get()
-      .then((snap) => {
+      .collection("likes");
+
+    Promise.all([
+      likesRef.doc(uid).get(),
+      likesRef.get()
+    ])
+      .then(([userLikeSnap, likesSnap]) => {
         if (!state.storyLikesByMedia) state.storyLikesByMedia = {};
 
-        const likedValue = !!(snap && snap.exists);
+        const likedValue = !!(userLikeSnap && userLikeSnap.exists);
+        const likeCount = likesSnap && typeof likesSnap.size === "number"
+          ? likesSnap.size
+          : 0;
 
-if (likedValue) {
-  state.storyLikesByMedia[mediaId] = true;
-} else {
-  delete state.storyLikesByMedia[mediaId];
-}
+        if (likedValue) {
+          state.storyLikesByMedia[mediaId] = true;
+        } else {
+          delete state.storyLikesByMedia[mediaId];
+        }
 
-updateStoryLikeUI(mediaId, likedValue);
-        
+        updateStoryLikeUI(mediaId, likedValue, likeCount);
       })
       .catch(() => {
         updateStoryLikeUI(mediaId);
       });
+    
   }
     }
     
@@ -9992,6 +11327,7 @@ updateStoryLikeUI(mediaId, likedValue);
     }
     document.body.classList.remove("noscroll");
     document.body.classList.remove("story-open");
+    state.storyOpen = false;
 
     if (StoriesState?.openedFrom === "profile") {
       $("profilePage")?.classList.remove("hidden");
@@ -10166,11 +11502,11 @@ if (step2Preview) step2Preview.innerHTML = "";
 function openUploadModal() {
   pruneStories24h();
 
-  // ✅ SOLO PLUS può pubblicare (messaggio definitivo)
+  // ✅ FREE: 1 aggiornamento attivo ogni 24h — PLUS: illimitati
   if (!StoriesState.canUploadStory()) {
     const msg = state.lang === "it"
-      ? "Gli Aggiornamenti DOG sono disponibili con Plutoo Plus.\nAttiva Plus per pubblicare aggiornamenti del tuo DOG."
-      : "DOG Updates are available with Plutoo Plus.\nActivate Plus to publish updates of your DOG.";
+      ? "Hai già un Aggiornamento DOG attivo.\nCon il piano Free puoi pubblicare 1 aggiornamento ogni 24h.\nCon Plutoo Plus hai aggiornamenti illimitati."
+      : "You already have an active DOG Update.\nWith the Free plan you can publish 1 update every 24h.\nWith Plutoo Plus you have unlimited updates.";
 
     showPlutooAlert(msg, {
   title: "Plutoo",
@@ -10870,6 +12206,114 @@ function plutooConfirmDelete(message) {
       };
     }
   });
+}
+
+function openBlockedProfilesList(myDogId) {  
+  const closeExisting = (id) => {  
+    const old = document.getElementById(id);  
+    if (old && old.parentNode) old.parentNode.removeChild(old);  
+  };  
+  
+  closeExisting("plutooBlockedListView");  
+  
+  const _db = window.db;  
+  if (!myDogId || !_db) return;  
+  
+  const wrap = document.createElement("div");  
+  wrap.id = "plutooBlockedListView";  
+  wrap.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.86);display:flex;flex-direction:column;";  
+  
+  const card = document.createElement("div");  
+  card.style.cssText = "margin:12px;border-radius:18px;border:1px solid rgba(167,139,250,.38);background:linear-gradient(180deg,#17142a 0%,#121218 100%);box-shadow:0 22px 70px rgba(0,0,0,.62);padding:14px;display:flex;flex-direction:column;gap:10px;flex:1;overflow:auto;";  
+  
+  const titleEl = document.createElement("div");  
+  titleEl.style.cssText = "font-weight:900;font-size:1.28rem;text-align:center;color:#CDA434;margin-bottom:10px;";  
+  titleEl.textContent = "Profili bloccati";  
+  
+  const btnBack = document.createElement("button");  
+  btnBack.type = "button";  
+  btnBack.className = "btn ghost";  
+  btnBack.textContent = "← Indietro";  
+  btnBack.addEventListener("click", () => closeExisting("plutooBlockedListView"));  
+  
+  const listEl = document.createElement("div");  
+  listEl.style.cssText = "display:flex;flex-direction:column;gap:8px;";  
+  listEl.textContent = "Caricamento...";  
+  
+  card.appendChild(titleEl);  
+  card.appendChild(btnBack);  
+  card.appendChild(listEl);  
+  wrap.appendChild(card);  
+  document.body.appendChild(wrap);  
+  
+  _db.collection("blocks")  
+    .where("blockerDogId", "==", myDogId)  
+    .get()  
+    .then((snap) => {  
+      listEl.innerHTML = "";  
+  
+      if (snap.empty) {  
+        listEl.textContent = "Nessun profilo bloccato.";  
+        return;  
+      }  
+  
+      snap.forEach((docSnap) => {  
+        const data = docSnap.data() || {};  
+        const blockedDogId   = String(data.blockedDogId   || "");  
+        const blockedDogName = String(data.blockedDogName || "DOG");  
+        const blockedAvatar  = String(data.blockedDogAvatar || "./plutoo-icon-192.png");  
+        const blockDocId     = `${myDogId}_${blockedDogId}`;  
+  
+        const row = document.createElement("div");  
+        row.style.cssText = "display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);cursor:pointer;";  
+  
+        const avatar = document.createElement("img");  
+        avatar.src = blockedAvatar;  
+        avatar.alt = blockedDogName;  
+        avatar.style.cssText = "width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;";  
+        avatar.onerror = () => { avatar.src = "./plutoo-icon-192.png"; };  
+  
+        const nameEl = document.createElement("div");  
+        nameEl.style.cssText = "flex:1;font-weight:700;";  
+        nameEl.textContent = blockedDogName;  
+  
+         const icon = document.createElement("div");
+icon.textContent = "Sblocca";
+icon.style.cssText = "font-size:.82rem;font-weight:700;color:#CDA434;flex-shrink:0;padding:6px 10px;border-radius:10px;border:1px solid rgba(205,164,52,.35);"; 
+  
+        row.appendChild(avatar);  
+        row.appendChild(nameEl);  
+        row.appendChild(icon);  
+  
+      row.addEventListener("click", async () => {  
+  const ok = await showPlutooConfirm(  
+    `Vuoi sbloccare ${blockedDogName}?`,  
+    {  
+      title: "Plutoo",  
+      confirmText: "Sblocca",  
+      cancelText: "Annulla"  
+    }  
+  );  
+  if (!ok) return;  
+
+  await _db.collection("blocks").doc(blockDocId).delete();  
+
+  await loadBlockedDogIds();
+
+  renderNearby();
+  renderSwipe("love");
+
+  row.remove();  
+
+  showToast("✅ Hai sbloccato " + blockedDogName);  
+});
+  
+        listEl.appendChild(row);  
+      });  
+    })  
+    .catch(() => {  
+      listEl.textContent = "Errore caricamento profili bloccati.";  
+    });  
 }
 
 function showToast(message, type = "success") {
