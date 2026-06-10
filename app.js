@@ -391,8 +391,19 @@ document.getElementById("btnForgotPass")?.addEventListener("click", async () => 
   });
 
   // LOGOUT (dentro pannello "già loggato")
-document.getElementById("btnLogout")?.addEventListener("click", async () => {
+
+  document.getElementById("btnLogout")?.addEventListener("click", async () => {
   sessionStorage.setItem("plutoo_explicit_logout", "1");
+
+  // ✅ SPEGNI LISTENER FIRESTORE PRIMA DEL SIGNOUT
+  try { if (typeof __notifUnsub === "function") __notifUnsub(); } catch (_) {}
+  __notifUnsub = null;
+  __notifInited = false;
+  __notifDogId = null;
+
+  try { if (typeof __msgBadgeUnsub === "function") __msgBadgeUnsub(); } catch (_) {}
+  __msgBadgeUnsub = null;
+
   try {
     await window.auth.signOut();
   } catch (_) {}
@@ -739,16 +750,18 @@ try {
           img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
           verified: !!data.verified,
 
-          // ✅ campi mancanti reali
-          dogDocs: (data.dogDocs && typeof data.dogDocs === "object")
-            ? data.dogDocs
-            : {},
+          dogDocs: await window.getCompatibleDogDocs(
+  String(myId),
+  String(ownerUid || myId || ""),
+  data.dogDocs
+),
 
           ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object")
             ? data.ownerSocial
             : {},
 
           selfieUrl: String(data.selfieUrl || ""),
+          
           ownerUid,
           plus,
           plusStatus
@@ -775,9 +788,7 @@ try {
     } catch (_) {}
   }
 
-  if (typeof window.openFreshDogProfile === "function") {
-  window.openFreshDogProfile(myId, myDog || { id: myId });
-} else if (typeof window.openProfilePage === "function") {
+  if (typeof window.openProfilePage === "function") {
   window.openProfilePage(myDog || { id: myId });
   }
 
@@ -914,9 +925,13 @@ const data = (doc && doc.exists) ? (doc.data() || {}) : null;
 const dogId = hasDog ? String(uid) : null;
 const dogName = hasDog ? String(data.name || "").trim() : "";
 
-// Stato globale (runtime)  
-window.PLUTOO_HAS_DOG = hasDog;  
+// Stato globale (runtime)
+window.PLUTOO_HAS_DOG = hasDog;
 window.PLUTOO_DOG_ID = dogId;
+
+const _ldah = document.getElementById("linkDeleteAccountHome");
+if (_ldah) _ldah.style.display = hasDog ? "none" : "";
+  
 window.CURRENT_USER_DOG_ID = dogId || "";
 CURRENT_USER_DOG_ID = dogId || "";
 window.PLUTOO_DOG_NAME = dogName;  
@@ -994,7 +1009,13 @@ breeding: data.availability && typeof data.availability === "object"
   ? data.availability.breeding === true
   : data.breeding === true,
 size: String(data.size || ""),
-    dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
+    
+    dogDocs: await window.getCompatibleDogDocs(
+  String(uid),
+  String(data.ownerUid || uid || ""),
+  data.dogDocs
+),
+    
     ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
     selfieUrl: String(data.selfieUrl || "")
   });
@@ -1019,6 +1040,32 @@ const storage = firebase.storage();
 window.auth = auth;
 window.db = db;
 window.storage = storage;
+
+window.getCompatibleDogDocs = async function getCompatibleDogDocs(dogId, ownerUid, legacyDogDocs) {
+  
+  const legacy = (legacyDogDocs && typeof legacyDogDocs === "object") ? legacyDogDocs : {};
+
+  try {
+    const id = String(dogId || "").trim();
+    const owner = String(ownerUid || "").trim();
+    const uid = String(window.PLUTOO_UID || "").trim();
+    const _db = window.db || null;
+
+    if (!id || !owner || !uid || owner !== uid || !_db) return legacy;
+
+    const snap = await _db.collection("dogsPrivate").doc(id).collection("dogDocs").get();
+    if (!snap || snap.empty) return legacy;
+
+    const docs = {};
+    snap.forEach((docSnap) => {
+      docs[String(docSnap.id)] = docSnap.data() || {};
+    });
+
+    return docs;
+  } catch (_) {
+    return legacy;
+  }
+};
 
 // ✅ run subito al load (ma SOLO quando la funzione esiste davvero)
 (function runPresenceWhenReady(){
@@ -1069,6 +1116,21 @@ auth.onAuthStateChanged(async (user) => {
   try {
    const linkLogin = document.getElementById("linkLogin");
 const linkRegister = document.getElementById("linkRegister");
+const linkDeleteAccountHome = document.getElementById("linkDeleteAccountHome");
+
+if (linkDeleteAccountHome) {
+  linkDeleteAccountHome.onclick = (e) => {
+    e.preventDefault();
+
+    showPlutooAlert(
+      "Per motivi di coerenza e sicurezza, l'eliminazione dell'account è disponibile dopo la creazione di un profilo DOG. 🐶",
+      {
+        title: "Plutoo",
+        confirmText: "Ho capito"
+      }
+    );
+  };
+}
 
   if (!user) {
   const explicitLogout = sessionStorage.getItem("plutoo_explicit_logout") === "1";
@@ -1117,8 +1179,12 @@ const linkRegister = document.getElementById("linkRegister");
     }
 
     if (linkRegister) {
-      linkRegister.style.display = "none";
-    }
+  linkRegister.style.display = "none";
+}
+
+if (linkDeleteAccountHome) {
+  linkDeleteAccountHome.style.display = "";
+}
 
     try {
       if (db && window.PLUTOO_UID) {
@@ -1127,6 +1193,97 @@ const linkRegister = document.getElementById("linkRegister");
         const snap = await ref.get();
 
 const userData = snap && snap.exists ? (snap.data() || {}) : {};
+
+if (userData.deleted === true && userData.accountStatus === "deleted") {
+
+  const _restoreDeletedAccount = async () => {
+    const _uid = String(window.PLUTOO_UID || "");
+    if (!_uid || !db) throw new Error("uid o db mancante");
+
+    await db.collection("users").doc(_uid).set({
+      deleted: false,
+      accountStatus: "active",
+      publicVisible: true,
+      deletedAt: firebase.firestore.FieldValue.delete(),
+      deletedByUid: firebase.firestore.FieldValue.delete()
+    }, { merge: true });
+
+    const _dogSnap = await db.collection("dogs").where("ownerUid", "==", _uid).get();
+    await Promise.all(_dogSnap.docs.map((d) => d.ref.set({
+      deleted: false,
+      publicVisible: true,
+      deletedAt: firebase.firestore.FieldValue.delete(),
+      deletedByUid: firebase.firestore.FieldValue.delete()
+    }, { merge: true })));
+
+    await db.collection("deletedAccounts").doc(_uid).set({
+      accountStatus: "restored",
+      restoredAt: firebase.firestore.FieldValue.serverTimestamp(),
+      purgeStatus: "cancelled"
+    }, { merge: true });
+  };
+
+  const _confirmed = await showPlutooConfirm(
+    "Abbiamo trovato un account eliminato.\n\nVuoi ripristinare il tuo account?",
+    { title: "Plutoo", confirmText: "Sì, ripristina", cancelText: "No, esci" }
+  );
+
+  if (!_confirmed) {
+    try { await window.auth.signOut(); } catch (_) {}
+    return;
+  }
+
+  await showPlutooAlert(
+    "🎬 Guarda un breve video per ripristinare il tuo account",
+    { title: "Plutoo", confirmText: "OK" }
+  );
+
+  try {
+    await _restoreDeletedAccount();
+  } catch (_err) {
+    await showPlutooAlert("Errore nel ripristino. Riprova.", { title: "Plutoo", confirmText: "OK" });
+    try { await window.auth.signOut(); } catch (_) {}
+    return;
+  }
+
+  window.__booted = true;
+  if (typeof init === "function") await init();
+  runPresenceAfterAuth();
+
+  try { localStorage.setItem("entered", "1"); } catch (_) {}
+  state.entered = true;
+
+  const _flash  = document.getElementById("whiteFlash");
+  const _logo   = document.getElementById("heroLogo");
+  const _app    = document.getElementById("appScreen");
+  const _home   = document.getElementById("homeScreen");
+
+  if (_logo) {
+    _logo.classList.remove("heartbeat-violet", "heartbeat-violet-wow");
+    void _logo.offsetWidth;
+    _logo.classList.add("heartbeat-violet-wow");
+  }
+  if (_flash) _flash.classList.add("active");
+
+  setTimeout(() => {
+    if (_app) _app.classList.remove("hidden");
+    setActiveView("nearby");
+    state.currentView = "nearby";
+  }, 500);
+
+  setTimeout(() => {
+    if (_home) _home.classList.add("hidden");
+    if (_flash) _flash.classList.remove("active");
+    if (_logo) { _logo.style.transition = "opacity 1.5s ease-out"; _logo.style.opacity = "0"; }
+  }, 2000);
+
+  setTimeout(() => {
+    if (_logo) { _logo.classList.remove("heartbeat-violet-wow"); _logo.style.opacity = ""; _logo.style.transition = ""; }
+  }, 3500);
+
+  return;
+}
+
 const userPlusActive = userData.plus === true && userData.plusStatus === "active";
 
 state.plus = userPlusActive;
@@ -1307,6 +1464,36 @@ function showPlutooAlert(message, options = {}) {
     message: message || "",
     confirmText: options.confirmText || "OK"
   });
+}
+
+function showPlutooBlockingLoader(message) {
+  const old = document.getElementById("plutooBlockingLoader");
+  if (old) old.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "plutooBlockingLoader";
+  modal.style.cssText = "position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;";
+
+  modal.innerHTML = `
+    <div style="width:min(88vw,340px);background:#171022;border:1px solid rgba(205,164,52,.45);border-radius:20px;padding:22px;color:#fff;text-align:center;box-shadow:0 18px 45px rgba(0,0,0,.45);">
+      <div style="width:42px;height:42px;border:4px solid rgba(255,255,255,.18);border-top-color:#CDA434;border-radius:50%;margin:0 auto 14px;animation:plutooSpin .8s linear infinite;"></div>
+      <div style="font-weight:900;color:#CDA434;font-size:1.05rem;">${message || "Eliminazione in corso...😓"}</div>
+    </div>
+  `;
+
+  if (!document.getElementById("plutooBlockingLoaderStyle")) {
+    const st = document.createElement("style");
+    st.id = "plutooBlockingLoaderStyle";
+    st.textContent = "@keyframes plutooSpin{to{transform:rotate(360deg)}}";
+    document.head.appendChild(st);
+  }
+
+  document.body.appendChild(modal);
+}
+
+function hidePlutooBlockingLoader() {
+  const modal = document.getElementById("plutooBlockingLoader");
+  if (modal) modal.remove();
 }
 
 function showPlutooConfirm(message, options = {}) {
@@ -1558,8 +1745,6 @@ rewardOpen: false,
   const appScreen    = $("appScreen");
   const heroLogo     = $("heroLogo");
   const btnEnter     = $("btnEnter");
-  const sponsorLink  = $("sponsorLink");
-  const sponsorLinkApp = $("sponsorLinkApp");
   const ethicsButton = $("ethicsButton");
   const btnMsgBack   = $("btnMsgBack");
   const btnPlus      = $("btnPlus");
@@ -1646,11 +1831,26 @@ const btnRefreshDogBoard = $("btnRefreshDogBoard");
 
   const storyLikeBtn = $("storyLikeBtn");
 
-const adBanner = $("adBanner"); const matchOverlay = $("matchOverlay");
+const adBanner = $("adBanner");
+const matchOverlay = $("matchOverlay");
+
+try {
+  if (localStorage.getItem("plutoo_account_deleted_feedback") === "1") {
+    localStorage.removeItem("plutoo_account_deleted_feedback");
+
+    setTimeout(() => {
+      if (typeof showToast === "function") {
+        showToast("✅ Account eliminato");
+      }
+    }, 700);
+  }
+} catch (_) {}
 
 if (state.entered === true) {
   homeScreen?.classList.add("hidden");
   appScreen?.classList.remove("hidden");
+} else {
+  homeScreen?.classList.remove("hidden");
 }
 
 // ============ STORIES – Config & State ============
@@ -2194,7 +2394,11 @@ window.openProfilePage(dog);
         img: (data.img || data.photoUrl || "./plutoo-icon-192.png"),
         verified: !!data.verified,
         ownerSocial: (data.ownerSocial || {}),
-        dogDocs: (data.dogDocs || {}),
+        dogDocs: await window.getCompatibleDogDocs(
+          String(doc.id),
+          String(ownerUid || doc.id || ""),
+          data.dogDocs
+        ),
         selfieUrl: (data.selfieUrl || "")
       };
 
@@ -2232,40 +2436,6 @@ setActiveView("nearby");
 
 showAdBanner();
 }
-
-  function openSponsor(){
-  const url = "https://www.gelatofido.it/";
-
-  // HOME o vista "Vicino a te": nessun reward, apertura diretta
-  if (!state.entered || state.currentView === "nearby") {
-    window.open(url, "_blank", "noopener");
-    return;
-  }
-
-  // Utenti PLUS: mai reward
-  if (state.plus){
-    window.open(url, "_blank", "noopener");
-    return;
-  }
-
-  // Altre viste senza Plus: reward prima dello sponsor
-  if (state.rewardOpen) return;
-  state.rewardOpen = true;
-
-  showRewardVideoMock("sponsor", () => {
-    state.rewardOpen = false;
-    window.open(url, "_blank", "noopener");
-  });
-  }
-
-  sponsorLink?.addEventListener("click",(e)=>{
-    e.preventDefault();
-    openSponsor();
-  });
-  sponsorLinkApp?.addEventListener("click",(e)=>{
-    e.preventDefault();
-    openSponsor();
-  });
 
   ethicsButton?.addEventListener("click", ()=> openSheltersMaps() );
 
@@ -5714,19 +5884,48 @@ try {
   }
 } catch (_) {}
 
-      const freshDog = {
-        ...fallback,
-        ...data,
-        id: snap.id,
-        img: String(data.photoUrl || data.img || fallback.img || "./plutoo-icon-192.png"),
-        avatar: String(data.photoUrl || data.img || fallback.avatar || fallback.img || "./plutoo-icon-192.png"),
-        dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
-        ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
-        selfieUrl: String(data.selfieUrl || ""),
-        ownerUid,
-        plus,
-        plusStatus
-      };
+      let privateDogDocs = null;
+
+try {
+  const isPrivateDocsOwner =
+    String(ownerUid || "") === String(window.PLUTOO_UID || "");
+
+  if (isPrivateDocsOwner && window.db) {
+    const privateDocsSnap = await window.db
+      .collection("dogsPrivate")
+      .doc(String(snap.id))
+      .collection("dogDocs")
+      .get();
+
+    if (privateDocsSnap && !privateDocsSnap.empty) {
+      privateDogDocs = {};
+
+      privateDocsSnap.forEach((docSnap) => {
+        privateDogDocs[String(docSnap.id)] = docSnap.data() || {};
+      });
+    }
+  }
+} catch (_) {
+  privateDogDocs = null;
+}
+
+const freshDog = {
+  ...fallback,
+  ...data,
+  id: snap.id,
+  img: String(data.photoUrl || data.img || fallback.img || "./plutoo-icon-192.png"),
+  avatar: String(data.photoUrl || data.img || fallback.avatar || fallback.img || "./plutoo-icon-192.png"),
+  dogDocs: (privateDogDocs && typeof privateDogDocs === "object")
+    ? privateDogDocs
+    : ((data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {}),
+  ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
+
+  selfieUrl: String(data.selfieUrl || ""),
+  
+  ownerUid,
+  plus,
+  plusStatus
+};
 
       if (typeof window.openProfilePage === "function") {
 
@@ -5785,12 +5984,28 @@ const selfieUnlocked = isOwner || isSelfieUnlocked(d.id);
   
   if (!state.selfieUntilByDog || typeof state.selfieUntilByDog !== "object") state.selfieUntilByDog = {};
 
+  const isDocsOwner =
+  (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id")) === d.id;
+
   const dogDocs = d.dogDocs || {};
 
-  const docsCount = [
-  dogDocs.vaccines && dogDocs.vaccines.url,
-  dogDocs.pedigree && dogDocs.pedigree.url,
-  dogDocs.microchip && dogDocs.microchip.url
+  const dogDocsPublic = d.dogDocsPublic || {};
+
+const hasDogDoc = (name) => {
+  if (isDocsOwner) {
+    return !!(dogDocs[name] && dogDocs[name].url);
+  }
+
+  return !!(
+    dogDocsPublic[name] &&
+    dogDocsPublic[name].uploaded === true
+  );
+};
+
+const docsCount = [
+  hasDogDoc("vaccines"),
+  hasDogDoc("pedigree"),
+  hasDogDoc("microchip")
 ].filter(Boolean).length;
 
 const docsTrustLabel =
@@ -5810,9 +6025,6 @@ const docsTrustLabel =
   const isCreate = (d && d.isCreate === true) || (d && d.id === "__create__");
   const isFallbackPhoto = !d.img;
   const heroImg = isCreate ? "" : (d.img || "./plutoo-icon-192.png");
-
-  const isDocsOwner =
-  (window.PLUTOO_DOG_ID || localStorage.getItem("plutoo_dog_id")) === d.id;
 
 profileContent.innerHTML = `
 
@@ -6000,18 +6212,20 @@ profileContent.innerHTML = `
     <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-vaccines" data-type="dog">
       <div class="doc-icon">💉</div>
       <div class="doc-label">${state.lang === "it" ? "Vaccini" : "Vaccines"}</div>
-      <div class="doc-status ${dogDocs.vaccines && dogDocs.vaccines.url ? "uploaded" : "pending"}">
-        ${dogDocs.vaccines && dogDocs.vaccines.url
-          ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
-          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
-      </div>
+      <div class="doc-status ${hasDogDoc("vaccines") ? "uploaded" : "pending"}">
+  ${hasDogDoc("vaccines")
+    ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
+    : (isDocsOwner
+        ? (state.lang === "it" ? "Da caricare" : "Upload")
+        : (state.lang === "it" ? "Documento assente" : "Document missing"))}
+</div>
     </div>
 
     <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-pedigree" data-type="dog">
       <div class="doc-icon">📜</div>
       <div class="doc-label">${state.lang === "it" ? "Pedigree" : "Pedigree"}</div>
-      <div class="doc-status ${dogDocs.pedigree && dogDocs.pedigree.url ? "uploaded" : "pending"}">
-        ${dogDocs.pedigree && dogDocs.pedigree.url
+      <div class="doc-status ${hasDogDoc("pedigree") ? "uploaded" : "pending"}">
+        ${hasDogDoc("pedigree")
           ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
           : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
       </div>
@@ -6020,19 +6234,19 @@ profileContent.innerHTML = `
     <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-microchip" data-type="dog">
       <div class="doc-icon">🔬</div>
       <div class="doc-label">${state.lang === "it" ? "Microchip" : "Microchip"}</div>
-      <div class="doc-status ${dogDocs.microchip && dogDocs.microchip.url ? "uploaded" : "pending"}">
-        ${dogDocs.microchip && dogDocs.microchip.url
+      <div class="doc-status ${hasDogDoc("microchip") ? "uploaded" : "pending"}">
+        ${hasDogDoc("microchip")
           ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
           : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
       </div>
     </div>
 
-    <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-trust" data-type="trust" style="pointer-events:none">
+    <div class="doc-item ${d.plus === true && d.plusStatus === "active" ? "doc-item-plus" : ""}" data-doc="dog-trust" data-type="trust" style="pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
   ${
     docsCount >= 3
       ? `
-        <div class="doc-icon" style="font-size:2rem;line-height:1">👑</div>
-        <div class="doc-status uploaded">Profilo completo</div>
+        <div class="doc-icon" style="font-size:2rem;line-height:1;margin-bottom:6px">👑</div>
+        <div class="doc-status uploaded" style="margin:0;text-align:center">Profilo completo</div>
       `
       : docsCount >= 1
         ? `
@@ -6361,17 +6575,105 @@ if (!ok) return;
       const deleteFromFirebase = () => {
   if (!uid || !user || !db) return Promise.resolve();
 
-  const deleteQuery = (query) => {
-    return query.get()
-      .then((snap) => {
-        const jobs = [];
-        snap.forEach((doc) => {
-          jobs.push(doc.ref.delete().catch(() => {}));
+        const safeDeleteStoragePath = (path) => {
+  if (!path || !window.storage) return Promise.resolve();
+  return window.storage.ref().child(path).delete().catch(() => {});
+};
+
+        const cleanupStorage = () => {
+          
+  const paths = [];
+  const docPromises = [];
+
+  return db.collection("dogs").where("ownerUid", "==", uid).get()
+    .then((snap) => {
+      snap.forEach((doc) => {
+        const d = doc.data() || {};
+        const dogId = String(doc.id);
+
+        paths.push(`dogs/${uid}/${dogId}/profile.jpg`);
+        paths.push(`dogs/${uid}/${dogId}/profile.png`);
+        paths.push(`dogs/${uid}/profile.jpg`);
+        paths.push(`dogs/${uid}/profile.png`);
+        paths.push(`dogs/${dogId}/selfie/selfie.jpg`);
+
+        const gallery = Array.isArray(d.gallery) ? d.gallery : [];
+        gallery.forEach((item) => {
+          if (item && item.storagePath) paths.push(String(item.storagePath));
         });
-        return Promise.all(jobs);
-      })
-      .catch(() => {});
-  };
+
+        const legacyDogDocs = (d.dogDocs && typeof d.dogDocs === "object") ? d.dogDocs : {};
+        Object.values(legacyDogDocs).forEach((docObj) => {
+          if (docObj && docObj.storagePath) paths.push(String(docObj.storagePath));
+        });
+
+        docPromises.push(window.getCompatibleDogDocs(
+          String(dogId),
+          String(d.ownerUid || uid || ""),
+          d.dogDocs
+        ).then((dogDocs) => {
+          Object.values(dogDocs || {}).forEach((docObj) => {
+            if (docObj && docObj.storagePath) paths.push(String(docObj.storagePath));
+          });
+        }));
+      });
+
+      docPromises.push(
+  db.collection("dogBoardPosts").where("ownerUid","==",uid).get().then((s)=>{
+    s.forEach((d)=>{
+      (d.data().photos||[]).forEach((p)=>{
+        if(p&&p.storagePath) paths.push(String(p.storagePath));
+      });
+    });
+  }).catch(()=>{})
+);
+
+      docPromises.push(
+  db.collection("stories").where("ownerUid","==",uid).get().then((s)=>{
+    s.forEach((d)=>{
+      const data = d.data() || {};
+      if(data.storagePath) paths.push(String(data.storagePath));
+    });
+  }).catch(()=>{})
+);
+
+   return Promise.all(docPromises).then(() => {
+  const filteredPaths = paths.filter(Boolean);
+const retentionUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+return db.collection("deletedAccounts").doc(uid).set({
+  uid: String(uid),
+  storagePaths: filteredPaths,
+  deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  retentionUntil: firebase.firestore.Timestamp.fromDate(retentionUntil),
+  legalHold: false,
+  purgeStatus: "pending",
+  accountStatus: "retained"
+}, { merge: true }).then(() => filteredPaths).catch(() => filteredPaths);
+});
+      
+    })
+    .catch(() => {});
+};
+
+  const deleteQuery = (query) => {
+  return query.get()
+    .then((snap) => {
+      const jobs = [];
+      snap.forEach((doc) => {
+        jobs.push(doc.ref.set({
+          deleted: true,
+          publicVisible: false,
+          deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          deletedByUid: String(uid)
+        }, { merge: true }).catch(() => {}));
+      });
+      return Promise.all(jobs);
+    })
+    .catch(() => {});
+};
+
+        return cleanupStorage().then(() => {
 
   const delDogs = db.collection("dogs").where("ownerUid", "==", uid).get()
     .then((snap) => {
@@ -6414,7 +6716,13 @@ if (!ok) return;
         jobs.push(deleteQuery(db.collection("messages").where("fromUid", "==", uid)));
         jobs.push(deleteQuery(db.collection("messages").where("toUid", "==", uid)));
 
-        jobs.push(doc.ref.delete().catch(() => {}));
+        jobs.push(doc.ref.set({
+  deleted: true,
+  publicVisible: false,
+  deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  deletedByUid: String(uid)
+}, { merge: true }).catch(() => {}));
+        
       });
 
       dogIds.forEach((dogId) => {
@@ -6436,7 +6744,17 @@ if (!ok) return;
               );
 
               chatJobs.push(
-                chatDoc.ref.delete().catch((err) => {
+                
+              chatDoc.ref.set({
+  deletedByUid: {
+    [uid]: true
+  },
+  accountDeletedByUid: {
+    [uid]: true
+  },
+  updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+}, { merge: true }).catch((err) => {
+                
                   showPlutooAlert(
                     "CHAT DELETE ERROR\n" +
                     "code: " + (err && err.code ? err.code : "") + "\n" +
@@ -6459,16 +6777,28 @@ if (!ok) return;
       return Promise.all(jobs);
     });
 
-  const delUserDoc = db.collection("users").doc(uid).delete().catch(() => {});
+          const delUserDoc = db.collection("users").doc(uid).set({
+  deleted: true,
+  accountStatus: "deleted",
+  publicVisible: false,
+  deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  deletedByUid: String(uid)
+}, { merge: true }).catch(() => {});
 
-  const delAuth = user.delete().catch((err) => {
-    return Promise.reject(err);
-  });
-
-  return Promise.all([delDogs, delUserDoc, delAuth])
-    .then(() => {})
-    .catch((err) => { throw err; });
+return Promise.all([delDogs, delUserDoc])
+  .then(() => {
+    return Promise.resolve();
+  })
+  
+  .then(() => {})
+  .catch((err) => { throw err; });
+   }); 
 };
+
+      if (window.__plutooDeleteAccountBusy === true) return;
+window.__plutooDeleteAccountBusy = true;
+
+showPlutooBlockingLoader("Eliminazione in corso...😓");
       
       deleteFromFirebase()  
         .then(() => {  
@@ -6544,11 +6874,15 @@ if (!ok) return;
             localStorage.removeItem("currentView");
             localStorage.setItem("entered", "0");
             localStorage.setItem("currentView", "home");
+            localStorage.setItem("plutoo_account_deleted_feedback", "1");
           } catch (_) {}
 
           location.reload();  
         })  
         .catch((err) => {  
+
+          window.__plutooDeleteAccountBusy = false;
+      hidePlutooBlockingLoader();
             
       // ✅ non blocco mai l'app
 
@@ -6856,10 +7190,13 @@ const newDogId = dogRef.id;
 
     // upload foto profilo su Storage
     let photoUrl = "";
+    let uploadedProfileStoragePath = "";
     try {
       const blob = dataUrlToBlob(state.createDogDraft.photoDataUrl);
       const ext = (blob.type && blob.type.includes("png")) ? "png" : "jpg";
-      const storageRef = window.storage.ref().child(`dogs/${uid}/${newDogId}/profile.${ext}`);
+
+      uploadedProfileStoragePath = `dogs/${uid}/${newDogId}/profile.${ext}`;
+     const storageRef = window.storage.ref().child(uploadedProfileStoragePath);
 
       // feedback inline "salvataggio..."
       if (errorDiv) {
@@ -6915,6 +7252,11 @@ const newDogId = dogRef.id;
       }, { merge: true });
     } catch (e) {
       if (errorDiv) {
+
+        if (uploadedProfileStoragePath && window.storage) {
+  await window.storage.ref().child(uploadedProfileStoragePath).delete().catch(() => {});
+        }
+        
         errorDiv.textContent = state.lang === "it"
           ? "❌ Errore salvataggio profilo (Firestore)"
           : "❌ Profile save error (Firestore)";
@@ -7234,12 +7576,20 @@ if   (!pendingFiles.length) return;
 
                     renderGallery();
                   })
-                  .catch(() => {
-                    pendingFiles = [];
-                    if (c) c.textContent = state.lang === "it" ? " — Errore salvataggio" : " — Save error";
-                    publishBar.style.display = "none";
-                  });
-              });
+
+                .catch(() => {
+  if (window.storage && newItems.length) {
+    Promise.all(newItems.map(item =>
+      window.storage.ref().child(item.storagePath).delete().catch(() => {})
+    ));
+  }
+
+  pendingFiles = [];
+  if (c) c.textContent = state.lang === "it" ? " — Errore salvataggio" : " — Save error";
+  publishBar.style.display = "none";
+});
+                
+  });
           })
           .catch(() => {
             pendingFiles = [];
@@ -8108,18 +8458,23 @@ availabilityBox.appendChild(availabilityWalksLabel);
   const uid = (window.PLUTOO_UID) || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
   if (!uid) throw new Error("Login richiesto");
 
-  await Promise.allSettled([
-    storage.ref().child(`dogs/${uid}/profile.jpg`).delete(),
-    storage.ref().child(`dogs/${uid}/profile.png`).delete(),
-    storage.ref().child(`dogs/${uid}/${String(d.id)}/profile.jpg`).delete(),
-    storage.ref().child(`dogs/${uid}/${String(d.id)}/profile.png`).delete()
-  ]);
+  const ext = selectedProfilePhotoFile.type && selectedProfilePhotoFile.type.includes("png") ? "png" : "jpg";
+const oldPhotoUrl = String(d.photoUrl || d.img || "");
+const uploadedPath = `dogs/${uid}/profile.${ext}`;
+const uploadedPathEncoded = encodeURIComponent(uploadedPath);
+const uploadedWasOldPath =
+  oldPhotoUrl.includes(uploadedPathEncoded) ||
+  oldPhotoUrl.includes(uploadedPath);
 
-          const ext = selectedProfilePhotoFile.type && selectedProfilePhotoFile.type.includes("png") ? "png" : "jpg";
-          const storageRef = storage.ref().child(`dogs/${uid}/profile.${ext}`);
+const storageRef = storage.ref().child(uploadedPath);
 
-          await storageRef.put(selectedProfilePhotoFile, { contentType: selectedProfilePhotoFile.type || "image/jpeg" });
-          nextPhotoUrl = await storageRef.getDownloadURL();
+try {
+  await storageRef.put(selectedProfilePhotoFile, { contentType: selectedProfilePhotoFile.type || "image/jpeg" });
+  nextPhotoUrl = await storageRef.getDownloadURL();
+} catch (e) {
+  throw e;
+}
+          
         }
 
         if (removeProfilePhoto) {
@@ -8161,7 +8516,8 @@ availabilityBox.appendChild(availabilityWalksLabel);
             updateData.photoUrl = nextPhotoUrl;
           }
 
-          await dogRef.set(updateData, { merge: true });
+   await dogRef.set(updateData, { merge: true });
+          
         }
 
         d.name = newName;
@@ -8505,12 +8861,22 @@ if (existingDoc) {
 
     deleteStorage
       .then(() => {
-        return window.db.collection("dogs").doc(dogId).set({
-          dogDocs: {
-            [docName]: firebase.firestore.FieldValue.delete()
-          }
-        }, { merge: true });
+
+    return window.db
+  .collection("dogsPrivate")
+  .doc(String(dogId))
+  .collection("dogDocs")
+  .doc(String(docName))
+  .delete()
+  .then(() => {
+    return window.db.collection("dogs").doc(String(dogId)).update({
+      [`dogDocsPublic.${docName}`]:
+        firebase.firestore.FieldValue.delete()
+    });
+  });
+        
       })
+      .catch((err) => { throw err; })
       .then(() => {
         if (typeof showToast === "function") {
           showToast("✅ Documento DOG eliminato");
@@ -8518,11 +8884,33 @@ if (existingDoc) {
 
         return window.db.collection("dogs").doc(dogId).get();
       })
-      .then((snap) => {
+      
+      .then(async (snap) => {
         const fresh = snap && snap.exists ? { ...d, id: snap.id, ...(snap.data() || {}) } : d;
 fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
 fresh.plus = d.plus === true;
 fresh.plusStatus = d.plusStatus || "";
+fresh.dogDocs = await window.getCompatibleDogDocs(
+  String(fresh.id),
+  String(fresh.ownerUid || d.ownerUid || fresh.id || ""),
+  fresh.dogDocs
+);
+
+        if (fresh.dogDocs && typeof fresh.dogDocs === "object") {
+  delete fresh.dogDocs[docName];
+        }
+
+try {
+  if (Array.isArray(state.dogs)) {
+    state.dogs = state.dogs.map(dog =>
+      String(dog.id) === String(fresh.id)
+        ? { ...dog, ...fresh }
+        : dog
+    );
+    localStorage.setItem("dogs", JSON.stringify(state.dogs));
+  }
+} catch (_) {}
+
 openProfilePage(fresh);
         })
 
@@ -8625,24 +9013,34 @@ if (duplicateDocName) {
       window.__plutooDocUploadBusy = true;
 
       storageRef.put(file)
-        .then(() => storageRef.getDownloadURL())
-        .then((url) => {
-          return window.db.collection("dogs").doc(dogId).set({
-
-            dogDocs: {
-  [docName]: {
-    url,
-    storagePath,
-    uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    fileName: file.name || "",
-    fileSize: Number(file.size || 0),
-    fileType: file.type || ""
-  }
-},
-dogDocsStatus: "uploaded"
-            
-          }, { merge: true });
-        })
+  .then(() => storageRef.getDownloadURL())
+  .then((url) => {
+    
+return window.db
+.collection("dogsPrivate")
+.doc(String(dogId))
+.collection("dogDocs")
+.doc(String(docName))
+.set({
+  url,
+  storagePath,
+  uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  fileName: file.name || "",
+  fileSize: Number(file.size || 0),
+  fileType: file.type || ""
+}, { merge: true })
+.then(() => {
+  return window.db.collection("dogs").doc(String(dogId)).set({
+    dogDocsPublic: {
+      [docName]: {
+        uploaded: true
+      }
+    }
+  }, { merge: true });
+});
+    
+  })
+        
         .then(() => {
           if (statusEl) {
             statusEl.textContent = "✓ Caricato";
@@ -8657,11 +9055,16 @@ dogDocsStatus: "uploaded"
           return window.db.collection("dogs").doc(dogId).get();
         })
         
-        .then((snap) => {
-        const fresh = snap && snap.exists ? { ...d, id: snap.id, ...(snap.data() || {}) } : d;
+        .then(async (snap) => {
+const fresh = snap && snap.exists ? { ...d, id: snap.id, ...(snap.data() || {}) } : d;
 fresh.img = String(fresh.photoUrl || fresh.img || d.img || "./plutoo-icon-192.png");
 fresh.plus = d.plus === true;
 fresh.plusStatus = d.plusStatus || "";
+fresh.dogDocs = await window.getCompatibleDogDocs(
+  String(fresh.id),
+  String(fresh.ownerUid || d.ownerUid || fresh.id || ""),
+  fresh.dogDocs
+);
 
 try {
   if (Array.isArray(state.dogs)) {
@@ -8739,8 +9142,17 @@ showRewardVideoMock("documents", () => {
 
          if (!finalUrl) return; 
 
+          if (String(d.ownerUid || "") === String(window.PLUTOO_UID || "")) {
+  window.location.href = finalUrl;
+  return;
+          }
+
           const rewardKey = finalUrl;
-          if (state.plus || state.socialRewardViewed[rewardKey]) {
+
+          const rewardUntilKey = "plutoo_social_reward_until_" + rewardKey;
+const rewardUntil = Number(localStorage.getItem(rewardUntilKey) || "0");
+          
+          if (state.plus || (state.socialRewardViewed[rewardKey] && rewardUntil > Date.now())) {
            window.location.href = finalUrl;
             return;
           }
@@ -8748,10 +9160,14 @@ showRewardVideoMock("documents", () => {
           state.rewardOpen = true;
 
           showRewardVideoMock("social", () => {
-            state.rewardOpen = false;
-            state.socialRewardViewed[rewardKey] = true;
-            window.location.href = finalUrl;
-          });
+  state.rewardOpen = false;
+  localStorage.setItem(
+    rewardUntilKey,
+    String(Date.now() + 60 * 60 * 1000)
+  );
+  state.socialRewardViewed[rewardKey] = true;
+  window.location.href = finalUrl;
+});
         });
       });
 
@@ -8988,16 +9404,29 @@ if (uploadSelfieBtn) uploadSelfieBtn.onclick = () => {
   for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
 
   const blob = new Blob([bytes], { type: mime });
-  const storageRef = window.storage.ref().child(`dogs/${d.id}/selfie/selfie.jpg`);
+        
+  const storagePath = `dogs/${d.id}/selfie/selfie.jpg`;
+const storageRef = window.storage.ref().child(storagePath);
 
-  storageRef.put(blob, { contentType: mime })
-    .then(() => storageRef.getDownloadURL())
-    .then((url) => {
-      return window.db.collection("dogs").doc(d.id).set({
-        selfieUrl: url
-      }, { merge: true }).then(() => url);
-    })
-    .then((url) => {
+storageRef.put(blob, { contentType: mime })
+  .then(() => storageRef.getDownloadURL())
+  .then((url) => {
+    return window.db.collection("dogs").doc(d.id).set({
+      selfieUrl: url
+    }, { merge: true })
+      .then(() => url)
+      .catch((err) => {
+        return window.storage.ref().child(storagePath).delete()
+          .catch((deleteErr) => {
+            console.error("SELFIE ROLLBACK STORAGE ERROR:", deleteErr);
+          })
+          .then(() => {
+            throw err;
+          });
+      });
+  })
+  .then((url) => {
+      
       d.selfieUrl = url;
 const img = qs(".selfie .img", profileContent);
 if (img) img.src = url;
@@ -10489,6 +10918,8 @@ if (btnRefreshDogBoard) {
 }
 
     async function publishDogBoardTextOnly(){
+    let photoUrls = [];
+      
   try {
     if (!btnPublishDogBoard || !dogBoardText || !dogBoardList || !window.db) return;
     if (btnPublishDogBoard.dataset.busy === "1") return;
@@ -10539,7 +10970,6 @@ btnPublishDogBoard.textContent = "Pubblicazione in corso...";
     const now = Date.now();
 
     // ================= UPLOAD FOTO (FILE -> STORAGE -> URL) =================
-    let photoUrls = [];
 
     if (Array.isArray(dogBoardSelectedPhotos) && dogBoardSelectedPhotos.length) {
       for (let i = 0; i < dogBoardSelectedPhotos.length; i++) {
@@ -10589,6 +11019,10 @@ btnPublishDogBoard.textContent = "Pubblicazione in corso...";
 
   } catch (err) {
     console.error("publishDogBoardTextOnly error", err);
+
+    if (window.storage && photoUrls.length) {
+  Promise.all(photoUrls.map(p => window.storage.ref().child(p.storagePath).delete().catch(() => {})));
+    }
 
     showPlutooAlert(
   (state.lang === "it" ? "Errore durante la pubblicazione:\n" : "Publish failed:\n") +
@@ -10793,9 +11227,13 @@ async function init(){
       const snap = await window.db.collection("dogs").get();
       const realDogs = [];
 
-      for (const doc of snap.docs) {
+    for (const doc of snap.docs) {
   const data = doc.data() || {};
+
+  if (data.deleted === true || data.publicVisible === false) continue;
+
   const name = String(data.name || "").trim();
+        
   if (!name) continue;
 
   const ownerUid = String(data.ownerUid || "");
@@ -10833,7 +11271,13 @@ async function init(){
     img: String(data.photoUrl || data.img || "./plutoo-icon-192.png"),
     selfieUrl: String(data.selfieUrl || ""),
     gallery: Array.isArray(data.gallery) ? data.gallery : [],
-    dogDocs: (data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {},
+    
+    dogDocs: await window.getCompatibleDogDocs(
+  String(doc.id),
+  String(data.ownerUid || doc.id || ""),
+  data.dogDocs
+),
+    
     verified: !!data.verified,
     bio: String(data.bio || ""),
     zone: String(data.zone || ""),
@@ -11903,9 +12347,21 @@ if (loader) loader.classList.remove("hidden");
   StoriesState.__publishing = true;
 
   try {
-    pruneStories24h();
+  pruneStories24h();
 
-    const preview = $("uploadPreview");
+  // ✅ 24h guard — secondo controllo al momento della scrittura reale
+  if (!state.plus && !StoriesState.canUploadStory()) {
+    showPlutooAlert(
+      state.lang === "it"
+        ? "Hai già un Aggiornamento DOG attivo.\nCon il piano Free puoi pubblicare 1 aggiornamento ogni 24h.\nCon Plutoo Plus hai aggiornamenti illimitati."
+        : "You already have an active DOG Update.\nWith the Free plan you can publish 1 update every 24h.\nWith Plutoo Plus you have unlimited updates.",
+      { title: "Plutoo", confirmText: "OK" }
+    );
+    StoriesState.__publishing = false;
+    return;
+  }
+
+  const preview = $("uploadPreview");
 
     // fallback se uploadedFile perso
     if (!StoriesState.uploadedFile && preview && preview.dataset && preview.dataset.mediaUrl) {
@@ -12139,6 +12595,10 @@ return;
 
   } catch (err) {
     console.error("publishStory Firebase error:", err);
+
+    if (storageRef) {
+  storageRef.delete().catch(() => {});
+    }
 
     const msg = state.lang === "it"
       ? "Errore nella pubblicazione dell'aggiornamento. Riprova."
