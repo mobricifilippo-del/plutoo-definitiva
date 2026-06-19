@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="it">
+<!DOCTYPE html>
+<html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -6,20 +7,31 @@
   <meta name="theme-color" content="#0B0B0F">
   <meta name="description" content="Plutoo – l'app per l'accoppiamento dei DOG">
   <title>Plutoo</title>
-  <link rel="icon" type="image/png" href="plutoo-icon-192.png">
-  <link rel="apple-touch-icon" href="plutoo-icon-192.png">
-  <link rel="preload" as="image" href="plutoo-icon-512.png">
-<link rel="preload" as="image" href="plutoo-icon-192.png">
-  <link rel="manifest" href="manifest.json">
-  <link rel="preload" as="image" href="dog1.jpg">
-  <link rel="preload" as="image" href="dog2.jpg">
-  <link rel="preload" as="image" href="dog3.jpg">
-  <link rel="stylesheet" href="style.css">
+
+  <link rel="icon" type="image/png" href="plutoo-icon-192.png?v=20260615-1">
+  <link rel="apple-touch-icon" href="plutoo-icon-192.png?v=20260615-1">
+
+  <link rel="preload" as="image" href="plutoo-icon-512.png?v=20260615-1">
+  <link rel="preload" as="image" href="plutoo-icon-192.png?v=20260615-1">
+
+  <link rel="manifest" href="manifest.json?v=20260615-1">
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./noop-sw.js");
+}
+</script>
+
+  <link rel="preload" as="image" href="dog1.jpg?v=20260615-1">
+  <link rel="preload" as="image" href="dog2.jpg?v=20260615-1">
+  <link rel="preload" as="image" href="dog3.jpg?v=20260615-1">
+
+  <link rel="stylesheet" href="style.css?v=20260615-1">
 
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5458345293928736"
      crossorigin="anonymous"></script>
 
-  </head>
+</head>
 
 <body>
   
@@ -30,57 +42,67 @@
   
   <!-- ==================== HOME SCREEN ==================== -->
   <div id="homeScreen" class="home hidden">
-    <div class="home-top">
-      <div class="container">
-        <div class="home-bar">
-          <!-- Logo + Brand -->
-          <div class="home-left">
-            <div class="logo-row">
-              <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small">
-              <h1 class="brand" data-i18n="brand">Plutoo</h1>
-            </div>
+  <div class="home-top">
+    <div class="container">
+      <div class="home-bar">
+        <div class="home-left">
+          <div class="logo-row">
+            <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small">
+            <h1 class="brand" data-i18n="brand">Plutoo</h1>
           </div>
-          <div class="home-center"></div>
-          <!-- Lang + Auth -->
-          <div class="home-right">
-            <div class="lang-flags">
-              <button id="langIT" class="btn tiny ghost" aria-label="Italiano">🇮🇹</button>
-              <button id="langEN" class="btn tiny ghost" aria-label="English">🇬🇧</button>
-            </div>
+        </div>
 
-            <div class="auth-links">
-  <a id="linkLogin" href="#" data-i18n="login">Login</a>
-  <a id="linkRegister" href="#" data-i18n="register">Registrati</a>
-  <a id="linkDeleteAccountHome" href="#" style="display:none;">Elimina</a>
-            </div>
-            
+        <div class="home-center"></div>
+
+        <div class="home-right">
+          <div class="lang-flags">
+            <button id="langIT" class="btn tiny ghost" aria-label="Italiano">🇮🇹</button>
+            <button id="langEN" class="btn tiny ghost" aria-label="English">🇬🇧</button>
+          </div>
+
+          <div class="auth-links">
+            <a id="linkLogin" href="#" data-i18n="login">Login</a>
+            <a id="linkRegister" href="#" data-i18n="register">Registrati</a>
+            <a id="linkDeleteAccountHome" href="#" style="display:none;" data-i18n="delete">Elimina</a>
           </div>
         </div>
       </div>
     </div>
-  
-    <!-- Hero -->
-<div class="home-hero">
-  <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo">
-  <button id="btnEnter" class="btn primary xl" data-i18n="enter">Entra</button>
-</div>
+  </div>
 
-<!-- Sponsor -->
-<div class="home-sponsor">
-  <div class="sponsor-title" data-i18n="sponsorTitle">Sponsor ufficiale</div>
-  <a href="https://www.gelatofido.it/" id="homesponsorLink" class="sponsor-card" target="_blank" rel="noopener">
-    <img src="sponsor-logo.png"
-         alt="Fido Gelato"
-         class="sponsor-logo"
-         loading="eager">
-    <div class="sponsor-copy" data-i18n="sponsorCopy">Fido, il gelato per i nostri amici a quattro zampe</div>
-  </a>
+  <div class="home-hero">
+    <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo">
+    <button id="btnEnter" class="btn primary xl" data-i18n="enter">Entra</button>
+  </div>
+
+  <div class="sponsor-card">
+    <div class="sponsor-title" data-i18n="home_what_is_plutoo">
+      🐶 Cos'è Plutoo
+    </div>
+
+    <div class="sponsor-copy">
+      <div style="display:inline-block;text-align:left;">
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_social">Social per l'accoppiamento dei DOG</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_create">Crea il profilo del tuo DOG</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_find">Trova compagnia compatibile</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_updates">Condividi aggiornamenti</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_services">Scopri servizi PET</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_dogboard">Bacheca per amici a 4 zampe</span></div>
+      </div>
+    </div>
+  </div>
 
   <button id="ethicsButton" class="btn ethics">
     <span>🏠</span>
+
     <div class="ethics-lines">
-      <div class="l1" data-i18n="ethicsLine1">Non abbandonare mai i tuoi amici</div>
-      <div class="l2" data-i18n="ethicsLine2">(rifugi nelle vicinanze)</div>
+      <div class="l1" data-i18n="ethicsLine1">
+        Non abbandonare mai i tuoi amici
+      </div>
+
+      <div class="l2" data-i18n="ethicsLine2">
+        (rifugi nelle vicinanze)
+      </div>
     </div>
   </button>
 
@@ -90,8 +112,6 @@
     <a href="contatti.html">Contatti</a>
   </div>
 </div>
-
-  </div>
   
   <!-- ==================== APP SCREEN ==================== -->
   <div id="appScreen" class="app hidden">
@@ -107,16 +127,17 @@
       <div class="tabs" role="tablist">
     <button id="tabNearby" class="tab active" role="tab" data-i18n="nearby">Vicino a te</button>
     <button id="tabLove" class="tab" role="tab" data-i18n="love">Accoppiamento</button>
+        
     <div class="tab dropdown" role="menuitem">
-      <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false">LuoghiPET 🐾 ▼</button>
-      <div id="luoghiMenu" class="dropdown-menu" role="menu">
-        <button class="menu-item" data-cat="vets">🏥 Veterinari</button>
-        <button class="menu-item" data-cat="groomers">✂️ Toelettature</button>
-        <button class="menu-item" data-cat="shops">🛒 Negozi</button>
-        <button class="menu-item" data-cat="trainers">🎓 Addestratori</button>
-        <button class="menu-item" data-cat="kennels">🏠 Pensioni</button>
-        <button class="menu-item" data-cat="parks">🌳 Parchi</button>
-      </div>
+  <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false" data-i18n="pet_places_tab">LuoghiPET 🐾 ▼</button>
+  <div id="luoghiMenu" class="dropdown-menu" role="menu">
+    <button class="menu-item" data-cat="vets" data-i18n="pet_place_vets">🏥 Veterinari</button>
+    <button class="menu-item" data-cat="groomers" data-i18n="pet_place_groomers">✂️ Toelettature</button>
+    <button class="menu-item" data-cat="shops" data-i18n="pet_place_shops">🛒 Negozi</button>
+    <button class="menu-item" data-cat="trainers" data-i18n="pet_place_trainers">🎓 Addestratori</button>
+    <button class="menu-item" data-cat="kennels" data-i18n="pet_place_kennels">🏠 Pensioni</button>
+    <button class="menu-item" data-cat="parks" data-i18n="pet_place_parks">🌳 Parchi</button>
+  </div>
     </div>
   </div>
 
@@ -146,9 +167,10 @@
   <span id="notifDot" class="notif-dot hidden"></span>
    </button>
 
-   <button id="btnDogBoard" class="btn small ghost" type="button" aria-label="Bacheca DOG">
-     Bacheca DOG
+   <button id="btnDogBoard" class="btn small ghost" type="button" aria-label="Bacheca DOG" data-i18n="dogboard_title">
+  Bacheca DOG
    </button>
+    
   </div>
 </div>
 
@@ -174,14 +196,16 @@
   <div id="viewNearby" class="view active">
     <div class="view-header">
       <div class="search-actions">
-        <button id="btnSearchPanel" class="btn plus-btn" type="button">
-          Ricerca personalizzata
+        
+        <button id="btnSearchPanel" class="btn plus-btn" type="button" data-i18n="custom_search">
+         Ricerca personalizzata
         </button>
 
         <!-- Crea profilo DOG: visibile SOLO se NON ho già un DOG -->
-        <button id="btnCreateDogInline" class="btn plus-btn" type="button">
-          Crea profilo DOG
+        <button id="btnCreateDogInline" class="btn plus-btn" type="button" data-i18n="create_dog_profile">
+        Crea profilo DOG
         </button>
+        
       </div>
     </div>
 
@@ -207,109 +231,107 @@
 
   <!-- MESSAGGI -->
   <div id="viewMessages" class="view">
-    <div class="messages-topbar">
-      <button id="btnMsgBack" class="btn back-btn">
-        <span class="back-icon">←</span>
-      </button>
+  <div class="messages-topbar">
+    <button id="btnMsgBack" class="btn back-btn">
+      <span class="back-icon">←</span>
+    </button>
 
-      <img src="plutoo-icon-192.png" class="messages-logo" alt="Plutoo">
+    <img src="plutoo-icon-192.png" class="messages-logo" alt="Plutoo">
 
-      <div class="messages-top-tabs">
-        <button class="msg-top-tab active" data-tab="tabInbox">Ricevuti</button>
-        <button class="msg-top-tab" data-tab="tabMatches">Match</button>
-        <button class="msg-top-tab" data-tab="tabRequests">Richieste</button>
-        <button class="msg-top-tab" data-tab="tabSpam">Spam</button>
-      </div>
-    </div>
-
-    <div class="messages-body">
-      <div id="tabInbox" class="messages-list active">
-        <p class="empty-state hidden-empty" data-i18n="msgEmptyInbox">
-          Nessun messaggio ricevuto.
-        </p>
-      </div>
-
-      <div id="tabMatches" class="messages-list">
-        <p class="empty-state hidden-empty" data-i18n="msgEmptyMatches">
-          Ancora nessun match. Inizia a mettere 💛 in Accoppiamento!
-        </p>
-      </div>
-
-      <div id="tabRequests" class="messages-list">
-        <p class="empty-state hidden-empty" data-i18n="msgEmptyRequests">
-          Nessuna richiesta di messaggi.
-        </p>
-      </div>
-
-      <div id="tabSpam" class="messages-list">
-        <p class="empty-state hidden-empty" data-i18n="msgEmptySpam">
-          Nessun messaggio in spam.
-        </p>
-      </div>
+    <div class="messages-top-tabs">
+      <button class="msg-top-tab active" data-tab="tabInbox" data-i18n="messagesInbox">Ricevuti</button>
+      <button class="msg-top-tab" data-tab="tabMatches" data-i18n="messagesMatches">Match</button>
+      <button class="msg-top-tab" data-tab="tabRequests" data-i18n="messagesRequests">Richieste</button>
+      <button class="msg-top-tab" data-tab="tabSpam" data-i18n="messagesSpam">Spam</button>
     </div>
   </div>
-  <!-- fine MESSAGGI -->
 
-  <!-- BACHECA DOG -->
-  <div id="viewDogBoard" class="view">
-    <div class="messages-topbar">
-      <button id="btnDogBoardBack" class="btn back-btn">
-        <span class="back-icon">←</span>
-      </button>
-      <img src="plutoo-icon-192.png" class="messages-logo" alt="Plutoo">
-
-      <div class="messages-top-tabs">
-        <button class="msg-top-tab active" type="button">Bacheca DOG</button>
-      </div>
+  <div class="messages-body">
+    <div id="tabInbox" class="messages-list active">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptyInbox">
+        Nessun messaggio ricevuto.
+      </p>
     </div>
 
-    <div class="messages-body">
-      <div id="dogBoardList" class="messages-list active">
-        <div class="dogboard-empty-state"></div>
-      </div>
+    <div id="tabMatches" class="messages-list">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptyMatches">
+        Ancora nessun match. Inizia a mettere 💛 in Accoppiamento!
+      </p>
     </div>
 
-    <div id="dogBoardComposer" class="dogboard-composer">
-      <div class="dogboard-composer-card">
+    <div id="tabRequests" class="messages-list">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptyRequests">
+        Nessuna richiesta di messaggi.
+      </p>
+    </div>
 
-        <div class="dogboard-composer-head">
-          <div class="dogboard-composer-title">Pubblica annuncio</div>
-          <div class="dogboard-composer-subtitle">Testo + max 3 foto</div>
-        </div>
-
-        <div class="dogboard-composer-field">
-          <textarea id="dogBoardText" maxlength="300" placeholder="Scrivi il tuo annuncio..."></textarea>
-        </div>
-
-        <div class="dogboard-composer-actions">
-          <input id="dogBoardPhotos" type="file" accept="image/*" multiple hidden>
-
-          <label for="dogBoardPhotos" class="btn ghost" id="btnDogBoardPhotos">
-            Aggiungi foto
-          </label>
-
-          <button id="btnPublishDogBoard" class="btn primary" type="button">
-            Pubblica annuncio
-          </button>
-        </div>
-
-        <div class="dogboard-composer-note">
-          Puoi caricare fino a 3 foto.
-        </div>
-
-        <div id="dogBoardPreview" class="dogboard-photos-preview"></div>
-
-      </div>
+    <div id="tabSpam" class="messages-list">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptySpam">
+        Nessun messaggio in spam.
+      </p>
     </div>
   </div>
-  <!-- fine BACHECA DOG -->
+</div> <!-- fine MESSAGGI -->
+
+ <!-- BACHECA DOG -->
+<div id="viewDogBoard" class="view">
+  <div class="messages-topbar">
+    <button id="btnDogBoardBack" class="btn back-btn">
+      <span class="back-icon">←</span>
+    </button>
+    <img src="plutoo-icon-192.png" class="messages-logo" alt="Plutoo">
+
+    <div class="messages-top-tabs">
+      <button class="msg-top-tab active" type="button" data-i18n="dogboard_title">Bacheca DOG</button>
+    </div>
+  </div>
+
+  <div class="messages-body">
+    <div id="dogBoardList" class="messages-list active">
+      <div class="dogboard-empty-state"></div>
+    </div>
+  </div>
+
+  <div id="dogBoardComposer" class="dogboard-composer">
+    <div class="dogboard-composer-card">
+
+      <div class="dogboard-composer-head">
+        <div class="dogboard-composer-title" data-i18n="dogboard_publish_ad">Pubblica annuncio</div>
+        <div class="dogboard-composer-subtitle" data-i18n="dogboard_text_max_photos">Testo + max 3 foto</div>
+      </div>
+
+      <div class="dogboard-composer-field">
+        <textarea id="dogBoardText" maxlength="300" data-i18n-placeholder="dogboard_write_ad" placeholder="Scrivi il tuo annuncio..."></textarea>
+      </div>
+
+      <div class="dogboard-composer-actions">
+        <input id="dogBoardPhotos" type="file" accept="image/*" multiple hidden>
+
+        <label for="dogBoardPhotos" class="btn ghost" id="btnDogBoardPhotos" data-i18n="dogboard_add_photo">
+          Aggiungi foto
+        </label>
+
+        <button id="btnPublishDogBoard" class="btn primary" type="button" data-i18n="dogboard_publish_ad">
+          Pubblica annuncio
+        </button>
+      </div>
+
+      <div class="dogboard-composer-note" data-i18n="dogboard_max_3_photos">
+        Puoi caricare fino a 3 foto.
+      </div>
+
+      <div id="dogBoardPreview" class="dogboard-photos-preview"></div>
+
+    </div>
+  </div>
+</div>
+<!-- fine BACHECA DOG -->
 
 </div><!-- fine .content -->
 
 <div class="app-footer" style="margin-top:auto;flex:0 0 auto;">
-  <div id="adBanner" class="ad-banner">
-    Banner Test AdMob · Bannerhome
-  </div>
+  <div id="adBanner" class="ad-banner"></div>
+  
   <div class="legal-links legal-purple">
     <a href="termini.html">Termini</a> ·
     <a href="privacy.html">Privacy</a> ·
@@ -362,8 +384,8 @@
         </div>
 
         <div class="f switch f-gold">
-          <label>Solo con selfie</label>
-          <input id="onlySelfie" type="checkbox">
+        <label data-i18n="onlySelfie">Solo con selfie</label>
+        <input id="onlySelfie" type="checkbox">
         </div>
 
         <div class="f f-gold">
@@ -430,12 +452,12 @@
       <p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
       
       <ul class="plus-features">
-  <li><span class="check">✓</span><span class="label">Badge dorato Plus</span></li>
-  <li><span class="check">✓</span><span class="label">Zero pubblicità</span></li>
-  <li><span class="check">✓</span><span class="label">Swipe illimitati</span></li>
-  <li><span class="check">✓</span><span class="label">Bacheca DOG libera</span></li>
-  <li><span class="check">✓</span><span class="label">Ricerca personalizzata avanzata</span></li>
-  <li><span class="check">✓</span><span class="label">Esperienza premium totale</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureBadge">Badge dorato Plus</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureNoAds">Zero pubblicità</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureUnlimitedSwipes">Swipe illimitati</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureDogBoard">Bacheca DOG libera</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureAdvancedSearch">Ricerca personalizzata avanzata</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeaturePremiumExperience">Esperienza premium totale</span></li>
       </ul>
       
       <div class="plan-selector">
@@ -445,7 +467,7 @@
         </button>
         <button id="planYearly" class="plan-card">
           <div class="plan-name" data-i18n="planYearly">Annuale</div>
-          <div class="plan-price">€40<span>/anno</span></div>
+          <div class="plan-price">€49,99<span data-i18n="plusYearPeriod">/anno</span></div>
           <div class="plan-save" data-i18n="planSave">Risparmia €20!</div>
         </button>
       </div>
@@ -483,12 +505,12 @@
 <div id="notifOverlay" class="sheet-overlay hidden" aria-hidden="true">
   <div class="sheet">
     <div class="sheet-head">
-      <div class="sheet-title">Notifiche</div>
+      <div class="sheet-title" data-i18n="notificationsTitle">Notifiche</div>
       <button type="button" class="sheet-close" data-close="notif" aria-label="Chiudi">×</button>
     </div>
 
     <div id="notifList" class="notif-list">
-      <p class="sheet-empty">Nessuna notifica</p>
+      <p class="sheet-empty" data-i18n="notificationsEmpty">Nessuna notifica</p>
     </div>
   </div>
 </div>
@@ -725,6 +747,15 @@
   window.addEventListener("error", function (e) {
     var isResourceError = !!(e && e.target && e.target !== window);
 
+    if (isResourceError) {
+      try {
+        var t = e.target;
+        var url = (t && (t.src || t.href)) ? (t.src || t.href) : "";
+        console.warn("RESOURCE ERROR:", url || t);
+      } catch (_) {}
+      return;
+    }
+
     var msg = (e && e.message) ? e.message : (isResourceError ? "Resource load error" : "Unknown error");
     var src = (e && e.filename) ? e.filename : "";
     var line = (e && typeof e.lineno === "number") ? e.lineno : "";
@@ -775,7 +806,7 @@
   
 </script>
 
-<script src="app.js" defer></script>
+<script src="app.js?v=20260615-1" defer></script>
 
   <!-- ==================== AUTH SHEET (LOGIN / REGISTER) ==================== -->
 <div id="authSheet" class="plutoo-auth hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
