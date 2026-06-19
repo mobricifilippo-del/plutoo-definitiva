@@ -355,7 +355,7 @@ document.getElementById("btnForgotPass")?.addEventListener("click", async () => 
     await window.auth.sendPasswordResetEmail(email);
     setAuthError("login", "✅ Email di recupero inviata");
   } catch (err) {
-    setAuthError("login", err?.message || "Errore recupero password");
+  setAuthError("login", translateAuthError(err));
   }
 });
 
@@ -427,9 +427,17 @@ document.getElementById("btnForgotPass")?.addEventListener("click", async () => 
     localStorage.setItem("entered", "0");
 
     localStorage.removeItem("dogs");
+localStorage.removeItem("friendships");
+localStorage.removeItem("matches");
+localStorage.removeItem("chatMessagesSent");
 
 if (window.state && Array.isArray(window.state.dogs)) {
   window.state.dogs = [];
+}
+if (window.state) {
+  window.state.friendships = {};
+  window.state.matches = {};
+  window.state.chatMessagesSent = {};
 }
 
     Object.keys(localStorage).forEach((k) => {
@@ -669,14 +677,26 @@ window.__createDogBindDone = true;
     inlineBtn.textContent = (lang === "it") ? "Crea profilo DOG" : "Create DOG profile";
   }
 
-    if (!hasDog || state.plus === true) {
+    if (!hasDog) {
   inlineBtn.classList.add("cta-pulse");
 } else {
   inlineBtn.classList.remove("cta-pulse");
     }
 };
 
-// prima passata (stato corrente)  
+// prima passata: usa prima la cache DOG locale per evitare flash CTA al refresh
+try {
+  const cHas  = localStorage.getItem("plutoo_has_dog") === "1";
+  const cId   = localStorage.getItem("plutoo_dog_id") || "";
+  const cName = localStorage.getItem("plutoo_dog_name") || "";
+
+  if (cHas && cId) {
+    window.PLUTOO_HAS_DOG = true;
+    window.PLUTOO_DOG_ID = cId;
+    window.PLUTOO_DOG_NAME = cName;
+  }
+} catch (_) {}
+
 window.refreshCreateDogCTA();  
 
 const clickHandler = async (ev) => {  
@@ -756,11 +776,15 @@ try {
   data.dogDocs
 ),
 
-          ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object")
-            ? data.ownerSocial
-            : {},
+      ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object")
+  ? data.ownerSocial
+  : {},
 
-          selfieUrl: String(data.selfieUrl || ""),
+dogDocsPublic: (data.dogDocsPublic && typeof data.dogDocsPublic === "object")
+  ? data.dogDocsPublic
+  : {},
+
+selfieUrl: String(data.selfieUrl || ""),
           
           ownerUid,
           plus,
@@ -889,9 +913,10 @@ async function loadBlockedDogIds() {
   }
 }
 
-// ✅ DOG presence check (Firestore source of truth)
-// (wrappato in IIFE async per evitare await fuori contesto)
 window.plutooDogPresenceCheck = async function plutooDogPresenceCheck() {
+  // ✅ GUARD CONCORRENZA: una sola esecuzione alla volta
+  const isAuthoritativePresence = !!window.PLUTOO_UID;
+
 try {
 
 // ✅ BOOTSTRAP SEMPRE da cache (prima di Firestore)  
@@ -926,38 +951,44 @@ const dogId = hasDog ? String(uid) : null;
 const dogName = hasDog ? String(data.name || "").trim() : "";
 
 // Stato globale (runtime)
-window.PLUTOO_HAS_DOG = hasDog;
-window.PLUTOO_DOG_ID = dogId;
+// ✅ AUTOREVOLEZZA: solo chiamata autorevole (window.PLUTOO_UID già valorizzato) può degradare a hasDog=false.
+// Chiamata non autorevole può solo confermare hasDog=true.
+if (isAuthoritativePresence || hasDog) {
+  window.PLUTOO_HAS_DOG = hasDog;
+  window.PLUTOO_DOG_ID = dogId;
 
-const _ldah = document.getElementById("linkDeleteAccountHome");
-if (_ldah) _ldah.style.display = hasDog ? "none" : "";
-  
-window.CURRENT_USER_DOG_ID = dogId || "";
-CURRENT_USER_DOG_ID = dogId || "";
-window.PLUTOO_DOG_NAME = dogName;  
+  const _ldah = document.getElementById("linkDeleteAccountHome");
+  if (_ldah) _ldah.style.display = hasDog ? "none" : "";
 
-// ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)  
-window.PLUTOO_READONLY = !hasDog;
+  window.CURRENT_USER_DOG_ID = dogId || "";
+  CURRENT_USER_DOG_ID = dogId || "";
+  window.PLUTOO_DOG_NAME = dogName;
 
-  await loadBlockedDogIds();
+  // ✅ VETRINA: se non hai DOG, app in sola lettura (blocca interazioni)
+  window.PLUTOO_READONLY = !hasDog;
+}
+
+await loadBlockedDogIds();
 
 if (state.currentView === "nearby" && typeof renderNearby === "function") {
   renderNearby();
 }
 
-// UI CTA aggiornata (mai sparire)  
+// UI CTA aggiornata (mai sparire)
 if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
 
-  if (typeof initNotificationsFeed === "function") {
+if (typeof initNotificationsFeed === "function") {
   initNotificationsFeed();
-  }
+}
 
-// Cache (non source of truth)  
+// Cache (non source of truth)
 try {
-  localStorage.setItem("plutoo_has_dog", hasDog ? "1" : "0");
-  if (dogId) localStorage.setItem("plutoo_dog_id", dogId); else localStorage.removeItem("plutoo_dog_id");
-  localStorage.setItem("plutoo_readonly", window.PLUTOO_READONLY ? "1" : "0");
-  if (dogName) localStorage.setItem("plutoo_dog_name", dogName); else localStorage.removeItem("plutoo_dog_name");
+  if (isAuthoritativePresence || hasDog) {
+    localStorage.setItem("plutoo_has_dog", hasDog ? "1" : "0");
+    if (dogId) localStorage.setItem("plutoo_dog_id", dogId); else localStorage.removeItem("plutoo_dog_id");
+    localStorage.setItem("plutoo_readonly", window.PLUTOO_READONLY ? "1" : "0");
+    if (dogName) localStorage.setItem("plutoo_dog_name", dogName); else localStorage.removeItem("plutoo_dog_name");
+  }
 
   if (!Array.isArray(state.dogs)) state.dogs = [];
 
@@ -1017,7 +1048,10 @@ size: String(data.size || ""),
 ),
     
     ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
-    selfieUrl: String(data.selfieUrl || "")
+dogDocsPublic: (data.dogDocsPublic && typeof data.dogDocsPublic === "object")
+  ? data.dogDocsPublic
+  : {},
+selfieUrl: String(data.selfieUrl || "")
   });
  }
   
@@ -1025,10 +1059,10 @@ size: String(data.size || ""),
 } catch (_) {}
 
 } catch (err) {
-// (FIX) fallback safe: NON forzo "DOG assente" e NON tocco cache/stato.
-// Se auth/db non sono pronti al refresh, mantengo lo stato/cached e aggiorno solo UI.
+// (FIX) fallback safe: NON forzo "DOG assente" ...
+// Se auth/db non sono pronti al refresh ...
 if (typeof window.refreshCreateDogCTA === "function") window.refreshCreateDogCTA();
-}
+} 
 };
 
 // Firebase handles
@@ -2042,157 +2076,280 @@ return true;
   window.StoriesState = StoriesState;
 
   // ============ I18N ============
-  const I18N = {
-    it: {
-      brand: "Plutoo",
-      login: "Login",
-      register: "Registrati",
-      enter: "Entra",
-      sponsorTitle: "Sponsor ufficiale",
-      sponsorCopy: "Fido, il gelato per i nostri amici a quattro zampe",
-      sponsorUrl: "https://www.fido.it/",
-      ethicsLine1: "Non abbandonare mai i tuoi amici",
-      ethicsLine2: "(rifugi nelle vicinanze)",
-      terms: "Termini",
-      privacy: "Privacy",
-      nearby: "Vicino a te",
-      love: "Accoppiamento",
-      searchAdvanced: "Ricerca personalizzata",
-      plusBtn: "PLUS",
-      chat: "Chat",
-      profile: "Profilo",
-      typeMessage: "Scrivi un messaggio…",
-      send: "Invia",
-      freeFilters: "Filtri base",
-      goldFilters: "Filtri Gold",
-      sexFilter: "Sesso",
-      sexAll: "Tutti",
-      sexMale: "Maschio",
-      sexFemale: "Femmina",
-      distance: "Distanza",
-      breed: "Razza",
-      breedPh: "Cerca razza…",
-      onlyVerified: "Solo con badge verificato ✅",
-      ageMin: "Età minima (anni)",
-      ageMax: "Età massima (anni)",
-      weight: "Peso (kg)",
-      height: "Altezza (cm)",
-      pedigree: "Pedigree",
-      breeding: "Disponibile per",
-      size: "Taglia",
-      indifferent: "Indifferente",
-      yes: "Sì",
-      no: "No",
-      sizeSmall: "Piccola",
-      sizeMedium: "Media",
-      sizeLarge: "Grande",
-      apply: "Applica",
-      reset: "Reset",
-      unlockHint: "Vuoi sbloccare i filtri Gold? Attiva Plutoo Plus 💎",
-      plusTitle: "Plutoo Plus",
-      plusSubtitle: "Sblocca tutte le funzionalità premium",
-      plusFeature1: "Nessuna pubblicità",
-      plusFeature2: "Swipe illimitati",
-      plusFeature3: "Messaggi illimitati",
-      plusFeature4: "Tutti i filtri Gold sbloccati",
-      plusFeature5: "Supporto prioritario",
-      plusFeature6: "Vedi tutte le Stories senza video",
-      plusFeature7: "Stories video fino a 90 secondi",
-      planMonthly: "Mensile",
-      planYearly: "Annuale",
-      planSave: "Risparmia €20!",
-      plusPeriod: "/mese",
-      activatePlus: "Attiva Plutoo Plus",
-      cancel: "Annulla",
-      mapsShelters: "Rifugi nelle vicinanze",
-      noProfiles: "Nessun profilo. Modifica i filtri.",
-      years: "anni"
-    },
-    en: {
-      brand: "Plutoo",
-      login: "Login",
-      register: "Sign up",
-      enter: "Enter",
-      sponsorTitle: "Official Sponsor",
-      sponsorCopy: "Fido, ice cream for our four-legged friends",
-      sponsorUrl: "https://www.fido.it/",
-      ethicsLine1: "Never abandon your friends",
-      ethicsLine2: "(animal shelters nearby)",
-      terms: "Terms",
-      privacy: "Privacy",
-      nearby: "Nearby",
-      love: "Breeding",
-      searchAdvanced: "Advanced Search",
-      plusBtn: "PLUS",
-      chat: "Chat",
-      profile: "Profile",
-      typeMessage: "Type a message…",
-      send: "Send",
-      freeFilters: "Basic Filters",
-      goldFilters: "Gold Filters",
-      sexFilter: "Sex",
-      sexAll: "All",
-      sexMale: "Male",
-      sexFemale: "Female",
-      distance: "Distance",
-      breed: "Breed",
-      breedPh: "Search breed…",
-      onlyVerified: "Only verified badges ✅",
-      ageMin: "Min age (years)",
-      ageMax: "Max age (years)",
-      weight: "Weight (kg)",
-      height: "Height (cm)",
-      pedigree: "Pedigree",
-      breeding: "Available for",
-      size: "Size",
-      indifferent: "Any",
-      yes: "Yes",
-      no: "No",
-      sizeSmall: "Small",
-      sizeMedium: "Medium",
-      sizeLarge: "Large",
-      apply: "Apply",
-      reset: "Reset",
-      unlockHint: "Want to unlock Gold filters? Activate Plutoo Plus 💎",
-      plusTitle: "Plutoo Plus",
-      plusSubtitle: "Unlock all premium features",
-      plusFeature1: "No ads",
-      plusFeature2: "Unlimited swipes",
-      plusFeature3: "Unlimited messages",
-      plusFeature4: "All Gold filters unlocked",
-      plusFeature5: "Priority support",
-      plusFeature6: "View all Stories without videos",
-      plusFeature7: "Video stories up to 90 seconds",
-      planMonthly: "Monthly",
-      planYearly: "Yearly",
-      planSave: "Save €20!",
-      plusPeriod: "/month",
-      activatePlus: "Activate Plutoo Plus",
-      cancel: "Cancel",
-      mapsShelters: "animal shelters nearby",
-      noProfiles: "No profiles. Adjust filters.",
-      years: "yrs"
-    }
-  };
-
-  const t = (k) => (I18N[state.lang] && I18N[state.lang][k]) || k;
-
-  function applyTranslations(){
-    qa("[data-i18n]").forEach(el => {
-      const key = el.getAttribute("data-i18n");
-      if (I18N[state.lang] && I18N[state.lang][key]) {
-        el.textContent = I18N[state.lang][key];
-      }
-    });
-    qa("[data-i18n-placeholder]").forEach(el => {
-      const key = el.getAttribute("data-i18n-placeholder");
-      if (I18N[state.lang] && I18N[state.lang][key]) {
-        el.placeholder = I18N[state.lang][key];
-      }
-    });
+  // ============ I18N ============
+const I18N = {
+  it: {
+    brand: "Plutoo",
+    login: "Login",
+    register: "Registrati",
+    enter: "Entra",
+    delete: "Elimina",
+    sponsorTitle: "Sponsor ufficiale",
+    sponsorCopy: "Fido, il gelato per i nostri amici a quattro zampe",
+    sponsorUrl: "https://www.fido.it/",
+    ethicsLine1: "Non abbandonare mai i tuoi amici",
+    ethicsLine2: "(rifugi nelle vicinanze)",
+    home_what_is_plutoo: "🐶 Cos'è Plutoo",
+    home_intro_social: "Social per l'accoppiamento dei DOG",
+    home_intro_create: "Crea il profilo del tuo DOG",
+    home_intro_find: "Trova compagnia compatibile",
+    home_intro_updates: "Condividi aggiornamenti",
+    home_intro_services: "Scopri servizi PET",
+    home_intro_dogboard: "Bacheca per amici a 4 zampe",
+    terms: "Termini",
+    privacy: "Privacy",
+    nearby: "Vicino a te",
+    love: "Accoppiamento",
+    searchAdvanced: "Ricerca personalizzata",
+    plusBtn: "PLUS",
+    chat: "Chat",
+    profile: "Profilo",
+    typeMessage: "Scrivi un messaggio…",
+    send: "Invia",
+    freeFilters: "Filtri base",
+    goldFilters: "Filtri Gold",
+    sexFilter: "Sesso",
+    sexAll: "Tutti",
+    sexMale: "Maschio",
+    sexFemale: "Femmina",
+    distance: "Distanza",
+    breed: "Razza",
+    breedPh: "Cerca razza…",
+    onlyVerified: "Solo con badge verificato ✅",
+    ageMin: "Età minima (anni)",
+    ageMax: "Età massima (anni)",
+    weight: "Peso (kg)",
+    height: "Altezza (cm)",
+    pedigree: "Pedigree",
+    breeding: "Disponibile per",
+    size: "Taglia",
+    indifferent: "Indifferente",
+    yes: "Sì",
+    no: "No",
+    sizeSmall: "Piccola",
+    sizeMedium: "Media",
+    sizeLarge: "Grande",
+    apply: "Applica",
+    reset: "Reset",
+    unlockHint: "Vuoi sbloccare i filtri Gold? Attiva Plutoo Plus 💎",
+    plusTitle: "Plutoo Plus",
+    plusSubtitle: "Sblocca tutte le funzionalità premium",
+    plusFeature1: "Nessuna pubblicità",
+    plusFeature2: "Swipe illimitati",
+    plusFeature3: "Messaggi illimitati",
+    plusFeature4: "Tutti i filtri Gold sbloccati",
+    plusFeature5: "Supporto prioritario",
+    plusFeature6: "Vedi tutte le Stories senza video",
+    plusFeature7: "Stories video fino a 90 secondi",
+    planMonthly: "Mensile",
+    planYearly: "Annuale",
+    planSave: "Risparmia €20!",
+    plusPeriod: "/mese",
+    activatePlus: "Attiva Plutoo Plus",
+    deactivatePlus: "Disattiva Plus",
+    cancel: "Annulla",
+    mapsShelters: "canili vicino a me",
+    noProfiles: "Nessun profilo. Modifica i filtri.",
+    years: "anni",
+    custom_search: "Ricerca personalizzata",
+    create_dog_profile: "Crea profilo DOG",
+    pet_places_tab: "LuoghiPET 🐾 ▼",
+    pet_place_vets: "🏥 Veterinari",
+    pet_place_groomers: "✂️ Toelettature",
+    pet_place_shops: "🛒 Negozi",
+    pet_place_trainers: "🎓 Addestratori",
+    pet_place_kennels: "🏠 Pensioni",
+    pet_place_parks: "🌳 Parchi",
+    plusFeatureBadge: "Badge dorato Plus",
+    plusFeatureNoAds: "Zero pubblicità",
+    plusFeatureUnlimitedSwipes: "Swipe illimitati",
+    plusFeatureDogBoard: "Bacheca DOG libera",
+    plusFeatureAdvancedSearch: "Ricerca personalizzata avanzata",
+    plusFeaturePremiumExperience: "Esperienza premium totale",
+    plusYearPeriod: "/anno",
+    onlySelfie: "Solo con selfie",
+    dogboard_title: "Bacheca DOG",
+    dogboard_publish_ad: "Pubblica annuncio",
+    dogboard_text_max_photos: "Testo + max 3 foto",
+    dogboard_write_ad: "Scrivi il tuo annuncio...",
+    dogboard_add_photo: "Aggiungi foto",
+    dogboard_max_3_photos: "Puoi caricare fino a 3 foto.",
+    messagesInbox: "Ricevuti",
+messagesMatches: "Match",
+messagesRequests: "Richieste",
+messagesSpam: "Spam",
+msgEmptyInbox: "Nessun messaggio ricevuto.",
+msgEmptyMatches: "Ancora nessun match. Inizia a mettere 💛 in Accoppiamento!",
+msgEmptyRequests: "Nessuna richiesta di messaggi.",
+msgEmptySpam: "Nessun messaggio in spam.",
+deleteChat: "Elimina chat",
+restore: "Ripristina",
+confirmDeleteChat: "Eliminare questa chat dalla tua lista?",
+confirmSpamChat: "Spostare questa chat nello Spam?",
+chatDeleted: "🗑️ Chat eliminata",
+chatMovedSpam: "🚫 Chat spostata in Spam",
+chatRestored: "↩️ Chat ripristinata",
+    notificationsTitle: "Notifiche",
+notificationsEmpty: "Nessuna notifica",
+notificationLikeFrom: "Like da",
+notificationUpdate: "Aggiornamento",
+notificationMatchWith: "Match con",
+notificationNewFollower: "Nuovo follower",
+notificationGeneric: "Notifica",
+deleteNotification: "Elimina notifica",
+confirmDeleteNotification: "Vuoi eliminare questa notifica?",
+notificationDeleted: "✅ Notifica eliminata",
+  },
+  
+  en: {
+    brand: "Plutoo",
+    login: "Login",
+    register: "Sign up",
+    enter: "Enter",
+    delete: "Delete",
+    sponsorTitle: "Official Sponsor",
+    sponsorCopy: "Fido, ice cream for our four-legged friends",
+    sponsorUrl: "https://www.fido.it/",
+    ethicsLine1: "Never abandon your friends",
+    ethicsLine2: "(animal shelters nearby)",
+    home_what_is_plutoo: "🐶 What is Plutoo",
+    home_intro_social: "Social network for DOG breeding",
+    home_intro_create: "Create your DOG profile",
+    home_intro_find: "Find compatible company",
+    home_intro_updates: "Share updates",
+    home_intro_services: "Discover PET services",
+    home_intro_dogboard: "Board for four-legged friends",
+    terms: "Terms",
+    privacy: "Privacy",
+    nearby: "Nearby",
+    love: "Breeding",
+    searchAdvanced: "Advanced Search",
+    plusBtn: "PLUS",
+    chat: "Chat",
+    profile: "Profile",
+    typeMessage: "Type a message…",
+    send: "Send",
+    freeFilters: "Basic Filters",
+    goldFilters: "Gold Filters",
+    sexFilter: "Sex",
+    sexAll: "All",
+    sexMale: "Male",
+    sexFemale: "Female",
+    distance: "Distance",
+    breed: "Breed",
+    breedPh: "Search breed…",
+    onlyVerified: "Only verified badges ✅",
+    ageMin: "Min age (years)",
+    ageMax: "Max age (years)",
+    weight: "Weight (kg)",
+    height: "Height (cm)",
+    pedigree: "Pedigree",
+    breeding: "Available for",
+    size: "Size",
+    indifferent: "Any",
+    yes: "Yes",
+    no: "No",
+    sizeSmall: "Small",
+    sizeMedium: "Medium",
+    sizeLarge: "Large",
+    apply: "Apply",
+    reset: "Reset",
+    unlockHint: "Want to unlock Gold filters? Activate Plutoo Plus 💎",
+    plusTitle: "Plutoo Plus",
+    plusSubtitle: "Unlock all premium features",
+    plusFeature1: "No ads",
+    plusFeature2: "Unlimited swipes",
+    plusFeature3: "Unlimited messages",
+    plusFeature4: "All Gold filters unlocked",
+    plusFeature5: "Priority support",
+    plusFeature6: "View all Stories without videos",
+    plusFeature7: "Video stories up to 90 seconds",
+    planMonthly: "Monthly",
+    planYearly: "Yearly",
+    planSave: "Save €20!",
+    plusPeriod: "/month",
+    activatePlus: "Activate Plutoo Plus",
+    deactivatePlus: "Deactivate Plus",
+    cancel: "Cancel",
+    mapsShelters: "dog shelters near me",
+    noProfiles: "No profiles. Adjust filters.",
+    years: "yrs",
+    custom_search: "Custom search",
+    create_dog_profile: "Create DOG profile",
+    pet_places_tab: "Pet Places 🐾 ▼",
+    pet_place_vets: "🏥 Vets",
+    pet_place_groomers: "✂️ Groomers",
+    pet_place_shops: "🛒 Shops",
+    pet_place_trainers: "🎓 Trainers",
+    pet_place_kennels: "🏠 Boarding",
+    pet_place_parks: "🌳 Parks",
+    plusFeatureBadge: "Gold Plus badge",
+    plusFeatureNoAds: "No ads",
+    plusFeatureUnlimitedSwipes: "Unlimited swipes",
+    plusFeatureDogBoard: "Free DOG Board",
+    plusFeatureAdvancedSearch: "Advanced custom search",
+    plusFeaturePremiumExperience: "Total premium experience",
+    plusYearPeriod: "/year",
+    onlySelfie: "Only with selfie",
+    dogboard_title: "DOG Board",
+    dogboard_publish_ad: "Publish post",
+    dogboard_text_max_photos: "Text + max 3 photos",
+    dogboard_write_ad: "Write your post...",
+    dogboard_add_photo: "Add photo",
+    dogboard_max_3_photos: "You can upload up to 3 photos.",
+    messagesInbox: "Inbox",
+messagesMatches: "Matches",
+messagesRequests: "Requests",
+messagesSpam: "Spam",
+msgEmptyInbox: "No received messages.",
+msgEmptyMatches: "No matches yet. Start tapping 💛 in Breeding!",
+msgEmptyRequests: "No message requests.",
+msgEmptySpam: "No messages in spam.",
+deleteChat: "Delete chat",
+restore: "Restore",
+confirmDeleteChat: "Delete this chat from your list?",
+confirmSpamChat: "Move this chat to Spam?",
+chatDeleted: "🗑️ Chat deleted",
+chatMovedSpam: "🚫 Chat moved to Spam",
+chatRestored: "↩️ Chat restored",
+    notificationsTitle: "Notifications",
+notificationsEmpty: "No notifications",
+notificationLikeFrom: "Like from",
+notificationUpdate: "Update",
+notificationMatchWith: "Match with",
+notificationNewFollower: "New follower",
+notificationGeneric: "Notification",
+deleteNotification: "Delete notification",
+confirmDeleteNotification: "Do you want to delete this notification?",
+notificationDeleted: "✅ Notification deleted",
   }
+};
 
-  $("langIT")?.addEventListener("click", ()=>{
+function t(key){
+  const lang = state.lang || "it";
+  return (
+    (I18N && I18N[lang] && I18N[lang][key]) ||
+    (I18N && I18N.it && I18N.it[key]) ||
+    key
+  );
+}
+
+function applyTranslations(){
+  qa("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    if (I18N[state.lang] && I18N[state.lang][key]) {
+      el.textContent = I18N[state.lang][key];
+    }
+  });
+  qa("[data-i18n-placeholder]").forEach(el => {
+    const key = el.getAttribute("data-i18n-placeholder");
+    if (I18N[state.lang] && I18N[state.lang][key]) {
+      el.placeholder = I18N[state.lang][key];
+    }
+  });
+}
+
+$("langIT")?.addEventListener("click", ()=>{
   state.lang="it";
   localStorage.setItem("lang","it");
 
@@ -2395,11 +2552,14 @@ window.openProfilePage(dog);
         verified: !!data.verified,
         ownerSocial: (data.ownerSocial || {}),
         dogDocs: await window.getCompatibleDogDocs(
-          String(doc.id),
-          String(ownerUid || doc.id || ""),
-          data.dogDocs
-        ),
-        selfieUrl: (data.selfieUrl || "")
+  String(doc.id),
+  String(ownerUid || doc.id || ""),
+  data.dogDocs
+),
+dogDocsPublic: (data.dogDocsPublic && typeof data.dogDocsPublic === "object")
+  ? data.dogDocsPublic
+  : {},
+selfieUrl: (data.selfieUrl || "")
       };
 
       if (typeof window.openFreshDogProfile === "function") {
@@ -2496,6 +2656,7 @@ activatePlus?.addEventListener("click", async ()=> {
       }, { merge: true });
 
       state.plus = false;
+      localStorage.removeItem("plutoo_plus");
 
       if (typeof window.refreshCreateDogCTA === "function") {
   window.refreshCreateDogCTA();
@@ -2513,46 +2674,17 @@ activatePlus?.addEventListener("click", async ()=> {
     }
 
     const plan = state.plusPlan || "monthly";
-    const price = plan === "yearly" ? "€40/anno" : "€4.99/mese";
 
-    const ok = await showPlutooConfirm(`Attivare Plutoo Plus?\nPiano scelto: ${price}`, {
-      title: "Plutoo",
-      confirmText: "Attiva",
-      cancelText: "Annulla"
-    });
+    if (!window.AndroidBridge || typeof window.AndroidBridge.purchasePlus !== "function") {
+  await showPlutooAlert("Acquisto disponibile solo sull'app Android.", {
+    title: "Plutoo",
+    confirmText: "OK"
+  });
+  return;
+}
 
-    if (!ok) return;
-
-    const payload = {
-      plus: true,
-      plusPlan: plan,
-      plusProvider: "manual_beta",
-      plusStatus: "active",
-      plusUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      plusExpireAt: null,
-      plusAutoRenewing: false
-    };
-
-    if (!data.plusSince) {
-      payload.plusSince = firebase.firestore.FieldValue.serverTimestamp();
-    }
-
-    await ref.set(payload, { merge: true });
-
-    state.plus = true;
-    
-    if (typeof window.refreshCreateDogCTA === "function") {
-  window.refreshCreateDogCTA();
-    }
-    
-    state.plusPlan = plan;
-    updatePlusUI();
-    closePlusModal();
-
-    await showPlutooAlert(`Plutoo Plus attivato! 💎\nPiano scelto: ${price}`, {
-      title: "Plutoo",
-      confirmText: "OK"
-    });
+window.AndroidBridge.purchasePlus(plan);
+    return;
 
   } catch (e) {
     await showPlutooAlert("Errore gestione Plutoo Plus.", {
@@ -2567,6 +2699,74 @@ function openPlusModal(){
   updatePlanSelector(); 
   updatePlusUI();
 }
+
+window.onPlusPurchased = async function(planId) {
+  try {
+    const validPlans = ["monthly", "yearly"];
+    const resolvedPlan = validPlans.includes(planId) ? planId : null;
+
+    if (!resolvedPlan) {
+      await showPlutooAlert("Errore: piano non riconosciuto.", {
+        title: "Plutoo",
+        confirmText: "OK"
+      });
+      return;
+    }
+
+    const uid = window.PLUTOO_UID || (window.auth && window.auth.currentUser ? window.auth.currentUser.uid : "");
+
+    if (!uid || !window.db) {
+      await showPlutooAlert("Errore: utente non identificato.", {
+        title: "Plutoo",
+        confirmText: "OK"
+      });
+      return;
+    }
+
+    const ref = window.db.collection("users").doc(String(uid));
+    const snap = await ref.get();
+    const data = snap && snap.exists ? (snap.data() || {}) : {};
+
+    const payload = {
+      plus: true,
+      plusPlan: resolvedPlan,
+      plusProvider: "google_play",
+      plusStatus: "active",
+      plusAutoRenewing: true,
+      plusUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      plusExpireAt: null
+    };
+
+    if (!data.plusSince) {
+      payload.plusSince = firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    await ref.set(payload, { merge: true });
+
+    state.plus = true;
+    state.plusPlan = resolvedPlan;
+    localStorage.setItem("plutoo_plus", "yes");
+
+    if (typeof window.refreshCreateDogCTA === "function") {
+      window.refreshCreateDogCTA();
+    }
+
+    updatePlusUI();
+    closePlusModal();
+
+    const price = resolvedPlan === "yearly" ? "€49,99/anno" : "€4,99/mese";
+    await showPlutooAlert(`Plutoo Plus attivato! 💎\nPiano scelto: ${price}`, {
+      title: "Plutoo",
+      confirmText: "OK"
+    });
+
+  } catch (e) {
+    await showPlutooAlert("Errore attivazione Plutoo Plus.", {
+      title: "Plutoo",
+      confirmText: "OK"
+    });
+  }
+};
 
 function closePlusModal(){ 
   plusModal?.classList.add("hidden"); 
@@ -2597,12 +2797,16 @@ goldFiltersBox?.classList.toggle("plus-active", !!state.plus);
 
 if (adBanner) {
     adBanner.style.display = state.plus ? "none" : "";
-  }
+}
+
+if (typeof showAdBanner === "function") {
+    showAdBanner();
+}
 
   if (activatePlus) {
-    activatePlus.textContent = state.plus
-      ? "Disattiva Plus"
-      : "Attiva Plutoo Plus";
+  activatePlus.textContent = state.plus
+    ? t("deactivatePlus")
+    : t("activatePlus");
   }
 
   if (planMonthly && planYearly) {
@@ -2789,7 +2993,7 @@ function __renderNotifs(items) {
   notifList.innerHTML = "";
 
   if (!items || !items.length) {
-    notifList.innerHTML = `<p class="sheet-empty">Nessuna notifica</p>`;
+    notifList.innerHTML = `<p class="sheet-empty">${t("notificationsEmpty")}</p>`;
     return;
   }
 
@@ -2839,7 +3043,7 @@ function __renderNotifs(items) {
       <div class="notif-txt">
         <div class="notif-main">${main}</div>
       </div>
-      <button type="button" class="notif-delete-btn" title="Elimina notifica">🗑️</button>
+    <button type="button" class="notif-delete-btn" title="${t("deleteNotification")}">🗑️</button>
     `;
 
     const deleteBtn = row.querySelector(".notif-delete-btn");
@@ -3270,18 +3474,18 @@ if (!snap || snap.empty) {
   </div>
 
   <div class="msg-swipe-actions">
-    <button class="msg-delete-btn" title="Elimina chat">
-      🗑️
-    </button>
+    <button class="msg-delete-btn" title="${t("deleteChat")}">
+  🗑️
+</button>
 
     ${sourceTab === "spam" ? `
-      <button class="msg-restore-btn" title="Ripristina">
-        ↩️
-      </button>
+    <button class="msg-restore-btn" title="${t("restore")}">
+  ↩️
+</button>
     ` : `
-      <button class="msg-spam-btn" title="Spam">
-        🚫
-      </button>
+      <button class="msg-spam-btn" title="${t("spam")}">
+  🚫
+</button>
     `}
   </div>
 `;
@@ -3296,14 +3500,14 @@ deleteBtn?.addEventListener("click", async (e) => {
   if (!selfUid || !chatId) return;
 
   const ok = await showPlutooConfirm(
-    "Eliminare questa chat dalla tua lista?",
-    {
-      title: "Plutoo",
-      confirmText: "Elimina",
-      cancelText: "Annulla",
-      danger: false
-    }
-  );
+  t("confirmDeleteChat"),
+  {
+    title: "Plutoo",
+    confirmText: t("delete"),
+    cancelText: t("cancel"),
+    danger: false
+  }
+);
 
   if (!ok) return;
 
@@ -3322,7 +3526,7 @@ deleteBtn?.addEventListener("click", async (e) => {
     } catch (_) {}
 
     if (typeof showToast === "function") {
-      showToast("🗑️ Chat eliminata");
+      showToast(t("🗑️ chatDeleted"));
     }
 
   } catch (err) {
@@ -3344,14 +3548,14 @@ spamBtn?.addEventListener("click", async (e) => {
   if (!selfUid || !chatId) return;
 
   const ok = await showPlutooConfirm(
-    "Spostare questa chat nello Spam?",
-    {
-      title: "Plutoo",
-      confirmText: "Spam",
-      cancelText: "Annulla",
-      danger: false
-    }
-  );
+  t("confirmSpamChat"),
+  {
+    title: "Plutoo",
+    confirmText: t("spam"),
+    cancelText: t("cancel"),
+    danger: false
+  }
+);
 
   if (!ok) return;
 
@@ -3365,7 +3569,7 @@ spamBtn?.addEventListener("click", async (e) => {
     loadMessagesLists();
 
     if (typeof showToast === "function") {
-      showToast("🚫 Chat spostata in Spam");
+      showToast(t("🚫 chatMovedSpam"));
     }
 
   } catch (err) {
@@ -3400,7 +3604,7 @@ restoreBtn?.addEventListener("click", async (e) => {
     } catch (_) {}
 
     if (typeof showToast === "function") {
-      showToast("↩️ Chat ripristinata");
+      showToast(t("↩️ chatRestored"));
     }
 
   } catch (err) {
@@ -4779,11 +4983,10 @@ qa(".item",breedsList).forEach(it=>it.addEventListener("click",(e)=>{
     localStorage.setItem("f_sex", state.filters.sex);
     localStorage.setItem("f_ageMin", state.filters.ageMin||"");
     localStorage.setItem("f_ageMax", state.filters.ageMax||"");
-    localStorage.setItem("f_weight", state.filters.weight||"");
-    localStorage.setItem("f_height", state.filters.height||"");
     localStorage.setItem("f_pedigree", state.filters.pedigree||"");
     localStorage.setItem("f_breeding", state.filters.breeding||"");
     localStorage.setItem("f_size", state.filters.size||"");
+    localStorage.setItem("f_onlySelfie", state.filters.onlySelfie ? "1" : "0");
   }
 
   // ============ Sezione Social nel profilo ============
@@ -5916,9 +6119,10 @@ const freshDog = {
   img: String(data.photoUrl || data.img || fallback.img || "./plutoo-icon-192.png"),
   avatar: String(data.photoUrl || data.img || fallback.avatar || fallback.img || "./plutoo-icon-192.png"),
   dogDocs: (privateDogDocs && typeof privateDogDocs === "object")
-    ? privateDogDocs
-    : ((data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {}),
-  ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
+  ? privateDogDocs
+  : ((data.dogDocs && typeof data.dogDocs === "object") ? data.dogDocs : {}),
+
+ownerSocial: (data.ownerSocial && typeof data.ownerSocial === "object") ? data.ownerSocial : {},
 
   selfieUrl: String(data.selfieUrl || ""),
   
@@ -6216,8 +6420,8 @@ profileContent.innerHTML = `
   ${hasDogDoc("vaccines")
     ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
     : (isDocsOwner
-        ? (state.lang === "it" ? "Da caricare" : "Upload")
-        : (state.lang === "it" ? "Documento assente" : "Document missing"))}
+    ? (state.lang === "it" ? "Da caricare" : "Upload")
+    : "")}
 </div>
     </div>
 
@@ -6227,7 +6431,7 @@ profileContent.innerHTML = `
       <div class="doc-status ${hasDogDoc("pedigree") ? "uploaded" : "pending"}">
         ${hasDogDoc("pedigree")
           ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
-          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
+          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : "")}
       </div>
     </div>
 
@@ -6237,7 +6441,7 @@ profileContent.innerHTML = `
       <div class="doc-status ${hasDogDoc("microchip") ? "uploaded" : "pending"}">
         ${hasDogDoc("microchip")
           ? (state.lang === "it" ? "✓ Caricato" : "✓ Uploaded")
-          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : (state.lang === "it" ? "Documento assente" : "Document missing"))}
+          : (isDocsOwner ? (state.lang === "it" ? "Da caricare" : "Upload") : "")}
       </div>
     </div>
 
@@ -6253,7 +6457,7 @@ profileContent.innerHTML = `
           <div class="doc-icon" style="display:flex;align-items:center;justify-content:center;height:100%;font-size:2.2rem;line-height:1">✅</div>
         `
         : `
-          <div class="doc-status pending" style="display:flex;align-items:center;justify-content:center;height:100%;text-align:center">${state.lang === "it" ? "Completa profilo" : "Complete profile"}</div>
+          <div class="doc-status pending" style="display:flex;align-items:center;justify-content:center;height:100%;text-align:center">${state.lang === "it" ? "Nessun documento caricato" : "No document uploaded"}</div>
         `
   }
 </div>
@@ -6330,9 +6534,9 @@ if (slot && window.StoriesState && Array.isArray(StoriesState.stories)) {
     `;
 
     const btn = slot.querySelector(".story-circle");
-if (btn && typeof openStoryViewerFromBar === "function") {
+if (btn && typeof openDogStoryViewer === "function") {
   btn.onclick = function () {
-    openStoryViewerFromBar(story.userId);
+    openDogStoryViewer(story.userId, 0);
   };
 }
 
@@ -9190,7 +9394,8 @@ if (openChatBtn) {
       return;
     }
 
-    openChat(d);
+    state._openChatFromTab = "profile";
+openChat(d);
   };
 }
 
@@ -9752,6 +9957,11 @@ await loadChatHistory(chatId, dogName);
 chatPane.classList.remove("hidden");
 chatPane.classList.add("show");
 
+  if (state._openChatFromTab === "profile") {
+  chatPane.classList.add("over-profile");
+}
+state._openChatFromTab = "";
+
   // ✅ LETTO quando apro la chat (serve per far scalare il badge)
   const openedFrom = state._openChatFromTab || "";
   state._openChatFromTab = ""; // reset
@@ -9840,7 +10050,7 @@ const applyChatRules = (hasMatchValue) => {
 }
 
   function closeChatPane(){
-    chatPane.classList.remove("show");
+    chatPane.classList.remove("show", "over-profile");
     setTimeout(()=>chatPane.classList.add("hidden"), 250);
   }
   closeChat?.addEventListener("click", closeChatPane);
@@ -11124,16 +11334,24 @@ btnPublishDogBoard?.addEventListener("click", () => {
 
   // ============ Maps / servizi ============
   function openMapsCategory(cat){
-    if (!state.plus && ["vets","groomers","shops"].includes(cat)){
-      if (state.rewardOpen) return;
-      state.rewardOpen = true;
-      showRewardVideoMock("services", ()=>{
-        state.rewardOpen = false;
-        openMapsQueryAfterReward(cat);
-      });
-      return;
+  const rewardCats = ["vets","groomers","shops","trainers","kennels"];
+
+  if (!state.plus && rewardCats.includes(cat)){
+    if (state.rewardOpen) {
+      state.rewardOpen = false;
     }
-    openMapsQueryAfterReward(cat);
+
+    state.rewardOpen = true;
+
+    showRewardVideoMock("services", ()=>{
+      state.rewardOpen = false;
+      openMapsQueryAfterReward(cat);
+    });
+
+    return;
+  }
+
+  openMapsQueryAfterReward(cat);
   }
 
   function openMapsQueryAfterReward(cat){
@@ -11152,22 +11370,58 @@ btnPublishDogBoard?.addEventListener("click", () => {
   function openSheltersMaps(){ openMapsQuery(t("mapsShelters")); }
 
   function openMapsQuery(q){
+  if (window.AndroidBridge && typeof window.AndroidBridge.openUrl === "function") {
     if (state.geo){
-      const url = `geo:${state.geo.lat},${state.geo.lon}?q=${encodeURIComponent(q)}`;
-      window.open(url,"_blank","noopener");
+      window.AndroidBridge.openUrl(`geo:${state.geo.lat},${state.geo.lon}?q=${encodeURIComponent(q)}`);
     } else {
-      window.open(`https://www.google.com/maps/search/${encodeURIComponent(q)}`,"_blank","noopener");
+      window.AndroidBridge.openUrl(`https://www.google.com/maps/search/${encodeURIComponent(q)}`);
     }
+  } else {
+    if (state.geo){
+      window.location.href = `geo:${state.geo.lat},${state.geo.lon}?q=${encodeURIComponent(q)}`;
+    } else {
+      window.location.href = `https://www.google.com/maps/search/${encodeURIComponent(q)}`;
+    }
+  }
   }
 
   // ============ Ads mock ============
   function showAdBanner(){
-    if (!adBanner || state.plus) return;
-    adBanner.textContent = "Banner Test AdMob • Bannerhome";
-    adBanner.style.display = "";
+  if (!adBanner) return;
+
+  const shouldShow =
+    state.entered &&
+    state.currentView !== "home" &&
+    !state.plus;
+
+  adBanner.style.display = shouldShow ? "" : "none";
+
+  if (window.AndroidBridge && typeof window.AndroidBridge.setBannerVisible === "function") {
+    window.AndroidBridge.setBannerVisible(shouldShow);
+  }
   }
 
   async function showRewardVideoMock(type, onClose){
+
+    // --- ANDROID: rewarded reale ---
+    if (window.AndroidBridge && typeof window.AndroidBridge.showRewarded === "function") {
+      window.onRewardEarned = function() {
+        window.onRewardEarned = null;
+        window.onRewardFailed = null;
+        if (onClose) onClose();
+      };
+      
+      window.onRewardFailed = function() {
+        window.onRewardEarned = null;
+        window.onRewardFailed = null;
+        state.rewardOpen = false;
+      };
+      
+      window.AndroidBridge.showRewarded();
+      return;
+    }
+
+    // --- BROWSER: mock invariato ---
     const msg = {
       it: {
         swipe: `🎬 Reward Video Mock\n\nSwipe: ${state.swipeCount}\nProssima soglia: ${state.nextRewardAt}\n\nTipo: Swipe Unlock`,
@@ -11191,11 +11445,11 @@ btnPublishDogBoard?.addEventListener("click", () => {
     const text = (msg[state.lang] && msg[state.lang][type]) || (msg.it && msg.it[type]) || "Ad";
 
     await showPlutooAlert(text, {
-  title: "Plutoo",
-  confirmText: "OK"
-});
+      title: "Plutoo",
+      confirmText: "OK"
+    });
 
-if (onClose) onClose();
+    if (onClose) onClose();
   }
 
   // ============ Init ============
@@ -11277,6 +11531,9 @@ async function init(){
   String(data.ownerUid || doc.id || ""),
   data.dogDocs
 ),
+dogDocsPublic: (data.dogDocsPublic && typeof data.dogDocsPublic === "object")
+  ? data.dogDocsPublic
+  : {},
     
     verified: !!data.verified,
     bio: String(data.bio || ""),
@@ -11847,10 +12104,30 @@ if (!ok) return;
     StoriesState.stories = StoriesState.stories.filter(
       s => s.userId !== StoriesState.currentStoryUserId
     );
+    
     StoriesState.saveStories();
-    closeStoryViewer();
-    renderStoriesBar();
-    return;
+
+const openedFromBeforeClose = StoriesState.openedFrom;
+
+closeStoryViewer();
+renderStoriesBar();
+
+try {
+  const profileDogId = String(state.currentDogProfile?.id || "");
+  const storyDogId = String(StoriesState.currentStoryUserId || "");
+
+  if (
+    openedFromBeforeClose === "profile" &&
+    state.currentDogProfile &&
+    profileDogId &&
+    profileDogId === storyDogId &&
+    typeof window.openProfilePage === "function"
+  ) {
+    window.openProfilePage(state.currentDogProfile);
+  }
+} catch (_) {}
+
+return;
   }
 
   const newVisible = getVisibleMediaList(story);
