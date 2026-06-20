@@ -3960,13 +3960,14 @@ function setActiveView(name){
   }
 
   localStorage.setItem("currentView", name);
-
   if (state.currentView !== name && state.currentView){
     state.viewHistory.push(state.currentView);
   }
 
   if ((name === "messages" || name === "dogboard") && state.currentView !== name){
-    state.previousViewForMessages = state.currentView || "nearby";
+  state.previousViewForMessages = state.currentView === "profile"
+    ? (state.previousViewForMessages || "nearby")
+    : (state.currentView || "nearby");
   }
 
   state.currentView = name;
@@ -4130,6 +4131,18 @@ btnDogBoardBack?.addEventListener("click", () => {
       return;
     }
 
+    if (state.currentView === "messages"){
+      const prev = state.previousViewForMessages || "nearby";
+      setActiveView(prev === "profile" ? "nearby" : prev);
+      return;
+    }
+
+    if (state.currentView === "dogboard"){
+      const prev = state.previousViewForMessages || "nearby";
+      setActiveView(prev === "profile" ? "nearby" : prev);
+      return;
+    }
+
     if (state.currentView === "love" || state.currentView === "friendship"){
       setActiveView("nearby");
       return;
@@ -4142,6 +4155,11 @@ btnDogBoardBack?.addEventListener("click", () => {
         homeScreen.classList.remove("hidden");
    }
     }
+
+window.plutooGoBack = function () {
+  goBack();
+  return "HANDLED";
+};
 
   window.addEventListener("popstate", (e)=>{
     e.preventDefault();
@@ -9748,7 +9766,10 @@ storageRef.delete()
   }
 
   profilePage.classList.add("hidden");
+
   const previousView = state.viewHistory.pop() || "nearby";
+  setActiveView(previousView);
+    
   setActiveView(previousView);
   state.currentDogProfile = null;
 };
