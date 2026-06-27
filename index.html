@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <meta name="theme-color" content="#0B0B0F">
+  <meta name="description" content="Plutoo – l'app per l'accoppiamento dei DOG">
+  <title>Plutoo</title>
+
+  <link rel="icon" type="image/png" href="plutoo-icon-192.png?v=20260615-1">
+  <link rel="apple-touch-icon" href="plutoo-icon-192.png?v=20260615-1">
+
+  <link rel="preload" as="image" href="plutoo-icon-512.png?v=20260615-1">
+  <link rel="preload" as="image" href="plutoo-icon-192.png?v=20260615-1">
+
+  <link rel="manifest" href="manifest.json?v=20260615-1">
+
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./noop-sw.js");
+}
+</script>
+
+  <link rel="preload" as="image" href="dog1.jpg?v=20260615-1">
+  <link rel="preload" as="image" href="dog2.jpg?v=20260615-1">
+  <link rel="preload" as="image" href="dog3.jpg?v=20260615-1">
+
+  <link rel="stylesheet" href="style.css?v=20260615-1">
+
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5458345293928736"
+     crossorigin="anonymous"></script>
+
+</head>
+
+<body>
+  
+  <div id="whiteFlash"></div>
+  <audio id="dogBark" preload="auto">
+  <source src="dog-bark.mp3" type="audio/mpeg">
+  </audio>
+  
+  <!-- ==================== HOME SCREEN ==================== -->
+  <div id="homeScreen" class="home hidden">
+  <div class="home-top">
+    <div class="container">
+      <div class="home-bar">
+        <div class="home-left">
+          <div class="logo-row">
+            <img src="plutoo-icon-192.png" alt="Plutoo" class="logo-small">
+            <h1 class="brand" data-i18n="brand">Plutoo</h1>
+          </div>
+        </div>
+
+        <div class="home-center"></div>
+
+        <div class="home-right">
+          <div class="lang-flags">
+            <button id="langIT" class="btn tiny ghost" aria-label="Italiano">🇮🇹</button>
+            <button id="langEN" class="btn tiny ghost" aria-label="English">🇬🇧</button>
+          </div>
+
+          <div class="auth-links">
+            <a id="linkLogin" href="#" data-i18n="login">Login</a>
+            <a id="linkRegister" href="#" data-i18n="register">Registrati</a>
+            <a id="linkDeleteAccountHome" href="#" style="display:none;" data-i18n="delete">Elimina</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-hero">
+    <img id="heroLogo" src="plutoo-icon-512.png" alt="Plutoo" class="hero-logo">
+    <button id="btnEnter" class="btn primary xl" data-i18n="enter">Entra</button>
+  </div>
+
+  <div class="sponsor-card">
+    <div class="sponsor-title" data-i18n="home_what_is_plutoo">
+      🐶 Cos'è Plutoo
+    </div>
+
+    <div class="sponsor-copy">
+      <div style="display:inline-block;text-align:left;">
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_social">Social per l'accoppiamento dei DOG</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_create">Crea il profilo del tuo DOG</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_find">Trova compagnia compatibile</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_updates">Condividi aggiornamenti</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_services">Scopri servizi PET</span></div>
+        <div><span style="color:#b06cff;">🟣</span> <span data-i18n="home_intro_dogboard">Bacheca per amici a 4 zampe</span></div>
+      </div>
+    </div>
+  </div>
+
+  <button id="ethicsButton" class="btn ethics">
+    <span>🏠</span>
+
+    <div class="ethics-lines">
+      <div class="l1" data-i18n="ethicsLine1">
+        Non abbandonare mai i tuoi amici
+      </div>
+
+      <div class="l2" data-i18n="ethicsLine2">
+        (rifugi nelle vicinanze)
+      </div>
+    </div>
+  </button>
+
+  <div class="legal-links legal-purple">
+    <a href="termini.html">Termini</a> ·
+    <a href="privacy.html">Privacy</a> ·
+    <a href="contatti.html">Contatti</a>
+  </div>
+</div>
+  
+  <!-- ==================== APP SCREEN ==================== -->
+  <div id="appScreen" class="app hidden">
+    
+    <!-- Top Bar -->
+    <div id="mainTopbar" class="topbar">
+      
+      <div class="left">
+  <button id="btnBack" class="btn small ghost" aria-label="Back">←</button>
+  <img src="plutoo-icon-192.png" alt="Plutoo" class="logo">
+      </div>
+      
+      <div class="tabs" role="tablist">
+    <button id="tabNearby" class="tab active" role="tab" data-i18n="nearby">Vicino a te</button>
+    <button id="tabLove" class="tab" role="tab" data-i18n="love">Accoppiamento</button>
+        
+    <div class="tab dropdown" role="menuitem">
+  <button id="tabLuoghi" class="tab" aria-haspopup="true" aria-expanded="false" data-i18n="pet_places_tab">LuoghiPET 🐾 ▼</button>
+  <div id="luoghiMenu" class="dropdown-menu" role="menu">
+    <button class="menu-item" data-cat="vets" data-i18n="pet_place_vets">🏥 Veterinari</button>
+    <button class="menu-item" data-cat="groomers" data-i18n="pet_place_groomers">✂️ Toelettature</button>
+    <button class="menu-item" data-cat="shops" data-i18n="pet_place_shops">🛒 Negozi</button>
+    <button class="menu-item" data-cat="trainers" data-i18n="pet_place_trainers">🎓 Addestratori</button>
+    <button class="menu-item" data-cat="kennels" data-i18n="pet_place_kennels">🏠 Pensioni</button>
+    <button class="menu-item" data-cat="parks" data-i18n="pet_place_parks">🌳 Parchi</button>
+  </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <button id="btnPlus" class="btn small plus-btn" aria-label="Plutoo Plus">
+      <span class="plus-icon">💎</span>
+      <span data-i18n="plusBtn">PLUS</span>
+    </button>
+    
+    <button id="btnMessages" class="btn small messages-btn" aria-label="Messaggi">
+  <span class="messages-icon" aria-hidden="true">
+    <svg class="msg-svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <path d="M21 14a4 4 0 0 1-4 4H9l-4 3v-3H5a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v7z"/>
+    </svg>
+  </span>
+
+  <!-- Badge numerico (parte da nascosto) -->
+  <span id="msgBadge" class="msg-badge hidden" aria-label="Messaggi non letti">0</span>
+    </button>
+    
+   <button id="notifBtn" class="btn ghost notif-btn" type="button" aria-label="Notifiche">
+  <span class="notif-icon">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z"/>
+    </svg>
+  </span>
+  <span id="notifDot" class="notif-dot hidden"></span>
+   </button>
+
+   <button id="btnDogBoard" class="btn small ghost" type="button" aria-label="Bacheca DOG" data-i18n="dogboard_title">
+  Bacheca DOG
+   </button>
+    
+  </div>
+</div>
+
+<!-- STORIES BAR -->
+<div id="storiesBar" class="stories-bar">
+  <div class="stories-scroll">
+    <div class="stories-list" id="storiesContainer">
+      <!-- Stories generate dinamicamente -->
+    </div>
+    <button id="addStoryBtn" class="story-circle add-story" type="button">
+      <div class="story-avatar">
+        <span class="add-icon">+</span>
+      </div>
+      <span class="story-name">Aggiungi</span>
+    </button>
+  </div>
+</div>
+
+ <!-- Content -->
+<div class="content">
+
+  <!-- VICINO A TE -->
+  <div id="viewNearby" class="view active">
+    <div class="view-header">
+      <div class="search-actions">
+        
+        <button id="btnSearchPanel" class="btn plus-btn" type="button" data-i18n="custom_search">
+         Ricerca personalizzata
+        </button>
+
+        <!-- Crea profilo DOG: visibile SOLO se NON ho già un DOG -->
+        <button id="btnCreateDogInline" class="btn plus-btn" type="button" data-i18n="create_dog_profile">
+        Crea profilo DOG
+        </button>
+        
+      </div>
+    </div>
+
+    <div id="nearGrid" class="grid-2"></div>
+  </div> <!-- FINE viewNearby -->
+
+  <!-- AMORE -->
+  <div id="viewLove" class="view">
+    <button id="btnBackLove" class="btn small ghost" style="margin-bottom:.6rem">← Indietro</button>
+    <div id="loveCard" class="card swipe">
+      <img id="loveImg" alt="" class="card-img">
+      <div class="card-info">
+        <h3 id="loveTitleTxt"></h3>
+        <p id="loveMeta" class="meta"></p>
+        <p id="loveBio" class="bio"></p>
+      </div>
+      <div class="card-actions">
+        <button id="loveNo" class="btn no" aria-label="No">🥲</button>
+        <button id="loveYes" class="btn yes" aria-label="Sì">💛</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MESSAGGI -->
+  <div id="viewMessages" class="view">
+  <div class="messages-topbar">
+    <button id="btnMsgBack" class="btn back-btn">
+      <span class="back-icon">←</span>
+    </button>
+
+    <img src="plutoo-icon-192.png" class="messages-logo" alt="Plutoo">
+
+    <div class="messages-top-tabs">
+      <button class="msg-top-tab active" data-tab="tabInbox" data-i18n="messagesInbox">Ricevuti</button>
+      <button class="msg-top-tab" data-tab="tabMatches" data-i18n="messagesMatches">Match</button>
+      <button class="msg-top-tab" data-tab="tabRequests" data-i18n="messagesRequests">Richieste</button>
+      <button class="msg-top-tab" data-tab="tabSpam" data-i18n="messagesSpam">Spam</button>
+    </div>
+  </div>
+
+  <div class="messages-body">
+    <div id="tabInbox" class="messages-list active">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptyInbox">
+        Nessun messaggio ricevuto.
+      </p>
+    </div>
+
+    <div id="tabMatches" class="messages-list">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptyMatches">
+        Ancora nessun match. Inizia a mettere 💛 in Accoppiamento!
+      </p>
+    </div>
+
+    <div id="tabRequests" class="messages-list">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptyRequests">
+        Nessuna richiesta di messaggi.
+      </p>
+    </div>
+
+    <div id="tabSpam" class="messages-list">
+      <p class="empty-state hidden-empty" data-i18n="msgEmptySpam">
+        Nessun messaggio in spam.
+      </p>
+    </div>
+  </div>
+</div> <!-- fine MESSAGGI -->
+
+ <!-- BACHECA DOG -->
+<div id="viewDogBoard" class="view">
+  <div class="messages-topbar">
+    <button id="btnDogBoardBack" class="btn back-btn">
+      <span class="back-icon">←</span>
+    </button>
+    <img src="plutoo-icon-192.png" class="messages-logo" alt="Plutoo">
+
+    <div class="messages-top-tabs">
+      <button class="msg-top-tab active" type="button" data-i18n="dogboard_title">Bacheca DOG</button>
+    </div>
+  </div>
+
+  <div class="messages-body">
+    <div id="dogBoardList" class="messages-list active">
+      <div class="dogboard-empty-state"></div>
+    </div>
+  </div>
+
+  <div id="dogBoardComposer" class="dogboard-composer">
+    <div class="dogboard-composer-card">
+
+      <div class="dogboard-composer-head">
+        <div class="dogboard-composer-title" data-i18n="dogboard_publish_ad">Pubblica annuncio</div>
+        <div class="dogboard-composer-subtitle" data-i18n="dogboard_text_max_photos">Testo + max 3 foto</div>
+      </div>
+
+      <div class="dogboard-composer-field">
+        <textarea id="dogBoardText" maxlength="300" data-i18n-placeholder="dogboard_write_ad" placeholder="Scrivi il tuo annuncio..."></textarea>
+      </div>
+
+      <div class="dogboard-composer-actions">
+        <input id="dogBoardPhotos" type="file" accept="image/*" multiple hidden>
+
+        <label for="dogBoardPhotos" class="btn ghost" id="btnDogBoardPhotos" data-i18n="dogboard_add_photo">
+          Aggiungi foto
+        </label>
+
+        <button id="btnPublishDogBoard" class="btn primary" type="button" data-i18n="dogboard_publish_ad">
+          Pubblica annuncio
+        </button>
+      </div>
+
+      <div class="dogboard-composer-note" data-i18n="dogboard_max_3_photos">
+        Puoi caricare fino a 3 foto.
+      </div>
+
+      <div id="dogBoardPreview" class="dogboard-photos-preview"></div>
+
+    </div>
+  </div>
+</div>
+<!-- fine BACHECA DOG -->
+
+</div><!-- fine .content -->
+
+<div class="app-footer" style="margin-top:auto;flex:0 0 auto;">
+  <div id="adBanner" class="ad-banner"></div>
+  
+  <div class="legal-links legal-purple">
+    <a href="termini.html">Termini</a> ·
+    <a href="privacy.html">Privacy</a> ·
+    <a href="contatti.html">Contatti</a>
+  </div>
+</div>
+
+</div><!-- ✅ CHIUDE #appScreen (QUESTA CHIUSURA DEVE STARE QUI) -->
+
+<!-- ==================== SEARCH PANEL ==================== -->
+<div id="searchPanel" class="panel hidden">
+  <div class="panel-inner">
+    <div class="panel-head">
+      <h3 data-i18n="searchAdvanced">Ricerca personalizzata</h3>
+      <button id="closeSearch" class="btn small ghost">✕</button>
+    </div>
+    <form class="filters">
+      <fieldset class="filter-group">
+        <legend data-i18n="freeFilters">Filtri base</legend>
+        <div class="f">
+          <label data-i18n="distance">Distanza</label>
+          <input id="distRange" type="range" min="1" max="100" value="50">
+          <span id="distLabel" style="font-size:.9rem;color:var(--muted)">50 km</span>
+        </div>
+        <div class="f">
+          <label data-i18n="breed">Razza</label>
+          <input id="breedInput" type="text" data-i18n-placeholder="breedPh" placeholder="Cerca razza…">
+          <div id="breedsList" class="suggestions"></div>
+        </div>
+
+        <div class="f">
+          <label data-i18n="sexFilter">Sesso</label>
+          <select id="sexFilter">
+            <option value="" data-i18n="sexAll">Tutti</option>
+            <option value="M" data-i18n="sexMale">Maschio</option>
+            <option value="F" data-i18n="sexFemale">Femmina</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset class="filter-group gold-filters">
+        <legend>
+          <span data-i18n="goldFilters">Filtri Gold</span>
+          <span class="gold-badge">💎</span>
+        </legend>
+
+        <div class="f switch f-gold">
+          <label data-i18n="onlyVerified">Solo con badge verificato ✅</label>
+          <input id="onlyVerified" type="checkbox">
+        </div>
+
+        <div class="f switch f-gold">
+        <label data-i18n="onlySelfie">Solo con selfie</label>
+        <input id="onlySelfie" type="checkbox">
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="ageMin">Età minima (anni)</label>
+          <input id="ageMin" type="number" min="0" max="20" placeholder="0" disabled>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="ageMax">Età massima (anni)</label>
+          <input id="ageMax" type="number" min="0" max="20" placeholder="20" disabled>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="pedigree">Pedigree</label>
+          <select id="pedigreeFilter" disabled>
+            <option value="" data-i18n="indifferent">Indifferente</option>
+            <option value="yes" data-i18n="yes">Sì</option>
+            <option value="no" data-i18n="no">No</option>
+          </select>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="breeding">Disponibile per</label>
+          <select id="breedingFilter" disabled>
+          <option value="">Indifferente</option>
+          <option value="breeding">Accoppiamento</option>
+          <option value="walks">Passeggiate</option>
+          </select>
+        </div>
+
+        <div class="f f-gold">
+          <label data-i18n="size">Taglia</label>
+          <select id="sizeFilter" disabled>
+            <option value="" data-i18n="indifferent">Indifferente</option>
+            <option value="small" data-i18n="sizeSmall">Piccola</option>
+            <option value="medium" data-i18n="sizeMedium">Media</option>
+            <option value="large" data-i18n="sizeLarge">Grande</option>
+          </select>
+        </div>
+
+        <div class="unlock-hint" data-i18n="unlockHint">
+          Vuoi sbloccare i filtri Gold? Attiva <strong>Plutoo Plus 💎</strong>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button id="applyFilters" type="button" class="btn primary" data-i18n="apply">Applica</button>
+        <button id="resetFilters" type="button" class="btn outline" data-i18n="reset">Reset</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== PLUTOO PLUS MODAL ==================== -->
+<div id="plusModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content plus-modal">
+    <button id="closePlus" class="modal-close">✕</button>
+    <div class="modal-body">
+      <div class="plus-title">
+        <span class="icon">💎</span>
+        <span data-i18n="plusTitle">Plutoo Plus</span>
+      </div>
+      <p class="soft" data-i18n="plusSubtitle">Sblocca tutte le funzionalità premium</p>
+      
+      <ul class="plus-features">
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureBadge">Badge dorato Plus</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureNoAds">Zero pubblicità</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureUnlimitedSwipes">Swipe illimitati</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureDogBoard">Bacheca DOG libera</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeatureAdvancedSearch">Ricerca personalizzata avanzata</span></li>
+  <li><span class="check">✓</span><span class="label" data-i18n="plusFeaturePremiumExperience">Esperienza premium totale</span></li>
+      </ul>
+      
+      <div class="plan-selector">
+        <button id="planMonthly" class="plan-card active">
+          <div class="plan-name" data-i18n="planMonthly">Mensile</div>
+          <div class="plan-price">€4.99<span data-i18n="plusPeriod">/mese</span></div>
+        </button>
+        <button id="planYearly" class="plan-card">
+          <div class="plan-name" data-i18n="planYearly">Annuale</div>
+          <div class="plan-price">€49,99<span data-i18n="plusYearPeriod">/anno</span></div>
+        </button>
+      </div>
+      <button id="activatePlus" class="btn primary xl" data-i18n="activatePlus">Attiva Plutoo Plus</button>
+      <button id="cancelPlus" class="btn ghost" data-i18n="cancel">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== FOLLOWERS OVERLAY ==================== -->
+<div id="followersOverlay" class="bottom-sheet hidden">
+  <div class="sheet-backdrop"></div>
+  <div class="sheet-content">
+    <div class="sheet-header">
+      <span data-i18n="followers">Follower</span>
+      <button id="closeFollowers" class="btn small ghost sheet-close">✕</button>
+    </div>
+    <div id="followersList" class="sheet-list"></div>
+  </div>
+</div>
+
+<!-- ==================== FOLLOWING OVERLAY ==================== -->
+<div id="followingOverlay" class="bottom-sheet hidden">
+  <div class="sheet-backdrop"></div>
+  <div class="sheet-content">
+    <div class="sheet-header">
+      <span data-i18n="following">Seguiti</span>
+      <button id="closeFollowing" class="btn small ghost sheet-close">✕</button>
+    </div>
+    <div id="followingList" class="sheet-list"></div>
+  </div>
+</div>
+
+<!-- NOTIFICHE OVERLAY -->
+<div id="notifOverlay" class="sheet-overlay hidden" aria-hidden="true">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title" data-i18n="notificationsTitle">Notifiche</div>
+      <button type="button" class="sheet-close" data-close="notif" aria-label="Chiudi">×</button>
+    </div>
+
+    <div id="notifList" class="notif-list">
+      <p class="sheet-empty" data-i18n="notificationsEmpty">Nessuna notifica</p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CHAT PANE (MODALE CENTRATA) ==================== -->
+<div id="chatPane" class="chat-pane hidden">
+  <div class="chat-pane-inner">
+    
+    <div class="chat-header">
+  <button id="closeChat" class="btn small ghost">←</button>
+
+  <div class="chat-dog-head">
+    <img id="chatDogAvatar" class="chat-dog-avatar" src="./plutoo-icon-192.png" alt="DOG">
+    <div id="chatDogName" class="chat-dog-name">DOG</div>
+  </div>
+    </div>
+    
+    <div id="chatList" class="chat-list"></div>
+    <form id="chatComposer" class="chat-composer">
+      <input id="chatInput" type="text" data-i18n-placeholder="typeMessage" placeholder="Scrivi un messaggio…">
+      <button type="submit" class="btn primary" data-i18n="send">Invia</button>
+    </form>
+  </div>
+</div>
+
+  <!-- ==================== DOGBOARD VIEWER (MODALE SEPARATA) ==================== -->
+<div id="dogBoardViewerPane" class="chat-pane hidden">
+  <div class="chat-pane-inner">
+    <div class="chat-header">
+      <button id="closeDogBoardViewer" class="btn small ghost">←</button>
+      <span id="dogBoardViewerTitle">Annuncio</span>
+    </div>
+
+    <div id="dogBoardViewerContent" class="chat-list"></div>
+
+    <div class="chat-composer">
+      <input id="dogBoardViewerInput" type="text" placeholder="Rispondi all’annuncio">
+      <button id="dogBoardViewerSend" type="button" class="btn primary">Invia</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PROFILE PAGE ==================== -->
+<div id="profilePage" class="profile-page hidden">
+  <div class="profile-header">
+    <button id="profileBack" class="btn small ghost">←</button>
+    <span data-i18n="profile">Profilo</span>
+    <button id="profileClose" class="btn small ghost">✕</button>
+  </div>
+  <div id="profileContent" class="profile-content"></div>
+</div>
+
+<!-- ==================== MATCH OVERLAY ==================== -->
+<div id="matchOverlay" class="match-overlay">
+  <div class="match-content">
+    <div class="match-hearts"></div>
+    <div class="match-text">MATCH!</div>
+  </div>
+</div>
+
+<!-- ==================== STORY VIEWER ==================== -->
+<div id="storyViewer" class="story-viewer hidden">
+  <div class="story-header">
+    <div class="story-user">
+      <img id="storyUserAvatar" alt="" class="story-user-avatar">
+      <div class="story-user-info">
+        <span id="storyUserName" class="story-user-name"></span>
+        <span id="storyTimestamp" class="story-timestamp"></span>
+      </div>
+    </div>
+    
+    <div class="story-header-actions">
+  <button id="closeStoryViewer" class="story-close-btn story-back-btn" type="button">← Indietro</button>
+</div>
+
+<button id="deleteStoryBtn" class="story-delete-btn story-delete-floating hidden" type="button">🗑 Elimina</button>
+    
+  </div>
+  <div id="storyProgressBars" class="story-progress-bars"></div>
+  <div id="storyContent" class="story-content"></div>
+  <button id="storyLikeBtn" class="story-like-btn" type="button">❤️</button>
+  <button id="storyNavPrev" class="story-nav story-nav-prev" aria-label="Previous">‹</button>
+  <button id="storyNavNext" class="story-nav story-nav-next" aria-label="Next">›</button>
+</div>
+
+<!-- ==================== UPLOAD STORY MODAL ==================== -->
+<div id="uploadStoryModal" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content upload-story-modal">
+    <button id="closeUploadStory" class="modal-close">✕</button>
+
+    <div id="uploadStoryStep1" class="upload-step active">
+      <h2>📸 Carica un Aggiornamento</h2>
+      <div class="upload-zone">
+        <input type="file" id="storyFileInput" accept="image/*" hidden>
+        <label for="storyFileInput" class="upload-label">
+          <div class="upload-icon">📤</div>
+          <div>Tocca per caricare una foto</div>
+          <div class="upload-hint">Max 10MB foto</div>
+        </label>
+      </div>
+      <div id="uploadPreview" class="upload-preview hidden"></div>
+      <button id="nextToCustomize" class="btn primary" disabled>Avanti →</button>
+    </div>
+
+    <div id="uploadStoryStep2" class="upload-step">
+      <h2>✨ Personalizza</h2>
+
+      <div class="story-editor">
+      <div id="storyPublishLoader" class="story-publish-loader hidden">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Pubblicazione...</div>
+        </div>
+        <div class="upload-preview"></div>
+
+        <textarea
+          id="storyTextInput"
+          class="story-text-input"
+          maxlength="120"
+          placeholder="Scrivi qui..."
+        ></textarea>
+
+        <div class="story-editor-hint">Tocca la foto per scrivere</div>
+      </div>
+
+      <div class="upload-actions">
+        <button id="backToUpload" class="btn outline">← Indietro</button>
+        <button id="publishStory" class="btn primary">Pubblica 🚀</button>
+      </div>
+    </div>
+
+    <button id="cancelUpload" class="btn ghost">Annulla</button>
+  </div><!-- ✅ chiude .modal-content -->
+</div><!-- ✅ chiude #uploadStoryModal -->
+
+<!-- Firebase SDK (CDN, compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-storage-compat.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAEqA_Cx0NkwGfEGVEPR1R-NrrfKdBT33w",
+    authDomain: "plutoo-prod.firebaseapp.com",
+    projectId: "plutoo-prod",
+    storageBucket: "plutoo-prod.firebasestorage.app",
+    messagingSenderId: "251835121058",
+    appId: "1:251835121058:web:ef75fff4baa3855578c6fb"
+  };
+  firebase.initializeApp(firebaseConfig);
+</script>
+
+<script>
+(function () {
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+    });
+  }
+
+  function ensureUI() {
+    if (document.getElementById("__crashOverlay")) return;
+
+    var style = document.createElement("style");
+    style.id = "__crashOverlayStyle";
+    style.textContent =
+      "#__crashOverlay{position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.92);color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;display:none}" +
+      "#__crashOverlay .box{max-width:920px;margin:24px auto;padding:16px;border:1px solid rgba(255,255,255,.18);border-radius:14px;background:rgba(20,20,30,.85)}" +
+      "#__crashOverlay h2{margin:0 0 10px 0;font-size:16px}" +
+      "#__crashOverlay pre{white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,.06);padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);margin:0}" +
+      "#__crashOverlay .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}" +
+      "#__crashOverlay button{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;padding:10px 12px;border-radius:12px;font-weight:700;cursor:pointer}" +
+      "#__crashOverlay button:active{transform:scale(.99)}";
+    document.head.appendChild(style);
+
+    var overlay = document.createElement("div");
+    overlay.id = "__crashOverlay";
+    overlay.innerHTML =
+      '<div class="box">' +
+      "<h2>Plutoo — Crash Debug</h2>" +
+      "<pre id=\"__crashText\">(in attesa di errori)</pre>" +
+      '<div class="row">' +
+      '<button id="__crashCopy">Copia</button>' +
+      '<button id="__crashClose">Chiudi</button>' +
+      "</div>" +
+      "</div>";
+    document.body.appendChild(overlay);
+
+    window.onerror = function (msg, url, line, col, err) {
+      var text =
+        "MESSAGE: " + msg + "\n\n" +
+        "FILE: " + (url || "(unknown)") + "\n" +
+        "LINE: " + (line || "?") + "\n" +
+        "COL: " + (col || "?") + "\n\n" +
+        "STACK:\n" + (err && err.stack ? err.stack : "(no stack)");
+
+      var pre = document.getElementById("__crashText");
+      if (pre) pre.textContent = text;
+      return true;
+    };
+
+    document.getElementById("__crashClose").addEventListener("click", function () {
+      overlay.style.display = "none";
+    });
+
+    document.getElementById("__crashCopy").addEventListener("click", function () {
+      try {
+        var txt = document.getElementById("__crashText").textContent || "";
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).catch(function(){});
+        }
+      } catch (_) {}
+    });
+  }
+
+  function show(details) {
+    try { ensureUI(); } catch (_) {}
+    var el = document.getElementById("__crashOverlay");
+    var pre = document.getElementById("__crashText");
+    if (!el || !pre) return;
+
+    var now = new Date();
+    var out = [];
+    out.push("TIME: " + now.toLocaleString());
+    out.push("URL: " + location.href);
+    out.push("");
+    out.push(details);
+
+    pre.textContent = out.join("\n");
+    el.style.display = "block";
+  }
+
+  window.addEventListener("error", function (e) {
+    var isResourceError = !!(e && e.target && e.target !== window);
+
+    if (isResourceError) {
+      try {
+        var t = e.target;
+        var url = (t && (t.src || t.href)) ? (t.src || t.href) : "";
+        console.warn("RESOURCE ERROR:", url || t);
+      } catch (_) {}
+      return;
+    }
+
+    var msg = (e && e.message) ? e.message : (isResourceError ? "Resource load error" : "Unknown error");
+    var src = (e && e.filename) ? e.filename : "";
+    var line = (e && typeof e.lineno === "number") ? e.lineno : "";
+    var col  = (e && typeof e.colno === "number") ? e.colno : "";
+    var stack = (e && e.error && e.error.stack) ? e.error.stack : "";
+
+    var targetInfo = "";
+    if (isResourceError) {
+      try {
+        var t = e.target;
+        var url = (t && (t.src || t.href)) ? (t.src || t.href) : "";
+        var tag = (t && t.tagName) ? t.tagName : "";
+        var id = (t && t.id) ? ("#" + t.id) : "";
+        var cls = (t && t.className) ? ("." + String(t.className).trim().replace(/\s+/g, ".")) : "";
+        targetInfo =
+          "RESOURCE:\n" +
+          "TAG: " + esc(tag + id + cls) + "\n" +
+          "URL: " + esc(url) + "\n";
+        if (!src && url) src = url;
+        line = "";
+        col = "";
+      } catch (_) {}
+    }
+
+    var details =
+      "ERROR: " + esc(msg) + "\n" +
+      "FILE: " + esc(src) + "\n" +
+      "LINE: " + esc(line) + "  COL: " + esc(col) + "\n" +
+      (targetInfo ? ("\n" + targetInfo) : "") +
+      (stack ? ("\nSTACK:\n" + stack) : "");
+
+    show(details);
+  }, true);
+
+  window.addEventListener("unhandledrejection", function (e) {
+    var reason = (e && e.reason) ? e.reason : "Unhandled rejection";
+    var msg = (reason && reason.message) ? reason.message : String(reason);
+    var stack = (reason && reason.stack) ? reason.stack : "";
+
+    var details =
+      "UNHANDLED PROMISE REJECTION:\n" +
+      "REASON: " + esc(msg) + "\n" +
+      (stack ? ("\nSTACK:\n" + stack) : "");
+
+    show(details);
+  });
+})();
+  
+</script>
+
+<script src="app.js" defer></script>
+
+  <!-- ==================== AUTH SHEET (LOGIN / REGISTER) ==================== -->
+<div id="authSheet" class="plutoo-auth hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="plutoo-auth__backdrop" data-auth-close="1"></div>
+
+  <div class="plutoo-auth__panel">
+    <div class="plutoo-auth__top">
+      <div class="plutoo-auth__title" id="authTitle">Account</div>
+      <button id="authClose" class="plutoo-auth__close" type="button" aria-label="Chiudi">✕</button>
+    </div>
+
+    <!-- Stato: già loggato -->
+    <div id="authAlready" class="plutoo-auth__section hidden">
+      <div class="plutoo-auth__hint">
+        Sei già loggato come:
+      </div>
+      <div id="authAlreadyEmail" class="plutoo-auth__email">—</div>
+
+      <div class="plutoo-auth__row">
+        <button id="btnLogout" class="plutoo-auth__btn plutoo-auth__btn--danger" type="button">Logout</button>
+        <button id="btnAlreadyClose" class="plutoo-auth__btn" type="button">Chiudi</button>
+      </div>
+    </div>
+
+    <!-- LOGIN -->
+<form id="authLoginForm" class="plutoo-auth__section hidden" autocomplete="on">
+  <div class="plutoo-auth__hint">Accedi con email e password</div>
+
+  <label class="plutoo-auth__label" for="loginEmail">Email</label>
+  <input id="loginEmail" class="plutoo-auth__input" type="email" inputmode="email"
+         autocomplete="email" placeholder="nome@email.com" required>
+
+  <label class="plutoo-auth__label" for="loginPass">Password</label>
+  <input id="loginPass" class="plutoo-auth__input" type="password"
+         autocomplete="current-password" placeholder="Password" required>
+
+  <button id="btnDoLogin" class="plutoo-auth__btn plutoo-auth__btn--primary" type="submit">
+    Login
+  </button>
+
+  <!-- RECUPERO PASSWORD -->
+  <button id="btnForgotPass"
+          type="button"
+          class="plutoo-auth__link"
+          style="margin-top:8px">
+    Password dimenticata?
+  </button>
+
+  <div id="loginError" class="plutoo-auth__error hidden"></div>
+</form>
+
+    <!-- REGISTER -->
+    <form id="authRegisterForm" class="plutoo-auth__section hidden" autocomplete="on">
+      <div class="plutoo-auth__hint">Crea un account con email e password</div>
+
+      <label class="plutoo-auth__label" for="regEmail">Email</label>
+      <input id="regEmail" class="plutoo-auth__input" type="email" inputmode="email"
+             autocomplete="email" placeholder="nome@email.com" required>
+
+      <label class="plutoo-auth__label" for="regPass">Password</label>
+      <input id="regPass" class="plutoo-auth__input" type="password"
+             autocomplete="new-password" placeholder="Password" required>
+
+      <label class="plutoo-auth__label" for="regPass2">Conferma password</label>
+      <input id="regPass2" class="plutoo-auth__input" type="password"
+             autocomplete="new-password" placeholder="Ripeti password" required>
+
+      <button id="btnDoRegister" class="plutoo-auth__btn plutoo-auth__btn--primary" type="submit">
+        Registrati
+      </button>
+
+      <div id="registerError" class="plutoo-auth__error hidden"></div>
+    </form>
+
+    <!-- Footer sheet: link rapido -->
+    <div class="plutoo-auth__footer">
+      <button id="authGoLogin" class="plutoo-auth__link" type="button">Vai a Login</button>
+      <span class="plutoo-auth__dot">•</span>
+      <button id="authGoRegister" class="plutoo-auth__link" type="button">Vai a Registrazione</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== MINIMAL STYLES (solo se non hai già modali nel CSS) ==================== -->
+<style>
+  .hidden { display: none !important; }
+
+  .plutoo-auth { position: fixed; inset: 0; z-index: 9999; }
+  .plutoo-auth__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.65); }
+  .plutoo-auth__panel {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, calc(100vw - 28px));
+    background: #0e0f14;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px;
+    box-shadow: 0 18px 60px rgba(0,0,0,.55);
+    padding: 16px;
+    color: #f2f2f2;
+  }
+  .plutoo-auth__top { display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-bottom: 12px; }
+  .plutoo-auth__title { font-weight: 800; font-size: 18px; }
+  .plutoo-auth__close { background: transparent; color: #fff; border: 0; font-size: 18px; padding: 8px; }
+  .plutoo-auth__section { display: flex; flex-direction: column; gap: 10px; }
+  .plutoo-auth__hint { font-size: 13px; opacity: .85; }
+  .plutoo-auth__email { font-weight: 700; margin-top: -4px; }
+  .plutoo-auth__label { font-size: 12px; opacity: .8; margin-top: 6px; }
+  .plutoo-auth__input {
+    width: 100%; padding: 12px 12px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(255,255,255,.06);
+    color: #fff; outline: none;
+  }
+  .plutoo-auth__btn {
+    width: 100%; padding: 12px 12px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.10);
+    color: #fff; font-weight: 800;
+  }
+  .plutoo-auth__btn--primary { background: #6b4cff; border-color: rgba(255,255,255,.15); }
+  .plutoo-auth__btn--danger { background: rgba(255, 74, 92, .20); border-color: rgba(255, 74, 92, .35); }
+  .plutoo-auth__row { display:flex; gap: 10px; margin-top: 6px; }
+  .plutoo-auth__row .plutoo-auth__btn { width: 50%; }
+  .plutoo-auth__error {
+    font-size: 13px; color: #ff8080;
+    background: rgba(255, 0, 0, .10);
+    border: 1px solid rgba(255, 0, 0, .18);
+    padding: 10px 12px; border-radius: 12px;
+  }
+  .plutoo-auth__footer {
+    display:flex; align-items:center; justify-content:center;
+    gap: 10px; margin-top: 12px; opacity: .92;
+  }
+  .plutoo-auth__link {
+    background: transparent; border: 0; color: #cfc7ff; font-weight: 800;
+    padding: 6px 8px;
+  }
+  .plutoo-auth__dot { opacity: .5; }
+</style>
+
+</body>
+</html>
